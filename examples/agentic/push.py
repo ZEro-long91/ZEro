@@ -193,12 +193,12 @@ class IntervalsPush:
             "start_date_local": f"{workout['date']}T00:00:00",
             "name": workout["name"],
             "type": workout.get("type", "Ride"),
-            "workout_doc": {},  # Triggers Intervals.icu to parse description
         }
 
         description = workout.get("description", "")
         if description:
             event["description"] = description
+            event["workout_doc"] = {}  # Triggers Intervals.icu to parse description
 
         target = workout.get("target")
         if target:
@@ -316,8 +316,8 @@ def main():
     )
     parser.add_argument("--athlete-id", help="Intervals.icu athlete ID")
     parser.add_argument("--api-key", help="Intervals.icu API key")
-    parser.add_argument("--name", required=True, help="Workout name")
-    parser.add_argument("--date", required=True, help="Date (YYYY-MM-DD)")
+    parser.add_argument("--name", help="Workout name (required unless --json)")
+    parser.add_argument("--date", help="Date YYYY-MM-DD (required unless --json)")
     parser.add_argument("--type", default="Ride", help="Activity type (default: Ride)")
     parser.add_argument("--description", default="", help="Workout description (Intervals.icu syntax)")
     parser.add_argument("--duration", type=float, help="Planned duration in minutes")
@@ -351,7 +351,15 @@ def main():
             print(json.dumps(result, indent=2))
             sys.exit(1)
     else:
-        # Build workout from CLI args
+        # CLI mode: name and date required
+        if not args.name or not args.date:
+            result = {
+                "success": False,
+                "error": "--name and --date are required (or use --json for file input)",
+            }
+            print(json.dumps(result, indent=2))
+            sys.exit(1)
+
         # Handle escaped newlines from CLI (agent may pass "- 5m 55%\n\n3x\n- 15m 88%")
         description = args.description.replace("\\n", "\n") if args.description else ""
 
