@@ -15,7 +15,7 @@
   },
   "metadata": {
     "athlete_id": "REDACTED",
-    "last_updated": "2026-03-11T06:02:13.713698",
+    "last_updated": "2026-03-11T07:10:42.488731",
     "data_range_days": 7,
     "extended_range_days": 28,
     "version": "3.77"
@@ -309,7 +309,7 @@
           "weeks_available": 4
         },
         "stream_2": {
-          "planned_tss_delta": 0.44,
+          "planned_tss_delta": 0.63,
           "hard_sessions_planned": 1,
           "race_proximity": null,
           "next_week_load": null,
@@ -349,7 +349,7 @@
     "p_max": 630,
     "power_model_source": "wellness.sportInfo",
     "vo2max": null,
-    "calculation_timestamp": "2026-03-11T06:02:13.713005",
+    "calculation_timestamp": "2026-03-11T07:10:42.488014",
     "data_quality": {
       "hrv_data_points": 7,
       "rhr_data_points": 7,
@@ -800,13 +800,13 @@
     {
       "id": 97780160,
       "date": "2026-03-11",
-      "name": "\u9608\u503c\u6781\u9650\u6311\u6218",
+      "name": "\u9608\u503c\u6781\u9650\u6311\u6218(3x20min)",
       "type": "WORKOUT",
-      "planned_tss": 90,
-      "duration_hours": 1.08,
-      "duration_formatted": "1h5m",
-      "workout_summary": "3m @113W | 3m @129W | 3m @145W | 3m @162W | 3m | 2\u00d720m @160W / 5m rec",
-      "description": "# [ZEro] 3.11 \u9608\u503c\u6781\u9650\u6311\u6218 (2x20min)\n# \u76ee\u6807\uff1a\u901a\u8fc7 160W \u6301\u7eed\u8f93\u51fa\uff0c\u9a8c\u8bc1 162W FTP \u662f\u5426\u8bbe\u4f4e\u4e86\n# \u72b6\u6001\uff1aHRV 51.0ms (\u5dc5\u5cf0\u6062\u590d)\n# \u7279\u70b9\uff1a\u5305\u542b 100% FTP \u5524\u9192\u73af\u8282\n\nWarmup\n- 3m 70%\n- 3m 80% \n- 3m 90%\n- 3m 100%\n- Press lap 3m Z1\n\nMain Set\n2x\n- 20m 160w cadence 90-95rpm\n- 5m 85w 85rpm recovery"
+      "planned_tss": 127,
+      "duration_hours": 1.5,
+      "duration_formatted": "1h30m",
+      "workout_summary": "3m @113W | 3m @129W | 3m @145W | 3m @162W | 3m | 3\u00d720m @160W / 5m rec",
+      "description": "# [ZEro] 3.11 \u9608\u503c\u6781\u9650\u6311\u6218 (3x20min)\n# \u76ee\u6807\uff1a\u901a\u8fc7 160W \u6301\u7eed\u8f93\u51fa\uff0c\u9a8c\u8bc1 162W FTP \u662f\u5426\u8bbe\u4f4e\u4e86\n# \u72b6\u6001\uff1aHRV 51.0ms (\u5dc5\u5cf0\u6062\u590d)\n# \u7279\u70b9\uff1a\u5305\u542b 100% FTP \u5524\u9192\u73af\u8282\n\nWarmup\n- 3m 70%\n- 3m 80% \n- 3m 90%\n- 3m 100%\n- Press lap 3m Z1\n\nMain Set\n3x\n- 20m 160w cadence 90-95rpm\n- 5m 85w 85rpm recovery"
     }
   ],
   "workout_summary_stats": {
