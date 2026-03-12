@@ -15,7 +15,7 @@
   },
   "metadata": {
     "athlete_id": "REDACTED",
-    "last_updated": "2026-03-12T01:19:46.331957",
+    "last_updated": "2026-03-12T03:43:47.543553",
     "data_range_days": 7,
     "extended_range_days": 28,
     "version": "3.77"
@@ -66,14 +66,14 @@
       "unavailable": 0
     },
     "phase_context": {
-      "phase": "Deload",
-      "phase_week": 1,
-      "amber_threshold": 2,
-      "modifier_applied": "default"
+      "phase": "Build",
+      "phase_week": 0,
+      "amber_threshold": 3,
+      "modifier_applied": "build_loosened"
     },
     "race_week_defers": false,
     "modification": null,
-    "reason": "P3 green light. 7 green, 0 amber (threshold 2), 0 red.",
+    "reason": "P3 green light. 7 green, 0 amber (threshold 3), 0 red.",
     "alarm_refs": []
   },
   "history": {
@@ -123,8 +123,8 @@
           "max_hr": 192,
           "threshold_pace": null,
           "pace_units": null,
-          "ftp": 162,
-          "ftp_indoor": null
+          "ftp": 172,
+          "ftp_indoor": 172
         },
         "run": {
           "lthr": 169,
@@ -285,10 +285,10 @@
       ]
     },
     "phase_detection": {
-      "phase": "Deload",
-      "confidence": "medium",
+      "phase": "Build",
+      "confidence": "low",
       "reason_codes": [
-        "PLAN_GAP_NEXT_WEEK"
+        "BUILD_RESUMING_AFTER_DELOAD_TENTATIVE"
       ],
       "basis": {
         "stream_1": {
@@ -298,35 +298,35 @@
           "weeks_available": 4
         },
         "stream_2": {
-          "planned_tss_delta": null,
-          "hard_sessions_planned": 0,
+          "planned_tss_delta": 0.4,
+          "hard_sessions_planned": 1,
           "race_proximity": null,
           "next_week_load": null,
-          "plan_coverage_current_week": 0.0,
+          "plan_coverage_current_week": 0.2,
           "plan_coverage_next_week": 0.0
         },
         "data_quality": "good",
         "stream_agreement": null
       },
       "previous_phase": "Deload",
-      "phase_duration_weeks": 1,
+      "phase_duration_weeks": 0,
       "dossier_declared": null,
       "dossier_agreement": null
     },
-    "phase_detected": "Deload",
+    "phase_detected": "Build",
     "phase_triggers": [
-      "PLAN_GAP_NEXT_WEEK"
+      "BUILD_RESUMING_AFTER_DELOAD_TENTATIVE"
     ],
     "seasonal_context": "Late Base / Build",
     "benchmark_indoor": {
-      "current_ftp": null,
+      "current_ftp": 172,
       "ftp_8_weeks_ago": null,
       "benchmark_index": null,
       "benchmark_percentage": null,
       "seasonal_expected": null
     },
     "benchmark_outdoor": {
-      "current_ftp": 162,
+      "current_ftp": 172,
       "ftp_8_weeks_ago": null,
       "benchmark_index": null,
       "benchmark_percentage": null,
@@ -338,7 +338,7 @@
     "p_max": 630,
     "power_model_source": "wellness.sportInfo",
     "vo2max": null,
-    "calculation_timestamp": "2026-03-12T01:19:46.331259",
+    "calculation_timestamp": "2026-03-12T03:43:47.542744",
     "data_quality": {
       "hrv_data_points": 7,
       "rhr_data_points": 7,
@@ -347,7 +347,7 @@
       "planned_workouts_7d": 2,
       "ftp_history_days": {
         "indoor": 0,
-        "outdoor": 0
+        "outdoor": 2
       }
     }
   },
@@ -679,11 +679,23 @@
       "vo2max": null
     }
   ],
-  "planned_workouts": [],
+  "planned_workouts": [
+    {
+      "id": 97964595,
+      "date": "2026-03-13",
+      "name": "VO2 Max \u5524\u9192\u6311\u6218",
+      "type": "WORKOUT",
+      "planned_tss": 65,
+      "duration_hours": 0.83,
+      "duration_formatted": "50m",
+      "workout_summary": "3m @120W | 3m @137W | 3m @154W | 3m @172W | 3m @86W | 5\u00d73m @190W / 3m rec | 5m @80W",
+      "description": "# [ZEro] 3.12 VO2 Max \u5524\u9192\u6311\u6218\n# \u76ee\u6807\uff1a\u901a\u8fc7 Z5 \u95f4\u6b47\u62c9\u5347\u6700\u5927\u6444\u6c27\u91cf\uff0c\u6253\u7834 172W \u74f6\u9888\n# \u8bbe\u5b9a\uff1a\u57fa\u4e8e\u65b0 FTP 172W\n\nWarmup\n- 3m 70% 90rpm\n- 3m 80% 90rpm\n- 3m 90% 95rpm\n- 3m 100% 95rpm\n- 3m 50% press-lap \n\nMain Set\n5x\n- 3m 190w 100-110rpm\n- 3m 100w 85rpm recovery\n\nCooldown\n- 5m 80w"
+    }
+  ],
   "workout_summary_stats": {
-    "attempted": 0,
-    "success": 0,
-    "patternA": 0,
+    "attempted": 1,
+    "success": 1,
+    "patternA": 1,
     "patternB": 0,
     "bail_no_workout_doc": 0,
     "bail_no_match": 0
