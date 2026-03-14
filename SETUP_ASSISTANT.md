@@ -271,12 +271,15 @@ Most major AI platforms now have native GitHub connectors. If theirs does, they 
 
 | Platform | GitHub Connector | Can Trigger Actions | How to Connect |
 |----------|-----------------|---------------------|----------------|
-| ChatGPT | Varies by plan | No | Settings → Apps → GitHub |
-| Claude | All plans including Free | No | Settings → Integrations → GitHub, or "+" in Project Knowledge |
-| Gemini | Varies by account | No | + → Import code, or Connected Apps |
-| Grok | Rolling out | TBD | Settings → Connected Apps |
-| Mistral | All tiers incl. free | Not yet | Side panel → Intelligence → Connectors |
+| ChatGPT | Varies by plan | No (Codex has write access) | Settings → Apps → GitHub |
+| Claude | All plans including Free | No (custom MCP possible†) | Settings → Integrations → GitHub, or "+" in Project Knowledge |
+| Gemini | Varies by account | No (Workspace extension has writes‡) | + → Import code, or Connected Apps |
+| Grok | Grok Business/Enterprise | No (read-only) | Settings → Connected Apps |
+| Mistral | All tiers incl. free | Not yet (writes supported, dispatch TBD) | Side panel → Intelligence → Connectors |
 | Perplexity | Pro, Max, and Enterprise | No | App Connectors |
+
+†Requires setting up a GitHub OAuth App or PAT with a custom MCP server — non-trivial.
+‡Separate Google Workspace extension; requires Google Integrations helper app. Not the same as import-code.
 
 If they have a connector available, walk them through connecting it and skip the fetch URLs in the instructions below. If not (or if they prefer simplicity), the URL-based approach works with a public repo.
 
@@ -353,7 +356,7 @@ Tell them to upload these two files to their project's knowledge/files section:
 - **ChatGPT Projects:** Upload to "Project Files." If using the GitHub connector (Settings → Apps → GitHub), it can read your private repo directly — no need for public URLs.
 - **ChatGPT CustomGPT:** Upload to "Knowledge" under Configure. Enable "Web Browsing" in Capabilities.
 - **Claude Projects:** Upload to "Project Knowledge." GitHub connector: click "+" in Project Knowledge → search/paste your repo URL → select files. Or enable "Web search" in settings for URL-based fetch.
-- **Grok:** Upload to "Sources" in Project configuration. GitHub connector rolling out via Settings → Connected Apps.
+- **Grok:** Upload to "Sources" in Project configuration. GitHub connector available on Grok Business/Enterprise plans via Settings → Connected Apps.
 - **Mistral (Le Chat):** Upload during project creation. GitHub connector: side panel → Intelligence → Connectors → GitHub.
 - **Gemini Gems:** Paste Section 11 content into the instructions field and upload the dossier separately. GitHub connector: click + → Import code → paste repo URL. *(Note: Gemini capabilities vary across Google accounts and Workspace editions — it may not work for everyone. If Gemini can't access your repo, try downloading the section-11 repo as a zip and uploading it directly.)*
 

@@ -150,12 +150,16 @@ Most major AI platforms now have native GitHub connectors that can access privat
 
 | Platform | GitHub Connector | Private Repos | Can Trigger Actions | Plan Notes |
 |----------|-----------------|---------------|---------------------|------------|
-| ChatGPT | Settings → Apps → GitHub | Yes | No (read-only) | Varies by plan and experience |
-| Claude | Settings → Integrations → GitHub | Yes | No (read-only) | All plans including Free |
-| Gemini | + → Import code / Connected Apps | Yes (link account) | No (read-only snapshot) | Account/region dependent — see Gemini docs |
-| Grok | Settings → Connected Apps | Rolling out | TBD | Plan requirements TBD |
+| ChatGPT | Settings → Apps → GitHub | Yes | No (read-only)¹ | Varies by plan and experience |
+| Claude | Settings → Integrations → GitHub | Yes | No (read-only)² | All plans including Free |
+| Gemini | + → Import code / Connected Apps | Yes (link account) | No (read-only snapshot)³ | Account/region dependent — see Gemini docs |
+| Grok | Settings → Connected Apps | Yes | No (read-only) | Grok Business/Enterprise; consumer tier availability TBD |
 | Mistral | Connectors directory (MCP) | Yes | Not yet (writes supported, dispatch TBD) | All tiers including free |
 | Perplexity | App Connectors → GitHub | Yes | No (read-only) | Pro, Max, and Enterprise |
+
+¹ ChatGPT's Codex agent has full GitHub write access (commits, PRs, code reviews). The web chat connector is read-only.
+² Claude supports custom remote MCP connectors on all plans (free: 1 connector). A user could connect a [GitHub MCP server](https://github.com/github/github-mcp-server) with write access, but this requires setting up a GitHub OAuth App or PAT — non-trivial.
+³ A separate [Google Workspace GitHub extension](https://workspace.google.com/marketplace/app/github_integration/556146275714) offers write access (repos, issues, reviews) within Gemini Apps. Requires the Google Integrations helper app. This is separate from the import-code connector. Workflow dispatch not confirmed.
 
 #### ChatGPT (Projects)
 
@@ -192,7 +196,7 @@ Most major AI platforms now have native GitHub connectors that can access privat
 
 1. Create Project
 2. Add instructions to Project configuration
-3. **GitHub connector:** Settings → Connected Apps → GitHub → Connect. Rolling out — availability may vary by plan.
+3. **GitHub connector:** Settings → Connected Apps → GitHub → Connect. Available on Grok Business and Enterprise plans; consumer tier availability TBD.
 4. **No connector?** Upload SECTION_11.md and DOSSIER.md to "Sources". If using the connector but some files aren't in your data repo, upload those separately.
 
 #### Mistral (Le Chat)
@@ -338,7 +342,7 @@ If your platform doesn't support connectors or you can't get them working: use a
 
 ### Grok can't connect to GitHub
 
-The GitHub connector for Grok is still rolling out. If it's not available in your Settings → Connected Apps, upload files manually or use a public repo with URL-based fetch.
+The GitHub connector for Grok requires a Grok Business or Enterprise plan. If it's not available in your Settings → Connected Apps, upload files manually or use a public repo with URL-based fetch.
 
 ### AI fabricates metrics or ignores synced data
 
