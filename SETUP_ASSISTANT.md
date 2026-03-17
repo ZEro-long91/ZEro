@@ -60,7 +60,7 @@ Both sync methods work with both platform types. The four valid combinations:
 | Platform | Sync | How AI reads data |
 |----------|------|-------------------|
 | Web/phone chat | GitHub | GitHub connector or raw URL |
-| Web/phone chat | Local | Cloud connector (Google Drive, OneDrive, etc.) |
+| Web/phone chat | Local | Cloud connector (Google Drive, OneDrive — platform support varies) |
 | Agentic | Local | Filesystem (fastest) |
 | Agentic | GitHub | GitHub connector |
 
@@ -79,6 +79,7 @@ Both sync methods work with both platform types. The four valid combinations:
 Check that they have:
 
 1. **An Intervals.icu account** — if not, direct them to https://intervals.icu (it's free, connects via Strava/Garmin/etc.)
+   - **Important:** Their device (Garmin, Wahoo, etc.) should be connected **directly** to Intervals.icu, not only through Strava. Strava's API terms strip detailed data from activities — Intervals.icu shows everything in the UI, but the API returns empty fields. Direct connection in Intervals.icu Settings → Connections.
 2. **A GitHub account** (GitHub path only) — if not, direct them to https://github.com/signup. Not needed for the local path.
 
 Confirm before continuing.
@@ -157,6 +158,14 @@ Walk them through:
 
 If not set, defaults to `mon` (ISO week). This controls phase detection windows — ensures deload/build classification aligns with the athlete's actual training week structure.
 
+**Optional:** If they want HR zones used for aggregations in specific sports (e.g., runners with auto-generated watch power who prefer HR-based analysis):
+
+| Name | Value |
+|------|-------|
+| `ZONE_PREFERENCE` | Per-sport zone override, e.g. `run:hr,cycling:power` |
+
+Only override what's needed — unspecified sports default to power-preferred with HR fallback.
+
 Confirm both required secrets are added before continuing.
 
 ### Step 5: Enable workflow permissions
@@ -184,6 +193,7 @@ Walk them through:
 - The workflow run should show a green ✓
 - A `latest.json` file should now exist in the repo root with their training data
 - A `history.json` file should also appear
+- An `intervals.json` file may appear if the athlete has recent structured interval sessions
 
 If the run fails (red ✗), ask them to click into the failed run and share the error message so you can help troubleshoot.
 
@@ -270,12 +280,15 @@ Most major AI platforms now have native GitHub connectors. If theirs does, they 
 
 | Platform | GitHub Connector | Can Trigger Actions | How to Connect |
 |----------|-----------------|---------------------|----------------|
-| ChatGPT | Varies by plan | No | Settings → Apps → GitHub |
-| Claude | All plans including Free | No | Settings → Integrations → GitHub, or "+" in Project Knowledge |
-| Gemini | Varies by account | No | + → Import code, or Connected Apps |
-| Grok | Rolling out | TBD | Settings → Connected Apps |
-| Mistral | All tiers incl. free | Not yet | Side panel → Intelligence → Connectors |
+| ChatGPT | Varies by plan | No (Codex has write access) | Settings → Apps → GitHub |
+| Claude | All plans including Free | No (custom MCP possible†) | Settings → Integrations → GitHub, or "+" in Project Knowledge |
+| Gemini | Varies by account | No (Workspace extension has writes‡) | + → Import code, or Connected Apps |
+| Grok | Grok Business/Enterprise | No (read-only) | Settings → Connected Apps |
+| Mistral | All tiers incl. free | Not yet (writes supported, dispatch TBD) | Side panel → Intelligence → Connectors |
 | Perplexity | Pro, Max, and Enterprise | No | App Connectors |
+
+†Requires setting up a GitHub OAuth App or PAT with a custom MCP server — non-trivial.
+‡Separate Google Workspace extension; requires Google Integrations helper app. Not the same as import-code.
 
 If they have a connector available, walk them through connecting it and skip the fetch URLs in the instructions below. If not (or if they prefer simplicity), the URL-based approach works with a public repo.
 
@@ -288,25 +301,24 @@ If they have a connector available, walk them through connecting it and skip the
 
 **2. Paste the coaching instructions:**
 
-Tell them to paste the following into their project's instruction/system prompt field. They must replace `[USERNAME]` and `[REPO]` with their actual GitHub username and repo name:
+Tell them to paste the following into their project's instruction/system prompt field. If using URL fetch, they must replace `[USERNAME]` and `[REPO]` with their actual GitHub username and repo name:
 
 ```
 # AI Coach Instructions
 
 You are my endurance coach. Follow Section 11 protocol strictly.
 
-## MANDATORY FIRST ACTIONS (every training question):
-1. Note today's date
-2. Fetch JSON: https://raw.githubusercontent.com/[USERNAME]/[REPO]/main/latest.json (append ?date= with today's date to ensure fresh data)
-3. Fetch history: https://raw.githubusercontent.com/[USERNAME]/[REPO]/main/history.json (for longitudinal context)
-4. If activities don't match today's date, re-fetch before concluding no data exists
-5. Match activities to current date
-6. Then respond
+## DATA ACCESS:
+Read data using the first method that works:
+1. **Connected repo/filesystem** — If data files are available via connector (GitHub, Google Drive, OneDrive — platform support varies) or local filesystem, read latest.json, history.json, and intervals.json directly
+2. **URL fetch** — Fetch https://raw.githubusercontent.com/[USERNAME]/[REPO]/main/latest.json (append ?date= with today's date). Same for history.json
+3. If activities don't match today's date, re-fetch or re-read before concluding no data exists
+4. Load intervals.json when analysing a specific activity with `has_intervals: true` — use for interval compliance, pacing, cardiac drift, recovery quality
 
-Do NOT ask me for data — fetch it yourself.
+Do NOT ask me for data — read or fetch it yourself.
 
 ## SOURCE HIERARCHY:
-1. **JSON data** — Current metrics from latest.json (FETCH FIRST) + longitudinal data from history.json
+1. **JSON data** — Current metrics from latest.json (READ/FETCH FIRST) + longitudinal data from history.json + interval detail from intervals.json (on-demand)
 2. **Section 11 protocol** (attached) — Coaching rules, thresholds, metric hierarchy
 3. **Dossier** — Athlete profile, zones, goals
 4. **Report templates** — Fetch from https://github.com/CrankAddict/section-11/tree/main/examples/reports if not attached
@@ -331,13 +343,13 @@ Omit fields only if data unavailable for that activity type.
 ## RULES:
 - Follow Section 11 validation checklist (Step 0: Data Source Fetch)
 - No virtual math on pre-computed metrics — use fetched values for CTL, ATL, TSB, ACWR, RI, zones, etc. Custom analysis from raw data is fine when pre-computed values don't cover the question
-- TSB −10 to −30 is typically normal — don't recommend recovery unless other triggers present
-- Metric hierarchy: Tier 1 (RI, HRV, RHR, Feel) → Tier 2 (Stress Tolerance, Load-Recovery Ratio, ACWR) → Tier 3 (diagnostics)
+- TSB −10 to −30 is typically normal — don’t recommend recovery unless other triggers present
+- Metric hierarchy: Tier 1 (RI, HRV, RHR, Sleep) → Tier 2 (Stress Tolerance, Load-Recovery Ratio, ACWR) → Tier 3 (diagnostics)
 - Brief when metrics are normal. Detailed when thresholds are breached or I ask "why"
 
-## DOCUMENTS ATTACHED:
-- DOSSIER.md — Profile, zones, goals
-- SECTION_11.md — AI coaching protocol (includes validation, metric hierarchy, report format guidelines)
+## DOCUMENTS:
+- SECTION_11.md — AI coaching protocol (attached, in connected repo, or fetch from CrankAddict/section-11)
+- DOSSIER.md — Profile, zones, goals (attached or in connected data repo)
 ```
 
 **3. Upload knowledge files:**
@@ -353,7 +365,7 @@ Tell them to upload these two files to their project's knowledge/files section:
 - **ChatGPT Projects:** Upload to "Project Files." If using the GitHub connector (Settings → Apps → GitHub), it can read your private repo directly — no need for public URLs.
 - **ChatGPT CustomGPT:** Upload to "Knowledge" under Configure. Enable "Web Browsing" in Capabilities.
 - **Claude Projects:** Upload to "Project Knowledge." GitHub connector: click "+" in Project Knowledge → search/paste your repo URL → select files. Or enable "Web search" in settings for URL-based fetch.
-- **Grok:** Upload to "Sources" in Project configuration. GitHub connector rolling out via Settings → Connected Apps.
+- **Grok:** Upload to "Sources" in Project configuration. GitHub connector available on Grok Business/Enterprise plans via Settings → Connected Apps.
 - **Mistral (Le Chat):** Upload during project creation. GitHub connector: side panel → Intelligence → Connectors → GitHub.
 - **Gemini Gems:** Paste Section 11 content into the instructions field and upload the dossier separately. GitHub connector: click + → Import code → paste repo URL. *(Note: Gemini capabilities vary across Google accounts and Workspace editions — it may not work for everyone. If Gemini can't access your repo, try downloading the section-11 repo as a zip and uploading it directly.)*
 
@@ -437,9 +449,10 @@ For web chat users on the local path, sync.py writes to a cloud-synced folder an
 2. Set the data directory inside the synced folder (e.g., `~/Google Drive/My Drive/training-data/`)
 3. The timer's `--output` points to this folder — same setup as above, just a different path
 4. Connect the AI platform's connector to the folder:
-   - **Claude:** Settings → Integrations → Google Drive
-   - **ChatGPT:** Settings → Apps → Google Drive (or OneDrive)
    - **Gemini:** Native Google Drive access — just reference the folder
+   - **Perplexity:** Settings → Connectors → Google Drive (Pro plan required)
+   - **ChatGPT:** Settings → Apps → Google Drive (Workspace accounts only — not personal Gmail)
+   - **Claude:** Google Drive connector reads Google Docs only, not .json files. Use the GitHub connector instead (Settings → Integrations → GitHub)
    - **Other platforms:** Check their connector/integration settings
 
 The AI coach now reads fresh data every time they open a chat. See `examples/json-local-sync/SETUP.md` for more details and alternative setups (VPS + rclone, NAS with cloud sync, etc.).
@@ -461,10 +474,11 @@ For local setups, the AI coach reads files from the data directory instead of fe
 ## DATA ACCESS:
 1. Read latest.json from the data directory
 2. Read history.json from the data directory
-3. Read protocol from section11/SECTION_11.md
-4. Read report templates from section11/examples/reports/
-5. Read workout templates from section11/examples/workout-library/WORKOUT_REFERENCE.md
-6. If data files appear stale, ask the athlete to run sync
+3. Read intervals.json when analysing a specific activity with has_intervals: true
+4. Read protocol from section11/SECTION_11.md
+5. Read report templates from section11/examples/reports/
+6. Read workout templates from section11/examples/workout-library/WORKOUT_REFERENCE.md
+7. If data files appear stale, ask the athlete to run sync
 
 Do NOT fetch from URLs — all files are local.
 

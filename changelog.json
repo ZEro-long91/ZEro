@@ -1,13 +1,14 @@
 {
-  "notification_id": "2026-03-08",
+  "notification_id": "2026-03-14",
   "changes": [
-    "— sync.py v3.77 - Hash-based manifest for --update (all repo files tracked)",
-    "— sync.py v3.75→v3.76 + local sync pipeline + docs overhaul (2026-03-08) —",
-    "sync.py v3.75: --init (download full repo), --update (pull changed files from manifest), --lockfile (prevent overlapping runs), working directory awareness, manifest check on sync runs",
-    "sync.py v3.76: Bug fixes — workout summary trailing rep off-by-one (13-rep set reported as 12×30s), deload phase detection blind spot (Path C: retrospective deload from completed data when no plan exists)",
-    "manifest.json replaces changelog.json for update tracking. After updating to v3.76, sync.py reads manifest.json automatically.",
-    "New local deployment path: python3 sync.py --setup → --init → section11/examples/sync.py. No GitHub needed. See examples/json-local-sync/SETUP.md",
-    "Documentation: README restructured (GitHub/local sync as equal paths, GitHub connector table). SETUP_ASSISTANT.md rewritten (two-question routing: platform type + sync method, four valid combos). SKILL.md rewritten (three-tier file fallback). All cross-references updated.",
+    "— sync.py v3.83 + SECTION_11.md v11.15 — Per-sport zone preference (2026-03-14) —",
+    "New config: ZONE_PREFERENCE — override power/HR priority per sport (e.g. run:hr,cycling:power). Zone aggregations (TID, polarization, grey zone %) respect the preference with fallback. zone_basis field added to all TID and zone distribution blocks.",
+    "— sync.py v3.82 — Interval-level data: intervals.json (2026-03-14) —",
+    "Per-interval segment data for structured sessions (power, HR, cadence, zone, W'bal, decoupling per rep). has_intervals flag in latest.json. Incremental cache, 7-day retention, sport family whitelist.",
+    "— sync.py v3.81 + SECTION_11.md v11.14 — Feel/RPE scope clarification (2026-03-12) —",
+    "Readiness signals 7 → 6 (HRV, RHR, Sleep, TSB, ACWR, RI). Feel is retrospective — stays in activity data, history, and report templates. Three-layer Feel/RPE model formalized. Override rules added.",
+    "— Documentation updates (2026-03-12–14) —",
+    "GitHub connector table updated (Grok, ChatGPT Codex, Claude MCP, Gemini Workspace footnotes). Project instructions unified across README + SETUP_ASSISTANT. intervals.json references across 8 docs.",
     "Upgrade: replace your sync.py with the latest from github.com/CrankAddict/section-11/tree/main/examples/sync.py"
   ]
 }

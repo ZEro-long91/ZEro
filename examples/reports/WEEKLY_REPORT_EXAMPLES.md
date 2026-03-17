@@ -71,6 +71,8 @@ Wellness Trends:
   HRV: 48–62 ms (avg 54, prev week 56) →
   RHR: 47–52 bpm (avg 49, prev week 48) →
   Sleep: 7h12m avg, quality 2.2/4 avg →
+  Avg Feel: 2.2/5 (5 sessions) →
+  Avg RPE: 4.8/10 (5 sessions) →
 
 Section 11 Flags: None
 
@@ -148,6 +150,8 @@ Wellness Trends:
   HRV: 39–51 ms (avg 44, prev week 52) ↓ declining — monitor
   RHR: 50–56 bpm (avg 53, prev week 49) ↑ elevated — monitor
   Sleep: 6h6m avg, quality 3.2/4 avg ↓ declining — monitor
+  Avg Feel: 3.6/5 (4 sessions) ↓ declining — monitor
+  Avg RPE: 6.8/10 (4 sessions) ↑ elevated — monitor
 
 Section 11 Flags:
   - HRV below 7-day baseline by >15% on Thu → triggered rest day

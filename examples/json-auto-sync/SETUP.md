@@ -16,6 +16,7 @@ The data mirror automatically syncs your Intervals.icu metrics to a GitHub repos
 - `https://raw.githubusercontent.com/[you]/[repo]/main/latest.json`
 - `https://raw.githubusercontent.com/[you]/[repo]/main/history.json`
 - `https://raw.githubusercontent.com/[you]/[repo]/main/ftp_history.json`
+- `https://raw.githubusercontent.com/[you]/[repo]/main/intervals.json`
 
 ---
 
@@ -87,6 +88,14 @@ Then add these files to your repository:
 
 If not set, defaults to `mon` (ISO week). This controls phase detection windows — ensures deload/build classification aligns with your actual training week structure.
 
+**Optional:** If you want HR zones used for aggregations in specific sports (e.g., running with auto-generated watch power):
+
+| Secret Name | Value |
+|-------------|-------|
+| `ZONE_PREFERENCE` | Per-sport zone override, e.g. `run:hr,cycling:power` |
+
+Only override what you need — unspecified sports default to power-preferred with HR fallback. Valid values per sport are `power` or `hr`. Sport families: `cycling`, `run`, `ski`, `rowing`, `swim`, `walk`, `strength`, `other`.
+
 **Note:** `GITHUB_TOKEN` is provided automatically by GitHub Actions.
 
 ---
@@ -122,12 +131,14 @@ Your data should now be accessible at:
 https://raw.githubusercontent.com/[your-username]/[repo-name]/main/latest.json
 https://raw.githubusercontent.com/[your-username]/[repo-name]/main/history.json
 https://raw.githubusercontent.com/[your-username]/[repo-name]/main/ftp_history.json
+https://raw.githubusercontent.com/[your-username]/[repo-name]/main/intervals.json
 ```
 
 Test by opening the URLs in your browser — you should see your training data as JSON.
 
 - `latest.json` — current 7-day snapshot with activities, wellness, fitness metrics, and derived Section 11 values
 - `history.json` — longitudinal data with tiered granularity: daily (90 days), weekly (180 days), and monthly (up to 3 years). Generated automatically on first run, regenerated when outdated.
+- `intervals.json` — per-interval segment data for recent structured sessions (7-day retention). Generated automatically for activities with detected interval structure.
 
 ---
 
@@ -179,14 +190,17 @@ Benchmark Index = (Current FTP - FTP 8 weeks ago) / FTP 8 weeks ago
 
 Once set up, configure your AI platform using the instructions in the [main README](../../README.md#web-chat-setup).
 
-Your JSON URLs:
+**GitHub connector users:** If your AI platform has a GitHub connector, connect your data repo directly — the AI reads `latest.json`, `history.json`, `intervals.json`, and any other committed files through the connector. No URLs needed. If you commit `DOSSIER.md` and `SECTION_11.md` to the repo, the connector provides everything in one connection.
+
+**URL fetch users:** Provide these URLs to your AI coach:
 ```
 https://raw.githubusercontent.com/[your-username]/[repo-name]/main/latest.json
 https://raw.githubusercontent.com/[your-username]/[repo-name]/main/history.json
 https://raw.githubusercontent.com/[your-username]/[repo-name]/main/ftp_history.json
+https://raw.githubusercontent.com/[your-username]/[repo-name]/main/intervals.json
 ```
 
-Provide all 3 URLs to your AI coach — `latest.json` has the current 7-day snapshot and `history.json` provides longitudinal context for trend analysis.
+`latest.json` has the current 7-day snapshot, `history.json` provides longitudinal context for trend analysis, and `intervals.json` has per-interval detail for recent structured sessions.
 
 ---
 
@@ -262,6 +276,7 @@ For additional privacy, use a **private repository** and a separate GitHub accou
 |------|---------|--------------|
 | `latest.json` | Current 7-day training data for AI consumption | Yes |
 | `history.json` | Longitudinal data — daily (90d), weekly (180d), monthly (3y) | Yes |
+| `intervals.json` | Per-interval segment data for recent structured sessions | Yes |
 | `ftp_history.json` | FTP progression tracking for Benchmark Index | Yes |
 | `archive/` | Timestamped snapshots of each sync | Yes |
 

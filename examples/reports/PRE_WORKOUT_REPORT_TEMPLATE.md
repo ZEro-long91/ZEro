@@ -69,7 +69,7 @@ AI may override the pre-computed recommendation with explicit rationale.]
 
 The `readiness_decision` object in `latest.json` provides a pre-computed go/modify/skip recommendation with priority level and individual signal statuses. Use this as the baseline.
 
-**Signal statuses** are in `readiness_decision.signals` (hrv, rhr, sleep, tsb, acwr, feel, ri — each with green/amber/red/unavailable and raw values).
+**Signal statuses** are in `readiness_decision.signals` (hrv, rhr, sleep, tsb, acwr, ri — each with green/amber/red/unavailable and raw values).
 
 **Phase-adjusted thresholds** are in `readiness_decision.phase_context` (shows which phase modifier shifted the amber threshold).
 

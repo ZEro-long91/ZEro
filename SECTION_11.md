@@ -1,15 +1,41 @@
 # Section 11 — AI Coach Protocol
 
-**Protocol Version:** 11.13  
-**Last Updated:** 2026-03-05
+**Protocol Version:** 11.16  
+**Last Updated:** 2026-03-15
 **License:** [MIT](https://opensource.org/licenses/MIT)
 
 ### Changelog
 
+**v11.16 — Wellness Field Expansion:**
+- All Intervals.icu wellness fields now passed through: subjective state (stress, mood, motivation, injury, fatigue, soreness, hydration), vitals (spO2, blood glucose, blood pressure, Baevsky SI, lactate, respiration), body composition (body fat, abdomen), nutrition (kcal, carbs, protein, fat), lifestyle (steps, hydration volume), cycle tracking (menstrual phase + predicted)
+- `wellness_field_scales` legend added to READ_THIS_FIRST — documents 1→4 positional scale (1 = best, 4 = worst) with per-field labels
+- Recovery Metrics section updated with extended wellness field reference
+- Bug fix: `hrvSdnn` → `hrvSDNN` case mismatch in `_format_wellness()` (was silently returning null)
+- Pure data passthrough — no readiness_decision changes, no new decision logic
+- sync.py v3.85
+
+**v11.15 — Per-Sport Zone Preference:**
+- `ZONE_PREFERENCE` config: per-sport override for which zone basis (power/HR) feeds aggregations
+- Format: `sport_family:basis` pairs, e.g. `run:hr,cycling:power`. Unspecified sports keep default (power-preferred, HR fallback)
+- Config cascade: `.sync_config.json` → `ZONE_PREFERENCE` env var → default. `--setup` wizard updated.
+- `zone_basis` field added to `zone_distribution_7d`, all `seiler_tid_*` blocks: `"power"` / `"hr"` / `"mixed"` / null
+- `zone_preference` field added to `READ_THIS_FIRST` — shows active config
+- `_aggregate_seiler_zones()` refactored to use shared `_get_activity_zones()` (eliminated duplicated zone extraction)
+- Per-activity zone output unchanged — still includes both `power_zones` and `hr_zones`
+- sync.py v3.83
+
+**v11.14 — Feel/RPE Scope Clarification:**
+- Feel removed from automated readiness_decision signals — 6 signals remain (HRV, RHR, Sleep, TSB, ACWR, RI)
+- Feel/RPE defined at three layers: wellness (daily entry), activity (post-session), in-session (real-time)
+- Feel enriches coaching decisions when present in data; solicited when decision-relevant; never required as routine input
+- Feel removed from Tier 1 PRIMARY READINESS hierarchy — replaced by Sleep (quality + hours)
+- Readiness Thresholds header updated: "All Available Must Be Met" (unavailable metrics do not block progression)
+- Feel/RPE Override block added to readiness_decision: escalation unconditional, de-escalation P2 only (max 2 amber, athlete must attribute cause, AI documents override). P0/P1 not overridable. Underreporting caveat when 3+ objective signals converge.
+
 **v11.13 — Readiness Decision (AAS Formalization):**
 - Pre-computed `readiness_decision` replaces implicit go/modify/skip synthesis
 - Priority ladder: P0 (safety stop) → P1 (acute overload) → P2 (accumulated fatigue) → P3 (green light)
-- 7 signals evaluated: HRV, RHR, Sleep, TSB, ACWR, Feel, RI — each with green/amber/red/unavailable status
+- 7 signals evaluated: HRV, RHR, Sleep, Feel, TSB, ACWR, RI — each with green/amber/red/unavailable status
 - Phase modifiers: Build loosens thresholds (3 amber), Taper/Race week tighten (1 amber), all others default (2 amber)
 - Structured modification output: trigger categories + adjustment directions (intensity/volume/cap_zone)
 - Wires into existing alerts (P0/P1 read tier-1 alarms, no duplication)
@@ -121,9 +147,13 @@ If the AI instance does not retain prior context (e.g., new chat or session), it
 
 #### Data Mirror Integration
 
-If the AI or LLM system is not directly or indirectly connected to the Intervals.icu API, it may reference an athlete-provided public data mirror.
+If the AI or LLM system is not directly or indirectly connected to the Intervals.icu API, it may reference an athlete-provided data mirror. There are three access methods — use the first available:
 
-**Example endpoint format:**
+1. **Local files** — data directory on the same filesystem (agentic platforms)
+2. **GitHub connector** — the athlete's data repo connected via the platform's native GitHub integration. The AI reads `latest.json`, `history.json`, `intervals.json`, and any other committed files (e.g., `DOSSIER.md`, `SECTION_11.md`) directly through the connector. No URLs needed. Connectors are read-only — they cannot trigger GitHub Actions or execute scripts.
+3. **URL fetch** — raw GitHub URLs as defined in the athlete dossier
+
+**Example endpoint format (URL fetch):**
 ```
 https://raw.githubusercontent.com/[username]/[repo]/main/latest.json
 ```
@@ -138,11 +168,11 @@ https://github.com/[username]/[repo]/tree/main/archive
 https://raw.githubusercontent.com/[username]/[repo]/main/history.json
 ```
 
-> **Note:** The actual URLs for your data mirror are defined in your athlete dossier. The AI must fetch from the dossier-specified endpoint.
+> **Note:** The actual URLs for your data mirror are defined in your athlete dossier. When using URL fetch, the AI must fetch from the dossier-specified endpoint. When using a GitHub connector, the AI reads directly from the connected repo.
 
 This file represents a synchronized snapshot of current Intervals.icu metrics and activity summaries, structured for deterministic AI parsing and audit compliance.
 
-The JSON endpoint is considered a **Tier-1 verified mirror** of Intervals.icu and inherits its trust priority in the Data Integrity Hierarchy. All metric sourcing and computation must reference it deterministically, without modification or estimation.
+The JSON data — whether accessed via local files, GitHub connector, or URL fetch — is considered a **Tier-1 verified mirror** of Intervals.icu and inherits its trust priority in the Data Integrity Hierarchy. All metric sourcing and computation must reference it deterministically, without modification or estimation.
 
 If the data appears stale or outdated, the AI must explicitly request a data refresh before providing recommendations or generating analyses.
 
@@ -233,18 +263,47 @@ In addition to the real-time `latest.json` mirror, athletes may provide a `histo
 
 `history.json` is auto-generated by sync.py when missing or stale (>28 days), pulling fresh from the Intervals.icu API.
 
+#### Interval Data Mirror (intervals.json)
+
+Per-interval segment data for recent structured sessions. Activities in `latest.json` with `has_intervals: true` have corresponding detail in `intervals.json`.
+
+**Scope:** 7-day retention, incrementally cached (72h scan window on subsequent runs, 7-day backfill on first run). Only activities in whitelisted sport families (cycling, run, ski, rowing, swim) with detected interval structure are included.
+
+**Per-interval fields:**
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `type` | string | `WORK` or `RECOVERY` |
+| `label` | string/null | Group ID from Intervals.icu (e.g., `596s@259w100rpm`) |
+| `duration_secs` | number | Elapsed time for this segment |
+| `avg_power` | number/null | Average power (watts) |
+| `max_power` | number/null | Peak power (watts) |
+| `avg_hr` | number/null | Average heart rate |
+| `max_hr` | number/null | Peak heart rate |
+| `avg_cadence` | number/null | Average cadence |
+| `zone` | number/null | Power zone for this segment |
+| `w_bal` | number/null | W' balance at end of segment |
+| `training_load` | number/null | Segment training load |
+| `decoupling` | number/null | HR:power decoupling for this segment |
+
+Null fields are stripped from output — only populated fields appear per segment.
+
+**Loading rule:** Load `intervals.json` when analysing a specific activity with `has_intervals: true`. Use for: interval compliance, pacing analysis, cardiac drift per set, recovery quality. Do not load for readiness, load management, or weekly summaries.
+
 #### Data Source Usage Hierarchy
 
 | Source | Purpose | When to Use |
 |--------|---------|-------------|
 | `latest.json` | Current state — readiness, load, go/modify/skip decisions | **Always primary.** All immediate coaching decisions use this. |
 | `history.json` | Longitudinal context — trends, seasonal patterns, phase transitions | **Context only.** Reference when questions require historical depth. |
+| `intervals.json` | Per-interval segment data for structured sessions | **On-demand.** Load only when analysing activities with `has_intervals: true`. |
 
 **Rules:**
 1. `latest.json` is always primary. All immediate coaching decisions (readiness, load prescription, go/modify/skip) use `latest.json`.
 2. `history.json` is context, never override. It informs interpretation but never overrides current readiness signals.
 3. Reference `history.json` for: trend questions, seasonal pattern matching, phase transition decisions, FTP/Benchmark interpretation, and when data confidence is limited.
 4. Do NOT reference `history.json` for: daily pre/post workout reports (unless investigating), simple go/modify/skip decisions where readiness is clear, or any time `latest.json` provides a definitive answer on its own.
+5. `intervals.json` is on-demand only. Load when the athlete asks about a specific structured session, when generating a post-workout report for an activity with `has_intervals: true`, or when evaluating pacing/compliance across interval sets.
 
 ---
 
@@ -439,6 +498,20 @@ The `capability.tid_comparison` object compares these windows to detect distribu
 - `acute_depolarization` → Flag in pre-workout and weekly reports; likely indicates fatigue shifting distribution toward grey zone
 - TID drift is a **Tier 3 diagnostic** — it informs coaching context, not go/no-go decisions
 
+#### Zone Preference Configuration
+
+Zone aggregations (TID, polarization index, grey zone %, quality intensity %, hard day detection) default to **power zones preferred, HR zones as fallback** per activity. The `ZONE_PREFERENCE` config overrides this per sport family.
+
+**Format:** `sport_family:basis` pairs, comma-separated. Example: `run:hr,cycling:power`.
+
+When configured, the aggregation layer prefers the specified zone basis for that sport family, falling back to the other if the preferred basis is unavailable. Unspecified sport families retain the default (power-preferred).
+
+**Output fields:**
+- `zone_preference` in `READ_THIS_FIRST` — shows the active configuration (empty dict = default)
+- `zone_basis` on `zone_distribution_7d`, `seiler_tid_7d`, `seiler_tid_7d_primary`, `seiler_tid_28d`, `seiler_tid_28d_primary` — `"power"`, `"hr"`, or `"mixed"` (when activities in the aggregation used different bases)
+
+**AI coaching rule:** When `zone_basis` is not `"power"` (the default), note the basis in reports so the athlete understands which zones drove the analysis. Per-activity zone distributions in `recent_activities` still output both power and HR zones regardless of this setting.
+
 ---
 
 ### Behavioral & Analytical Rules for AI Coaches
@@ -517,7 +590,7 @@ Before providing recommendations, AI systems must verify:
 
 | #  | **Check**                        | **Deterministic Rules/Requirement**.                                                                                                                   |
 |----|----------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------|
-| 0  | **Data Source Fetch**            | Fetch JSON from mirror URL FIRST. If fetch fails or data unavailable, STOP and request manual data input.                                              |
+| 0  | **Data Source Fetch**            | Load JSON from data source FIRST (local files → GitHub connector → URL fetch). If all methods fail or data unavailable, STOP and request manual data input.                                              |
 | 1  | FTP Source Verification          | Confirm FTP/LT2 is explicitly athlete-provided or from API/JSON mirror via sport-family lookup (`thresholds.sports[family]`). Do not infer, recalculate, or cross-apply thresholds across sport families. |
 | 2  | Data Consistency Check           | Verify weekly training hours and load totals match the “READ_THIS_FIRST → quick_stats” dataset. Confirm totals within ±1% tolerance of logged data     |             
 | 3  | No Virtual Math Policy           | Ensure all computed metrics originate from raw or mirrored data. No interpolation, smoothing, or estimation permitted.                                 |
@@ -525,7 +598,7 @@ Before providing recommendations, AI systems must verify:
 | 5  | Missing-Data Handling            | If a metric is unavailable or outdated, explicitly request it from athlete. Never assume or project unseen values.                                     |
 | 6  | Temporal Data Validation         | Verify "last_updated" timestamp is <24 hours old. If data is >48 hours, request a refresh. Flag if athlete context (illness, travel) contradicts data. |               
 | 6b | UTC Time Synchronization         | Confirm dataset and system clocks align to UTC. Flag if offset >60 min or timestamps appear ahead of query time.                                       |
-| 7  | Multi-Metric Conflict Resolution | If HRV/RHR ≠ Feel/RPE, prioritize athlete-provided readiness. Note discrepancy, request clarification. Never override illness/fatigue with “good” TSB. |
+| 7  | Multi-Metric Conflict Resolution | If HRV/RHR conflict with athlete-reported state, prioritize athlete-provided readiness. Note discrepancy, request clarification. Never override illness/fatigue with “good” TSB. |
 | 8  | Recommendation Auditability      | Cite specific data points used. Include reasoning chain. State confidence: "High" (all data) / "Medium" (1–2 gaps) / "Low" (>2 gaps).                  |
 | 9  | Rolling Phase Alignment          | Identify current phase from TSB trend and ramp rate. Recommendations must align with phase logic. Flag contradictions.                                 |
 | 10 | Protocol Version & Framework Citations | State Section 11 version. Cite frameworks when applying logic (e.g., "Per Seiler 80/20 model..."). Include framework version (e.g., “URF v5.1”)  |                                        
@@ -646,6 +719,7 @@ Reports use a structured line-by-line format per session, not bullet-point summa
    - Calories (kcal)
    - Carbs used (g)
    - TSS (actual vs planned)
+   - Note (athlete text or coach notes, if present on the activity)
    Omit fields only if data unavailable for that activity type.
 4. **Weekly totals block:** Polarization, Durability (7d/28d + trend), TID 28d (+ drift), TSB, CTL, ATL, Ramp rate, ACWR, Hours, TSS
 5. **Overall:** Coach note (2–4 sentences — compliance, key quality observations, load context, recovery note if applicable)
@@ -716,7 +790,7 @@ Load-Recovery Ratio is a **secondary** overreach detector. It should only be eva
 
 1. **Primary:** Recovery Index (RI) — physiological readiness
 2. **Secondary:** Load-Recovery Ratio — load vs. recovery capacity
-3. **Tertiary:** Subjective markers (Feel, RPE) — athlete-reported state
+3. **Tertiary:** Subjective markers (RPE, athlete-reported state)
 
 If RI indicates good readiness (≥0.8) but Load-Recovery Ratio is elevated (≥2.5), flag for monitoring but do not auto-trigger deload unless RI also declines.
 
@@ -730,7 +804,7 @@ If any values breach limits, shift guidance toward load modulation or recovery e
 If multiple data sources conflict:
 
 1. **Intervals.icu API** → Primary source for power, HRV, CTL/ATL, readiness metrics
-2. **Intervals.icu JSON Mirror** → Verified Tier-1 mirror source (read-only reference)
+2. **Intervals.icu JSON Mirror** → Verified Tier-1 mirror source (local files, GitHub connector, or URL fetch — all carry the same trust level)
 3. **Garmin Connect** → Backup for HR, sleep, RHR
 4. **Athlete-provided data** → Valid if recent (<7 days) and stated explicitly
 5. **Dossier Baselines** → Fallback reference
@@ -745,7 +819,7 @@ Monitor and respond to:
 |---------------|-----------------------------------|
 | HRV ↓ > 20%   | Easy day or deload consideration  |
 | RHR ↑ ≥ 5 bpm | Flag potential fatigue or illness |
-| Feel ≥ 4/5    | Adjust volume 30–40% for 3–4 days |
+| Feel ≥ 4/5 (wellness, if available)   | Adjust volume 30–40% for 3–4 days |
 
 **Recovery Index Formula:**
 ```
@@ -790,10 +864,21 @@ AI systems must only consider caloric-reduction or weight-optimization phases du
 | Sleep | ≥ 7h AND quality ≤ 2 | 5–7h OR quality 3 | < 5h OR quality 4 |
 | TSB | > phase threshold (default -15) | Between threshold and -30 | < -30 |
 | ACWR | 0.8–1.3 | <0.8 or 1.3–1.5 | > 1.5 |
-| Feel | ≤ 3 (1=Strong, 5=Weak) | 4 | 5 |
 | RI | ≥ 0.8 | 0.6–0.79 | < 0.6 |
 
 Missing signals are classified as `unavailable` and excluded from amber/red counts.
+
+**Feel/RPE Override:**
+Athlete-reported state (wellness Feel, activity RPE, or direct communication) can adjust the readiness_decision in either direction:
+
+- **Escalate** (Go → Modify, Modify → Skip): Unconditional. If the athlete reports feeling worse than automated signals indicate, honor it. Safety-first.
+- **De-escalate** (Modify → Go): Permitted at P2 only, under these conditions:
+  - The athlete explicitly attributes signal deviation to non-training factors (e.g., sleep tracker error, caffeine, warm room)
+  - No more than 2 signals are amber. If 3+ signals agree on fatigue, the data outweighs subjective override — the athlete may be underreporting
+  - AI must note the override and the athlete's stated reason in the coaching note
+- **P0 and P1 are not overridable.** Safety stops and acute overload conditions reflect compounding physiological signals, not single-sensor noise.
+
+Athletes can underreport fatigue — through ego, denial, or simply poor interoception. When multiple objective signals converge on fatigue and Feel contradicts them, the AI should flag the disagreement and recommend caution rather than accept the de-escalation.
 
 **Phase Modifiers (shift P2 thresholds):**
 
@@ -817,7 +902,6 @@ When recommendation is `modify`, the output includes trigger categories and adju
 | TSB-only | preserve | reduce | — |
 | ACWR-driven | reduce | reduce | Z2 |
 | Combined (2+) | reduce | reduce | — |
-| Feel-only | reduce | preserve | — |
 
 **Race week interaction:** Readiness can escalate (Go → Modify → Skip) during race week but cannot loosen race protocol targets. When `race_week_defers: true`, modification guidance defers to the race-week protocol's day-by-day targets. The race protocol sets the ceiling; readiness can only push it down.
 
@@ -840,7 +924,7 @@ When recommendation is `modify`, the output includes trigger categories and adju
 **Recovery recommendations based on TSB alone are NOT warranted** unless accompanied by:
 - HRV ↓ > 20%
 - RHR ↑ ≥ 5 bpm
-- Feel ≥ 4/5
+- Feel ≥ 4/5 (wellness, if available)
 - Performance decline
 
 A negative TSB is the mechanism of adaptation, not a warning signal.
@@ -851,7 +935,7 @@ A negative TSB is the mechanism of adaptation, not a warning signal.
 
 In addition to recovery-based deload conditions, AI systems must detect readiness for safe workload, intensity, or interval progression ("green-light" criteria).
 
-#### Readiness Thresholds (All Must Be Met)
+#### Readiness Thresholds (All Available Must Be Met)
 
 | **Metric**            | **Threshold**                           |
 |-----------------------|-----------------------------------------|
@@ -860,7 +944,7 @@ In addition to recovery-based deload conditions, AI systems must detect readines
 | Recovery Index (RI)   | ≥ 0.85 (7-day rolling mean)             |
 | ACWR                  | Within 0.8–1.3                          |
 | Monotony              | < 2.5                                   |
-| Feel                  | ≤ 3/5 (no systemic fatigue)             |
+| Feel (if available)   | ≤ 3/5 (no systemic fatigue)             |
 
 ---
 
@@ -981,10 +1065,25 @@ It governs acute, session-level performance safety, ensuring localized overreach
 - Sleep Quality (1–4): Subjective quality rating (inverted scale: 1=Great, 4=Poor) — manual entry or auto-derived from device sleep score
 - Feel (1–5): Manual subjective entry (1=Strong, 2=Good, 3=Normal, 4=Poor, 5=Weak)
 
+**Extended Wellness Fields (v3.85+):** sync.py passes through all Intervals.icu wellness fields — subjective state (stress, mood, motivation, injury, fatigue, soreness, hydration), vitals (spO2, blood glucose, blood pressure, Baevsky SI, lactate, respiration), body composition (body fat, abdomen), nutrition (kcal, carbs, protein, fat), lifestyle (steps, hydration volume), and cycle tracking (menstrual phase). All categorical fields use a 1→4 positional scale where **1 = best state, 4 = worst state**. Per-field labels are in `wellness_field_scales` in READ_THIS_FIRST. Fields are null when not reported. These are coaching context — none are wired into the automated readiness_decision pipeline.
+
+**Feel/RPE exists at three levels — usage differs by layer:**
+
+| Layer | Source | When to use |
+|-------|--------|-------------|
+| Wellness Feel (1–5) | Daily wellness entry | Use when present in data. If absent: solicit only when other wellness signals are ambiguous and Feel would change the decision. |
+| Activity Feel/RPE | Per-activity rating (post-session) | Use when present in activity data. If absent: solicit after key sessions or when compliance assessment is borderline. |
+| In-session RPE | Real-time during workout | Athlete-volunteered mid-session. Drives bail-out and intensity adjustment rules (Section 9). |
+
+Feel/RPE is not wired into the automated readiness_decision pipeline. It enriches coaching decisions when available and is solicited when decision-relevant — never required as routine input.
+
 **Decision Logic:**
 - HRV ↓ > 20% vs baseline → Active recovery / easy spin
 - RHR ↑ ≥ 5 bpm vs baseline → Fatigue / illness flag
 - Sleep Quality = 4 → Reduce next-session intensity by 1 zone
+
+The following thresholds apply to wellness-level Feel. If Feel is present in the data, use it. If absent and other signals are ambiguous, solicit it. If absent and the picture is clear, do not ask.
+
 - Feel ≥ 4 → Treat as low readiness; monitor for compounding fatigue  
 - Feel ≥ 4 + 1 trigger (HRV, RHR, or Sleep deviation) → Insert 1–2 days of Z1-only training
 - 1 trigger persisting ≥2 days → Insert 1–2 days of Z1-only training
@@ -993,7 +1092,7 @@ It governs acute, session-level performance safety, ensuring localized overreach
 **Integration:**
 Daily metrics synchronised through data hierarchy and mirrored in JSON dataset each morning. AI-coach systems must reference latest values before prescribing or validating any session.
 
-If HRV unavailable, "Feel" substitutes as primary readiness indicator.
+If HRV unavailable, Sleep quality substitutes as primary subjective readiness indicator.
 
 ---
 
@@ -1046,7 +1145,7 @@ Any training modification requires reconfirming **HRV**, **RHR**, and **subjecti
 **⚠️ Metric Hierarchy:**  
 These metrics are **secondary** to the primary readiness markers defined in Section 8 (Readiness & Recovery Thresholds). AI systems must evaluate in this order:
 
-1. **Primary readiness:** RI, HRV, RHR, Feel
+1. **Primary readiness:** RI, HRV, RHR, Sleep
 2. **Secondary load metrics:** Stress Tolerance, Load-Recovery Ratio, Consistency Index
 3. **Tertiary diagnostics:** Zone Distribution Metrics, Durability Sub-Metrics, Capability Metrics (Aggregate Durability, TID Drift)
 
@@ -1305,7 +1404,7 @@ To ensure AI systems evaluate metrics in the correct order:
 │  • Recovery Index (RI)                                      │
 │  • HRV (vs baseline)                                        │
 │  • RHR (vs baseline)                                        │
-│  • Feel / RPE (subjective)                                  │
+│  • Sleep (quality + hours)                                  │
 │                                                             │
 │  → These determine GO / NO-GO for training                  │
 └─────────────────────────────────────────────────────────────┘
@@ -1637,7 +1736,7 @@ When a plan requires a structured session (per Section 4), the AI must select fr
 
 **Selection rules:**
 - Match target adaptation (Sweet Spot, VO₂max, Endurance, etc.) to the session slot identified by the plan.
-- Use Section 11 A readiness outputs (TSB, RI, HRV trend, Feel score) to choose the appropriate format variant and intensity level within that adaptation category.
+- Use Section 11 A readiness outputs (TSB, RI, HRV trend) to choose the appropriate format variant and intensity level within that adaptation category.
 - Apply the Reference Library's session sequencing rules when placing sessions within the microcycle.
 - Warm-up and cool-down structures must follow the Reference Library's WU/CD protocols unless the athlete has documented personal preferences.
 
@@ -1738,7 +1837,7 @@ This subsection defines the formal self-validation and audit metadata structure 
 
 | Field                          | Type     | Description                                                                         |
 |--------------------------------|----------|-------------------------------------------------------------------------------------|
-| `data_source_fetched`          | boolean  | Whether JSON was successfully fetched from mirror URL                               |
+| `data_source_fetched`          | boolean  | Whether JSON was successfully loaded from data source (local files, connector, or URL) |
 | `json_fetch_status`            | string   | "success" / "failed" / "unavailable" — stop and request manual input if not success |
 | `protocol_version`             | string   | Section 11 version being followed                                                   |
 | `checklist_passed`             | array    | List of checklist items (1–10) that passed validation                               |
@@ -1770,7 +1869,7 @@ This subsection defines the formal self-validation and audit metadata structure 
 | `readiness_decision`           | object   | Pre-computed go/modify/skip decision (v3.72+). Top-level, alongside `alerts`. |
 | `readiness_decision.recommendation` | string | "go" / "modify" / "skip" — baseline recommendation for pre-workout reports. |
 | `readiness_decision.priority`  | number   | 0 (safety stop), 1 (acute overload), 2 (accumulated fatigue), 3 (green light). |
-| `readiness_decision.signals`   | object   | Per-signal status objects (hrv, rhr, sleep, tsb, acwr, feel, ri). Each has `status` (green/amber/red/unavailable) and raw values with deltas. |
+| `readiness_decision.signals`   | object   | Per-signal status objects (hrv, rhr, sleep, tsb, acwr, ri). Each has `status` (green/amber/red/unavailable) and raw values with deltas. |
 | `readiness_decision.signal_summary` | object | Pre-counted tallies: `green`, `amber`, `red`, `unavailable`. |
 | `readiness_decision.phase_context` | object | `phase`, `phase_week`, `amber_threshold`, `modifier_applied` — shows which phase rule shifted thresholds. |
 | `readiness_decision.race_week_defers` | boolean | When true, modification guidance defers to race-week protocol day-by-day targets. |
@@ -1794,6 +1893,7 @@ This subsection defines the formal self-validation and audit metadata structure 
 | `w_prime_confidence`           | string   | Confidence level of W′ estimates ("high" / "medium" / "low" / "unavailable")        |
 | `seiler_tid_7d`                | string   | Seiler TID classification for 7-day window (Polarized/Pyramidal/Threshold/etc.) |
 | `seiler_tid_28d`               | string   | Seiler TID classification for 28-day window                                     |
+| `zone_basis`                   | string/null | Zone basis used for aggregation: `"power"`, `"hr"`, or `"mixed"`. Present on `zone_distribution_7d`, all `seiler_tid_*` blocks. Null when no zone data available. Reflects `ZONE_PREFERENCE` config. |
 | `tid_drift`                    | string   | TID drift category: "consistent" / "shifting" / "acute_depolarization"          |
 | `durability_7d_mean`           | number   | Mean HR–Power decoupling (%) from qualifying steady-state sessions, 7-day       |
 | `durability_28d_mean`          | number   | Mean HR–Power decoupling (%) from qualifying steady-state sessions, 28-day      |
@@ -1809,7 +1909,7 @@ This subsection defines the formal self-validation and audit metadata structure 
 
 | Field                 | Type    | Description                                                                         |
 |-----------------------|---------|-------------------------------------------------------------------------------------|
-| `data_source_fetched` | boolean | Whether JSON was successfully fetched from mirror URL                               |
+| `data_source_fetched` | boolean | Whether JSON was successfully loaded from data source (local files, connector, or URL) |
 | `json_fetch_status`   | string  | "success" / "failed" / "unavailable" — stop and request manual input if not success |
 | `plan_version`        | string  | Version identifier for the plan                                                     |
 | `phase`               | string  | Current macro-phase (Base/Build/Peak/Taper/Recovery)                                |

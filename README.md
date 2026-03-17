@@ -51,13 +51,13 @@ You can also follow the step-by-step guides below.
 
 Copy `DOSSIER_TEMPLATE.md` and fill in your athlete profile (age, weight, goals), equipment, current FTP/HR zones, training schedule, and nutrition protocol.
 
-### 2. Set Up Your Data Sync (Recommended)
+### 2. Set Up Your Data Sync
 
 Keep your Intervals.icu data fresh for your AI coach automatically.
 
 **[GitHub sync](examples/json-auto-sync/SETUP.md)** — GitHub Actions syncs every 15 minutes to a private repo. Your AI reads via GitHub connector or raw URL. Zero maintenance after setup.
 
-**[Local sync](examples/json-local-sync/SETUP.md)** — a script on a machine you control syncs your data on a timer. Your AI reads directly from the filesystem or via a cloud connector (Google Drive, OneDrive, etc.). No GitHub needed.
+**[Local sync](examples/json-local-sync/SETUP.md)** — a script on a machine you control syncs your data on a 60-second timer. Your AI reads directly from the filesystem or via a cloud connector (Google Drive, OneDrive — [platform support varies](#platform-setup)). No GitHub needed.
 
 **[Manual export](examples/json-manual/SETUP.md)** — run once, upload the file. No automation.
 
@@ -68,14 +68,14 @@ Choose your path:
 - **[Web Chat Platforms](#web-chat-setup)** — ChatGPT Projects, Claude Projects, Gemini Gems, Grok, Mistral Le Chat
 - **[Agentic Platforms](#agentic-setup)** — OpenClaw, Claude Code, Claude Cowork, ChatGPT Codex, Gemini CLI (code execution, push workouts to calendar)
 
-### 4. Upload Files
+### 4. Make Files Available to Your AI
 
-Upload these files to your AI platform's knowledge base:
+Your AI needs access to `SECTION_11.md` (the protocol) and `DOSSIER.md` (your profile). How depends on your setup:
 
-| File | Purpose |
-|------|---------|
-| `SECTION_11.md` | The coaching protocol (required) |
-| `DOSSIER.md` | Your athlete profile (required) |
+- **GitHub connector:** If these files are in your connected repo, the AI reads them directly — no upload needed. If only `DOSSIER.md` is in your data repo, upload `SECTION_11.md` separately (or connect the CrankAddict/section-11 repo too).
+- **Cloud connector (Google Drive, OneDrive — [platform support varies](#platform-setup)):** If these files are in your synced folder, the AI reads them through the connector — no upload needed.
+- **Local/agentic:** The AI reads directly from the filesystem — no upload needed.
+- **URL fetch (no connector):** Upload both files to your AI platform's knowledge base manually.
 
 ---
 
@@ -93,30 +93,54 @@ Add these instructions to your AI Project/Space settings:
 You are my endurance coach. Follow Section 11 protocol strictly.
 
 ## DATA ACCESS:
-1. Note today's date
-2. Fetch: https://raw.githubusercontent.com/[you]/[repo]/main/latest.json (append ?date= with today's date to ensure fresh data)
-3. Fetch: https://raw.githubusercontent.com/[you]/[repo]/main/history.json (append ?date= with today's date to ensure fresh data)
-4. If activities don't match today's date, re-fetch before concluding no data exists
+Read data using the first method that works:
+1. **Connected repo/filesystem** — If data files are available via connector (GitHub, Google Drive, OneDrive — platform support varies) or local filesystem, read latest.json, history.json, and intervals.json directly
+2. **URL fetch** — Fetch https://raw.githubusercontent.com/[USERNAME]/[REPO]/main/latest.json (append ?date= with today's date). Same for history.json
+3. If activities don't match today's date, re-fetch or re-read before concluding no data exists
+4. Load intervals.json when analysing a specific activity with `has_intervals: true` — use for interval compliance, pacing, cardiac drift, recovery quality
 
-Do NOT ask me for data — fetch it yourself.
+Do NOT ask me for data — read or fetch it yourself.
+
+## SOURCE HIERARCHY:
+1. **JSON data** — Current metrics from latest.json (READ/FETCH FIRST) + longitudinal data from history.json + interval detail from intervals.json (on-demand)
+2. **Section 11 protocol** (attached) — Coaching rules, thresholds, metric hierarchy
+3. **Dossier** — Athlete profile, zones, goals
+4. **Report templates** — Fetch from https://github.com/CrankAddict/section-11/tree/main/examples/reports if not attached
+
+Do NOT search web for training advice. Section 11 is the authority.
+
+## OUTPUT FORMAT:
+No citations, no source markers, no parenthetical references. Raw data and analysis only.
+
+**Post-workout reports** use structured line-by-line format per session (not bullets). Flow:
+1. Data timestamp
+2. One-line summary
+3. Session block(s) — one per activity, line-by-line:
+   Activity type & name, start time, duration (actual vs planned), distance, power (avg/NP), power zones (%), Grey Zone (Z3) %, Quality (Z4+) %, HR (avg/max), HR zones (%), cadence, decoupling (with label), EF (when power + HR available), Variability Index (with label), calories (kcal), carbs used (g), TSS (actual vs planned)
+4. Weekly totals: Polarization, Durability (7d/28d + trend), TID 28d (+ drift), TSB, CTL, ATL, Ramp rate, ACWR, Hours, TSS
+5. Overall: Coach note (2–4 sentences — compliance, quality observations, load context, recovery note)
+
+Omit fields only if data unavailable for that activity type.
+
+**Pre-workout reports** must include: readiness (HRV, RHR, Sleep vs baselines), load context (TSB, ACWR, Monotony if > 2.3), capability snapshot (durability 7d + trend, TID drift if not consistent), today's planned workout, Go/Modify/Skip recommendation.
 
 ## RULES:
-- Section 11 protocol is the authority — do NOT search the web for training advice
-- No virtual math — use fetched values for CTL, ATL, TSB, ACWR, RI, zones, etc.
-- TSB −10 to −30 is normal — don't flag recovery unless other triggers present
-- Metric hierarchy: Tier 1 (RI, HRV, RHR, Feel) → Tier 2 (ACWR, Monotony) → Tier 3 (diagnostics)
-- No citations, source markers, or parenthetical references — raw data and analysis only
+- Follow Section 11 validation checklist (Step 0: Data Source Fetch)
+- No virtual math on pre-computed metrics — use fetched values for CTL, ATL, TSB, ACWR, RI, zones, etc. Custom analysis from raw data is fine when pre-computed values don't cover the question
+- TSB −10 to −30 is typically normal — don't recommend recovery unless other triggers present
+- Metric hierarchy: Tier 1 (RI, HRV, RHR, Sleep) → Tier 2 (Stress Tolerance, Load-Recovery Ratio, ACWR) → Tier 3 (diagnostics)
 - Brief when metrics are normal. Detailed when thresholds are breached or I ask "why"
-- Fetch report templates from https://github.com/CrankAddict/section-11/tree/main/examples/reports if not attached
 
-## DOCUMENTS ATTACHED:
-- SECTION_11.md — AI coaching protocol
-- DOSSIER.md — Profile, zones, goals
+## DOCUMENTS:
+- SECTION_11.md — AI coaching protocol (attached, in connected repo, or fetch from CrankAddict/section-11)
+- DOSSIER.md — Profile, zones, goals (attached or in connected data repo)
 ```
 
-**Replace `[you]/[repo]` with your GitHub data mirror path.**
+**If using URL fetch:** Replace `[USERNAME]/[REPO]` with your GitHub data mirror path.
 
-> **Note:** If you're using a platform with a GitHub connector (most platforms now support this), you can skip the fetch URLs and let the connector access your repo directly. The AI will read `latest.json` and `history.json` from your connected repository.
+**If using a connector (GitHub, Google Drive, OneDrive — [platform support varies](#platform-setup)):** The AI reads files directly — no URL editing needed. If you committed `DOSSIER.md` to your data repo, the connector provides your data and dossier in one connection. `SECTION_11.md` can be uploaded separately or accessed via a second connector to the CrankAddict/section-11 repo.
+
+**If using local sync:** The AI reads files from the data directory. No URL editing needed. See [local sync setup](examples/json-local-sync/SETUP.md) for project instructions tailored to filesystem access.
 
 ### Platform Setup
 
@@ -126,19 +150,32 @@ Most major AI platforms now have native GitHub connectors that can access privat
 
 | Platform | GitHub Connector | Private Repos | Can Trigger Actions | Plan Notes |
 |----------|-----------------|---------------|---------------------|------------|
-| ChatGPT | Settings → Apps → GitHub | Yes | No (read-only) | Varies by plan and experience |
-| Claude | Settings → Integrations → GitHub | Yes | No (read-only) | All plans including Free |
-| Gemini | + → Import code / Connected Apps | Yes (link account) | No (read-only snapshot) | Account/region dependent — see Gemini docs |
-| Grok | Settings → Connected Apps | Rolling out | TBD | Plan requirements TBD |
+| ChatGPT | Settings → Apps → GitHub | Yes | No (read-only)¹ | Varies by plan and experience |
+| Claude | Settings → Integrations → GitHub | Yes | No (read-only)² | All plans including Free |
+| Gemini | + → Import code / Connected Apps | Yes (link account) | No (read-only snapshot)³ | Account/region dependent — see Gemini docs |
+| Grok | Settings → Connected Apps | Yes | No (read-only) | Grok Business/Enterprise; consumer tier availability TBD |
 | Mistral | Connectors directory (MCP) | Yes | Not yet (writes supported, dispatch TBD) | All tiers including free |
 | Perplexity | App Connectors → GitHub | Yes | No (read-only) | Pro, Max, and Enterprise |
+
+**Google Drive connector status (.json files).** For users on the [local sync](examples/json-local-sync/SETUP.md) path who want their AI to read data files via Google Drive instead of GitHub.
+
+| Platform | Google Drive (.json) | How to Connect | Plan Notes |
+|----------|---------------------|----------------|------------|
+| Gemini | ✅ | + → Drive (enable Workspace extensions) | Free tier works |
+| Perplexity | ✅ | Settings → Connectors → Google Drive | Pro, Max, and Enterprise |
+| ChatGPT | ⚠️ | Settings → Apps → Google Drive | Workspace accounts only — not personal Gmail |
+| Claude | ❌ | — | Google Docs only — use GitHub connector |
+| Grok | ✅ | Settings → Connected Apps → Google Drive | Business/Enterprise only |
+| Mistral | ⚠️ | Side panel → Connectors → Google Drive | Visible on all tiers; access not yet available |
+
+**Note:** Cloud storage connectors are still rolling out across platforms. Availability may change by plan, region, and account type. Check your platform's current connector settings if something listed here doesn't appear.
 
 #### ChatGPT (Projects)
 
 1. Create a Project
 2. Add instructions to Project settings
-3. Upload SECTION_11.md and DOSSIER.md to "Project Files"
-4. **GitHub connector:** Settings → Apps → GitHub → Connect → authorize repos. Once connected, ChatGPT can read your private data repo directly.
+3. **GitHub connector:** Settings → Apps → GitHub → Connect → authorize repos. Once connected, ChatGPT reads your private data repo directly — and any files in it (including `DOSSIER.md` if you committed it).
+4. **No connector?** Upload SECTION_11.md and DOSSIER.md to "Project Files". If using the connector but `SECTION_11.md` isn't in your data repo, upload it separately (or connect the CrankAddict/section-11 repo too).
 
 #### ChatGPT (CustomGPT)
 
@@ -151,16 +188,16 @@ Most major AI platforms now have native GitHub connectors that can access privat
 
 1. Create a Project
 2. Add instructions to "Project Instructions"
-3. Upload SECTION_11.md and DOSSIER.md to "Project Knowledge"
-4. **GitHub connector:** Click "+" in Project Knowledge → search/paste your repo URL → select files. Or connect via Settings → Integrations → GitHub. Available on all plans including Free.
+3. **GitHub connector:** Click "+" in Project Knowledge → search/paste your repo URL → select files. Or connect via Settings → Integrations → GitHub. Available on all plans including Free.
+4. **No connector?** Upload SECTION_11.md and DOSSIER.md to "Project Knowledge". If using the connector but `SECTION_11.md` isn't in your data repo, upload it separately (or connect the CrankAddict/section-11 repo too).
 5. Enable "Web search" in settings if using URL-based fetch instead of the connector
 
 #### Gemini (Gems)
 
 1. Create Gem
-2. Paste instructions + Section 11 content in instructions field
-3. Upload dossier or paste contents
-4. **GitHub connector:** In Gemini web chat, click **+** → **Import code**, paste the repo URL, and authorize. This also works for Gems. For private repos, authorize your GitHub account when prompted.
+2. Paste instructions in instructions field
+3. **GitHub connector:** Click **+** → **Import code**, paste the repo URL, and authorize. This also works for Gems. For private repos, authorize your GitHub account when prompted.
+4. **No connector?** Paste Section 11 content into the instructions field and upload dossier separately. If using the connector but `SECTION_11.md` isn't in your data repo, upload it separately.
 
 > **Note:** Not all Google accounts have the same access. Gemini's capabilities vary by account type, Workspace edition, and region. If Gemini can't access your repo, see [Troubleshooting](#troubleshooting).
 
@@ -168,20 +205,22 @@ Most major AI platforms now have native GitHub connectors that can access privat
 
 1. Create Project
 2. Add instructions to Project configuration
-3. Upload files to "Sources"
-4. **GitHub connector:** Settings → Connected Apps → GitHub → Connect. Rolling out — availability may vary by plan.
+3. **GitHub connector:** Settings → Connected Apps → GitHub → Connect. Available on Grok Business and Enterprise plans; consumer tier availability TBD.
+4. **No connector?** Upload SECTION_11.md and DOSSIER.md to "Sources". If using the connector but some files aren't in your data repo, upload those separately.
 
 #### Mistral (Le Chat)
 
 1. Create New Project
-2. Add instructions and upload files
+2. Add instructions
 3. **GitHub connector:** Open side panel → Intelligence → Connectors → find GitHub in the directory → Connect and authorize. Available on all tiers including free.
+4. **No connector?** Upload SECTION_11.md and DOSSIER.md during project creation. If using the connector but some files aren't in your connected repo, upload those separately.
 
 #### Perplexity
 
 1. Create a Space (or use standard chat)
-2. Add instructions and upload files
-3. **GitHub connector:** Available on Pro, Max, and Enterprise plans via App Connectors. Free users should use URL-based fetch (requires public repo) or upload files manually.
+2. Add instructions
+3. **GitHub connector:** Available on Pro, Max, and Enterprise plans via App Connectors.
+4. **No connector?** Upload SECTION_11.md and DOSSIER.md to the Space. Free users without connector access should use URL-based fetch (requires public repo) or upload files manually.
 
 ---
 
@@ -189,7 +228,7 @@ Most major AI platforms now have native GitHub connectors that can access privat
 
 For AI platforms that can execute code, access the filesystem, and run shell commands. These platforms can read your JSON files directly (no web fetch needed), push planned workouts to your Intervals.icu calendar, and run sync.py locally.
 
-> **Recommended for agentic: [Local sync](examples/json-local-sync/SETUP.md).** sync.py runs on a timer, the agent reads files directly. Cheapest, fastest, most reliable. No GitHub needed.
+> **Recommended for agentic: [Local sync](examples/json-local-sync/SETUP.md).** sync.py runs on a 60-second timer, the agent reads files directly. Cheapest, fastest, most reliable. No GitHub needed.
 
 > **Alternative: GitHub sync.** A private repo with GitHub Actions gives you multi-device access and backup. Follow the per-platform instructions below.
 
@@ -218,7 +257,7 @@ Cowork runs on your local machine and can read files directly from your filesyst
 
 1. Connect your GitHub account via the ChatGPT GitHub connector at [chatgpt.com/codex](https://chatgpt.com/codex)
 2. Authorize access to your private training data repo during setup
-3. Codex clones the repo into an isolated container and reads `latest.json` and `history.json` directly
+3. Codex clones the repo into an isolated container and reads `latest.json`, `history.json`, and `intervals.json` directly
 4. The Codex CLI works locally with your existing filesystem and Git setup
 
 ### Gemini CLI
@@ -288,7 +327,7 @@ After configuration, test with:
 
 Most AI platforms now have GitHub connectors that can access private repos directly. Check the [Platform Setup](#platform-setup) table for your platform's connector path.
 
-If your platform doesn't support connectors or you can't get them working: use a public repo, upload `latest.json` and `history.json` manually to your AI Project/Space, or use an [agentic platform](#agentic-setup) with GitHub access configured.
+If your platform doesn't support connectors or you can't get them working: use a public repo, upload `latest.json`, `history.json`, and `intervals.json` manually to your AI Project/Space, or use an [agentic platform](#agentic-setup) with GitHub access configured.
 
 ### Data appears stale after sync
 
@@ -303,6 +342,12 @@ If your platform doesn't support connectors or you can't get them working: use a
 - Check workflow permissions are set to "Read and write" (Settings → Actions → General → Workflow permissions)
 - See [examples/json-auto-sync/SETUP.md](examples/json-auto-sync/SETUP.md) for workflow-specific issues
 
+### Activities show null or missing fields
+
+If your device syncs through Strava, the API returns stripped data. Strava's API terms restrict detailed fields when accessed through third-party APIs — Intervals.icu shows everything in the UI, but the API returns empty fields.
+
+**Fix:** Connect your device (Garmin, Wahoo, etc.) directly to Intervals.icu in Settings → Connections. Keep Strava connected if you want, but the training data needs to come in direct.
+
 ### Gemini can't access your repo or ignores data
 
 - Enable the GitHub extension: gemini.google.com → Settings → Extensions (Connected Apps) → turn on GitHub
@@ -312,13 +357,13 @@ If your platform doesn't support connectors or you can't get them working: use a
 
 ### Grok can't connect to GitHub
 
-The GitHub connector for Grok is still rolling out. If it's not available in your Settings → Connected Apps, upload files manually or use a public repo with URL-based fetch.
+The GitHub connector for Grok requires a Grok Business or Enterprise plan. If it's not available in your Settings → Connected Apps, upload files manually or use a public repo with URL-based fetch.
 
 ### AI fabricates metrics or ignores synced data
 
 This can happen when the AI fails to fetch or parse your JSON data, when the context window overflows, or when the platform's web search doesn't reliably retrieve raw JSON.
 
-**Nuclear option:** Download the full [section-11 repo](https://github.com/CrankAddict/section-11) as a zip and upload it directly into your AI Project, Gem, Space, or chat. This bypasses all fetch/connector issues and gives the AI the protocol and templates in one package. You'll still need to provide your own `latest.json`, `history.json`, and `DOSSIER.md` separately.
+**Nuclear option:** Download the full [section-11 repo](https://github.com/CrankAddict/section-11) as a zip and upload it directly into your AI Project, Gem, Space, or chat. This bypasses all fetch/connector issues and gives the AI the protocol and templates in one package. You'll still need to provide your own `latest.json`, `history.json`, `intervals.json`, and `DOSSIER.md` separately.
 
 ---
 
@@ -430,15 +475,21 @@ The protocol is designed to work with [Intervals.icu](https://intervals.icu) as 
 
 The sync script pre-calculates Section 11-compliant metrics so AI doesn't need to compute them. Key metrics include ACWR, Recovery Index, Monotony/Strain, Grey Zone %, Quality Intensity %, Polarisation Index, Benchmark Index, Phase Detection, Seiler TID, Aggregate Durability, and TID Drift.
 
+Zone aggregations (TID, polarization, grey zone %) default to power zones with HR fallback. Configure `ZONE_PREFERENCE` to override per sport — e.g. `run:hr,cycling:power` for runners who prefer HR-based zone analysis. See [auto-sync setup](examples/json-auto-sync/SETUP.md) or [local sync setup](examples/json-local-sync/SETUP.md) for configuration.
+
 See [examples/README.md](examples/README.md) for the full derived metrics table and data output structure.
 
 ### Longitudinal History
 
-The script generates `history.json` with tiered granularity: daily (90 days), weekly (180 days), and monthly (up to 3 years). Includes period summaries, FTP timeline, and data gap detection. Provide both `latest.json` and `history.json` to your AI coach for the most complete analysis.
+The script generates `history.json` with tiered granularity: daily (90 days), weekly (180 days), and monthly (up to 3 years). Includes period summaries, FTP timeline, and data gap detection. Provide `latest.json`, `history.json`, and `intervals.json` to your AI coach for the most complete analysis.
 
 ### FTP History Tracking
 
 The script maintains `ftp_history.json` to track indoor and outdoor FTP changes over time, enabling Benchmark Index calculation. See [examples/json-auto-sync/SETUP.md](examples/json-auto-sync/SETUP.md#ftp-history-tracking) for details.
+
+### Interval-Level Data
+
+The script generates `intervals.json` with per-interval segment data (power, HR, cadence, zone, decoupling, W'bal) for recent structured sessions. Activities with interval data are flagged with `has_intervals: true` in `latest.json`. Incrementally cached with a 72h scan window and 7-day retention. Only activities in whitelisted sport families (cycling, run, ski, rowing, swim) with detected interval structure are included.
 
 ### Update Notifications
 
@@ -530,6 +581,7 @@ The software is provided "as is", without warranty of any kind.
 - [x] Longitudinal history generation (tiered granularity)
 - [x] Upstream update notifications via GitHub Issues
 - [x] Capability metrics (aggregate durability, dual-timeframe TID)
+- [x] Interval-level data (per-segment power, HR, cadence, decoupling for structured sessions)
 
 ---
 

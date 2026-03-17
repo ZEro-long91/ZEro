@@ -70,6 +70,8 @@ Wellness (block avg vs previous block):
   HRV: 53 ms (prev block: 51 ms) ↑ improving
   RHR: 49 bpm (prev block: 50 bpm) → stable — no concern
   Sleep: 7h6m (prev block: 6h48m) ↑ improving
+  Avg Feel: 2.4/5 (18 sessions) (prev block: 2.6/5) → stable
+  Avg RPE: 4.5/10 (18 sessions) (prev block: 4.2/10) → stable
   Avg RI: 0.91 (prev block: 0.87)
   Avg Monotony: 1.82 (normal)
 
@@ -190,6 +192,8 @@ Wellness (block avg vs previous block):
   HRV: 47 ms (prev block: 53 ms) ↓ declining — flag
   RHR: 52 bpm (prev block: 49 bpm) ↑ elevated — monitor
   Sleep: 6h24m (prev block: 7h6m) ↓ declining — monitor
+  Avg Feel: 3.8/5 (14 sessions) (prev block: 2.4/5) ↓ declining — flag
+  Avg RPE: 7.2/10 (14 sessions) (prev block: 4.5/10) ↑ elevated — flag
   Avg RI: 0.79 (prev block: 0.91)
   Avg Monotony: 2.10 (elevated during illness recovery)
 

@@ -83,6 +83,8 @@ Wellness (block avg vs previous block):
   HRV: [XX] ms (prev block: [XX] ms) [↑/↓/→] [assessment]
   RHR: [XX] bpm (prev block: [XX] bpm) [↑/↓/→] [assessment]
   Sleep: [XhYm] (prev block: [XhYm]) [↑/↓/→] [assessment]
+  Avg Feel: [X.X]/5 ([X] sessions) (prev block: [X.X]/5)
+  Avg RPE: [X.X]/10 ([X] sessions) (prev block: [X.X]/10)
   Avg RI: [X.XX] (prev block: [X.XX])
   Avg Monotony: [X.XX] ([note])
 
@@ -127,6 +129,8 @@ Next Block Plan:
 | **Phase Timeline** | `phase_detected` from each weekly_180d row | Shows phase stability across block — did it hold Build the whole time or flip to Overreached? |
 | **TID 28d** | Block-scale Seiler classification | 28d window roughly matches block length; confirms or challenges weekly TID |
 | **Wellness assessment** | Directional + threshold label | "declining — monitor" / "stable — no concern" / "improving" |
+| **Avg Feel** | Activity-level average from `weekly_180d.avg_feel` | 1=Strong to 5=Weak. Omit if 0 sessions across block. Rising feel (higher number) across block = accumulating fatigue |
+| **Avg RPE** | Activity-level average from `weekly_180d.avg_rpe` | 1–10 Borg scale. Omit if 0 sessions across block. Rising RPE at constant load = fatigue signal |
 | **Phase Progression Check** | Section 11 phase detection criteria | Explicitly states whether block met progression criteria |
 | **Section 11 Flags** | All flags triggered during block | With dates and how they were resolved |
 

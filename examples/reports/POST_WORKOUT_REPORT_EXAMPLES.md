@@ -30,6 +30,8 @@ Variability Index: 1.01 (good)
 Calories: 1396 kcal
 Carbs used: 268 g
 TSS: 82 (planned 78)
+Feel: 2/5 (Good)
+RPE: 3/10
 
 Completed workout: VirtualRowing Recovery Session
 Start time: 12:45:00
@@ -87,6 +89,8 @@ Variability Index: 1.15
 Calories: 962 kcal
 Carbs used: 196 g
 TSS: 95 (planned 90)
+Feel: 3/5 (Normal)
+RPE: 7/10
 
 Weekly totals:
 Polarization: Z1+Z2 84%, Z3 2%, Z4+ 13%

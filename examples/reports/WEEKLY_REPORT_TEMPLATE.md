@@ -74,6 +74,8 @@ Wellness Trends:
   HRV: [XX]–[XX] ms (avg [XX], prev week [XX]) [↑/↓/→]
   RHR: [XX]–[XX] bpm (avg [XX], prev week [XX]) [↑/↓/→]
   Sleep: [XhYm] avg, quality [X.X]/4 avg [↑/↓/→]
+  Avg Feel: [X.X]/5 ([X] sessions) [↑/↓/→]
+  Avg RPE: [X.X]/10 ([X] sessions) [↑/↓/→]
 
 Section 11 Flags: [list any triggered flags, or "None"]
 
@@ -102,6 +104,8 @@ focus areas. Reference load targets and phase progression.]
 | **HRRc** | Aggregate heart rate recovery from capability.hrrc | Largest 60s HR drop after threshold. Higher = better. Omit entire section if 28d < 3 qualifying sessions. Display only when `hrrc` is non-null per activity |
 | **ACWR breakdown** | 7d acute / 28d chronic | Show components so athlete understands the ratio |
 | **Wellness arrows** | Week-over-week comparison | ↑ improving, ↓ declining, → stable |
+| **Avg Feel** | Activity-level average from `weekly_180d.avg_feel` | 1=Strong to 5=Weak. Count = sessions with feel populated. Omit line if 0 sessions. Lower is better |
+| **Avg RPE** | Activity-level average from `weekly_180d.avg_rpe` | 1–10 Borg scale. Count = sessions with RPE populated. Omit line if 0 sessions |
 | **Section 11 Flags** | Protocol flag triggers | Surface mid-week flags here, don't wait for block report |
 | **Ramp rate** | CTL change per week | >1.5 = aggressive, monitor closely |
 

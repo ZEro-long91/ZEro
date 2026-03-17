@@ -25,6 +25,7 @@ Built on the [Section 11 Protocol](https://github.com/CrankAddict/section-11).
 |------|-------------|------|
 | `latest.json` | Current 7-day snapshot + derived metrics | [View](https://raw.githubusercontent.com/YOUR_GITHUB_USER/YOUR_REPO_NAME/main/latest.json) |
 | `history.json` | Longitudinal data (daily/weekly/monthly) | [View](https://raw.githubusercontent.com/YOUR_GITHUB_USER/YOUR_REPO_NAME/main/history.json) |
+| `intervals.json` | Per-interval data for structured sessions | [View](https://raw.githubusercontent.com/YOUR_GITHUB_USER/YOUR_REPO_NAME/main/intervals.json) |
 
 ## Auto-Sync
 
@@ -36,6 +37,7 @@ Data syncs every 15 minutes via GitHub Actions. The pipeline pulls activities, w
 Analyze my training using these data files:
 - Current: https://raw.githubusercontent.com/YOUR_GITHUB_USER/YOUR_REPO_NAME/main/latest.json
 - History: https://raw.githubusercontent.com/YOUR_GITHUB_USER/YOUR_REPO_NAME/main/history.json
+- Intervals: https://raw.githubusercontent.com/YOUR_GITHUB_USER/YOUR_REPO_NAME/main/intervals.json
 ```
 
 For best results, pair with the [Section 11 instruction set](https://github.com/CrankAddict/section-11).
