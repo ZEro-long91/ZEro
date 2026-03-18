@@ -1,3 +1,4 @@
+
 name: Auto-Sync Intervals.icu Data
 
 on:
@@ -57,6 +58,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPO: ${{ github.repository }}
           WEEK_START: ${{ secrets.WEEK_START }}
+          ZONE_PREFERENCE: ${{ secrets.ZONE_PREFERENCE }}
         run: |
           echo "🔍 Debug info:"
           echo "  Python version: $(python --version)"
@@ -118,6 +120,10 @@ jobs:
             if [ -f latest.json ]; then
               git add latest.json
               echo "✅ Staged latest.json"
+            fi
+            if [ -f intervals.json ]; then
+              git add intervals.json
+              echo "✅ Staged intervals.json"
             fi
             
             # Now pull - autostash will safely stash staged changes
