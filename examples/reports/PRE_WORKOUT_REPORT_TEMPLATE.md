@@ -12,6 +12,7 @@ Weather ([Location]): [icon] [temp]°C, [humidity]% humidity, [conditions], wind
 Coach note: [Brief weather-relevant tip. Omit if no actionable weather context.]
 
 Current Status Summary:
+Phase: [phase_detection.phase] Wk[phase_detection.phase_duration_weeks]
 RHR: [XX] bpm (baseline: [XX] bpm)
 HRV: [XX] ms (7d avg: [XX] ms)
 Sleep: [XhYm]
@@ -55,6 +56,7 @@ AI may override the pre-computed recommendation with explicit rationale.]
 
 | Field | Rule |
 |-------|------|
+| Phase | Include only when `phase_detection.confidence` is "high" or "medium". Omit when "low" or phase is null |
 | Weather | Include if athlete location is available via profile or memory |
 | Coach note (weather) | Include only if actionable (e.g., dress warm, indoor day) |
 | Monotony | Include **only** if > 2.3. Omit entirely when normal |

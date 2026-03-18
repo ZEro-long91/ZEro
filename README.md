@@ -41,6 +41,10 @@ Your data stays on your machine or in repos you control. Section 11 does not run
 
 ---
 
+The setup paths documented here are proven starting points — not the only ways to use Section 11. The protocol is open, and the data is yours. Build what fits you.
+
+---
+
 ## Quick Start
 
 > **Recommended:** Paste [SETUP_ASSISTANT.md](SETUP_ASSISTANT.md) into ChatGPT, Claude, Gemini, or any AI chat, and it will walk you through everything below step by step. This is the easiest path for most users.
@@ -236,7 +240,7 @@ For AI platforms that can execute code, access the filesystem, and run shell com
 
 Section 11 works well with [OpenClaw](https://github.com/openclaw/openclaw). The combination of persistent memory + autonomous execution + structured validation makes for a capable coaching setup.
 
-1. Install the GitHub skill: `npx skills add https://github.com/openclaw/openclaw --skill github`
+1. Clone or copy the Section 11 skill folder into your OpenClaw skills directory (skills are just directories with a `SKILL.md`)
 2. Authenticate: `gh auth login`
 3. For limited access, use a [fine-grained personal access token](https://github.com/settings/tokens?type=beta) scoped to your data repo only
 
@@ -302,7 +306,7 @@ After configuration, test with:
 
 **Good response includes:**
 - ✅ Readiness assessment (HRV, RHR, Sleep vs 7d/28d baselines)
-- ✅ Load context (TSB, ACWR, Monotony if > 2.0)
+- ✅ Load context (TSB, ACWR, Monotony if > 2.3)
 - ✅ Capability snapshot (durability 7d + trend, TID drift if not consistent)
 - ✅ Today's planned workout details from planned_workouts
 - ✅ Go / Modify / Skip recommendation with reasoning
@@ -398,7 +402,7 @@ Standardized metadata schema for audit trails:
   "validation_metadata": {
     "data_source_fetched": true,
     "json_fetch_status": "success",
-    "protocol_version": "11.5",
+    "protocol_version": "11.17",
     "checklist_passed": [0, 1, 2, 3, 4, 5, 6, "6b", 7, 8, 9, 10],
     "checklist_failed": [],
     "data_timestamp": "2026-01-23T10:02:07Z",
@@ -569,19 +573,6 @@ The software is provided "as is", without warranty of any kind.
 - **[Clive King](https://www.cliveking.net/)** — Pioneer of GPT-based endurance coaching and URF
 - **[Intervals.icu Forum](https://forum.intervals.icu)** community
 - **Researchers** behind the scientific frameworks cited in Section 11
-
----
-
-## Roadmap
-
-- [x] Section 11 A/B/C Protocol
-- [x] Dossier Template
-- [x] JSON sync automation scripts
-- [x] Report templates (pre/post workout)
-- [x] Longitudinal history generation (tiered granularity)
-- [x] Upstream update notifications via GitHub Issues
-- [x] Capability metrics (aggregate durability, dual-timeframe TID)
-- [x] Interval-level data (per-segment power, HR, cadence, decoupling for structured sessions)
 
 ---
 

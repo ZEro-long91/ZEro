@@ -1,10 +1,17 @@
 # Section 11 — AI Coach Protocol
 
-**Protocol Version:** 11.16  
-**Last Updated:** 2026-03-15
+**Protocol Version:** 11.17  
+**Last Updated:** 2026-03-17
 **License:** [MIT](https://opensource.org/licenses/MIT)
 
 ### Changelog
+
+**v11.17 — Phase Context + Tomorrow Preview in Report Templates:**
+- Phase line added to pre-workout (Current Status Summary) and post-workout (Weekly totals) — first line, frames all metrics below
+- Conditional: include only when `phase_detection.confidence` is "high" or "medium"; omit when "low" or null
+- Tomorrow preview added to post-workout: next planned session after interpretation. Conditional: omit when no session planned
+- Session profile field documented in post-workout Field Notes table
+- Pre/post-workout "must include" lists updated in protocol
 
 **v11.16 — Wellness Field Expansion:**
 - All Intervals.icu wellness fields now passed through: subjective state (stress, mood, motivation, injury, fatigue, soreness, hydration), vitals (spO2, blood glucose, blood pressure, Baevsky SI, lactate, respiration), body composition (body fat, abdomen), nutrition (kcal, carbs, protein, fat), lifestyle (steps, hydration volume), cycle tracking (menstrual phase + predicted)
@@ -50,48 +57,10 @@
 - Phase timeline added to block report template
 - References: Fecchio et al. (2019) HRR reproducibility; Lamberts et al. (2024) cyclist HRR reliability; Buchheit (2006)
 
-**v11.11 — Phase Detection v2 (Dual-Stream Architecture):**
-- Phase detection rewritten from single-point snapshot to dual-stream architecture
-- Stream 1 (retrospective): 4-week lookback from `weekly_180d` — CTL slope, ACWR trend, hard-day density, monotony
-- Stream 2 (prospective): planned workouts + race calendar — planned TSS delta, race proximity, plan coverage
-- 8 phase states: Build, Base, Peak, Taper, **Deload** (new), Recovery, Overreached, null
-- Classification priority: Overreached → Taper → Peak → Deload → Build/Base (scored) → Recovery → null
-- Confidence model (high/medium/low) based on signal strength, data quality, stream agreement
-- Hysteresis: bias toward previous phase when scores are close, prevents phase flapping
-- Reason codes for full auditability (e.g., `RACE_IMMINENT_VOLUME_REDUCING`, `PLAN_GAP_NEXT_WEEK`)
-- `phase_detection` output object with basis, confidence, reason_codes; backward-compat `phase_detected`/`phase_triggers` preserved
-- Overreached fix: requires current-week ACWR >1.5 (not historical max); monotony threshold raised 2.0→2.5
-- Weekly tier enriched: `acwr`, `monotony` (5+ day guard), `intensity_basis_breakdown`, `phase_detected` per row
-- Old `_detect_phase` function removed
-
-**v11.10 — Hard Day HR Zone Fallback:**
-- Hard day counter now falls back to HR zones (`icu_hr_zone_times`) when power zones unavailable
-- Running, SkiErg, rowing sessions were invisible to phase detection — fixed
-- Conservative 2-rung HR ladder (Z4+ ≥ 10min, Z5+ ≥ 5min) per Seiler 3-zone model; power ladder unchanged
-- Shared `_get_activity_zones()` and `_classify_hard_day()` helpers across all call sites
-- Daily tier rows now include `intensity_basis` field (power/hr/mixed/null)
-- `is_hard_day` returns `null` when no zone data exists (not `false`)
-- `hard_days_this_week` field type updated to `number/null`
-- Workout Reference hard session definition (§3.1) updated with both ladders
-
-**v11.9 — Efficiency Factor Tracking:**
-- Added Efficiency Factor (EF = NP ÷ Avg HR, Coggan) to Validated Optional Metrics
-- EF pulled from Intervals.icu API (`icu_efficiency_factor`), aggregated 7d/28d in capability namespace
-- Qualifying filters: cycling, VI ≤ 1.05, ≥ 20min, power+HR data
-- Trend detection: improving/stable/declining (±0.03 threshold)
-- Report templates updated: per-session in post-workout, aggregate in weekly/block/pre-workout
-
-**v11.8 — Per-Sport Threshold Schema:**
-- Added Per-Sport Threshold Schema defining `thresholds.sports` as a map keyed by sport family
-- Thresholds (LTHR, max HR, FTP, threshold pace) are now sport-isolated; cross-sport application is forbidden
-- Field semantics: `ftp` = primary threshold power for sport, `ftp_indoor` = indoor variant (if applicable)
-- Sentinel rules: `threshold_pace = 0` normalizes to null; null pace requires null `pace_units`
-- Fallback rule: missing sport family → skip threshold-dependent checks, flag explicitly
-- Deterministic collision resolution for duplicate sport family mappings
-- FTP Governance clarified as cycling-specific; Benchmark Index uses `thresholds.sports.cycling.ftp`
-- Zone Distribution now requires sport-matched threshold lookup
-- Validation Checklist item 1 updated for sport-family lookup
-- Global estimates (`eftp`, `w_prime`, `w_prime_kj`, `p_max`, `vo2max`) remain at top level
+**v11.11** — Phase Detection v2: dual-stream architecture (retrospective + prospective), 8 phase states, confidence model, hysteresis, reason codes  
+**v11.10** — Hard day HR zone fallback for non-power sports (running, SkiErg, rowing); shared zone helpers  
+**v11.9** — Efficiency Factor (EF = NP ÷ Avg HR) tracking with 7d/28d aggregation and trend detection  
+**v11.8** — Per-Sport Threshold Schema: sport-isolated thresholds, cross-sport application forbidden, global estimates at top level
 
 **v11.7** — Workout Reference Library integration (26 templates, v0.5.0), selection rules, sequencing enforcement, WU/CD mandates, audit traceability via `session_template` field  
 **v11.6** — Race-Week Protocol (D-7 to D-0), three-layer race awareness (calendar → taper onset → race week), event-type modifiers, go/no-go checklist, RACE_A/B/C priority detection via Intervals.icu  
@@ -1506,6 +1475,7 @@ See https://github.com/CrankAddict/section-11/tree/main/examples/reports for ann
 
 **Pre-Workout Reports must include:**
 - Weather and coach note (if athlete location is available)
+- Phase context (when confidence is high or medium)
 - Readiness assessment (HRV, RHR, Sleep vs baselines)
 - Load context (TSB, ACWR, Load/Recovery, Monotony if > 2.3)
 - Capability snapshot (Durability 7d mean + trend; TID drift if not consistent)
@@ -1518,8 +1488,9 @@ See `PRE_WORKOUT_TEMPLATE.md` in the examples directory for conditional fields a
 - One-line session summary
 - Completed session metrics (power, HR, zones, decoupling, VI, TSS vs planned)
 - Plan compliance assessment
-- Weekly running totals (polarization, durability 7d/28d + trend, TID 28d + drift, CTL, ATL, TSB, ACWR, hours, TSS)
+- Weekly running totals (phase context, polarization, durability 7d/28d + trend, TID 28d + drift, CTL, ATL, TSB, ACWR, hours, TSS)
 - Overall coach note (2-4 sentences: compliance, key quality observations, load context, recovery note)
+- Tomorrow preview (when planned session exists)
 
 See `POST_WORKOUT_TEMPLATE.md` in the examples directory for field reference and rounding conventions.
 

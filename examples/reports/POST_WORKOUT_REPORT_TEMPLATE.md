@@ -36,6 +36,7 @@ Note: [description or chat_notes text]
 [Repeat block for additional sessions]
 
 Weekly totals:
+Phase: [phase_detection.phase] Wk[phase_detection.phase_duration_weeks]
 Polarization: Z1+Z2 [XX]%, Z3 [X]%, Z4+ [X]% — [Classification] (PI: [X.XX])
 Durability: [X.XX]% 7d mean([X]) / [X.XX]% 28d mean([X]) ([trend])
 EF: [X.XX] 7d mean([X]) / [X.XX] 28d mean([X]) ([trend])
@@ -52,6 +53,9 @@ TSS: [XXX]
 
 Interpretation:
 [2-4 sentences: compliance check, key quality metrics, load context, recovery note if applicable.]
+
+Tomorrow: [WorkoutType] [Duration] — [structure/targets]
+[Omit if no planned session tomorrow]
 ```
 
 ---
@@ -67,6 +71,7 @@ Round zone percentages to the nearest **whole number** (1%). The JSON data sourc
 | Distance | Cycling, running | Omit for SkiErg, strength |
 | Power / Power zones | Activities with power data | Omit if no power meter |
 | Grey Zone / Quality | Always for cycling | Highlights polarization compliance |
+| Session profile | Activities with zone data | Per-session TID classification based on zone distribution (e.g., Endurance, Tempo, Threshold, VO2max) |
 | Cadence | Cycling, running | Omit for SkiErg, strength |
 | Decoupling | Sessions ≥ 1 hour | Key aerobic efficiency marker. Per-session scale (<5% good) per Friel/Coggan. Aggregate durability uses tighter scale (<3% good) |
 | EF | Activities with power + HR | Aerobic efficiency (NP ÷ HR); track trend over like-for-like sessions. Absolute value is individual-dependent |
