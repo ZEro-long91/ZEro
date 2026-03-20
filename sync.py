@@ -94,7 +94,7 @@ class IntervalsSync:
     # per-interval detail for. Walk, strength, yoga, other excluded.
     INTERVAL_SPORT_FAMILIES = {"cycling", "run", "ski", "rowing", "swim"}
     INTERVAL_SCAN_HOURS = 72    # Only scan recent activities for new intervals
-    INTERVAL_RETENTION_DAYS = 7  # Keep cached intervals for 7 days
+    INTERVAL_RETENTION_DAYS = 8  # Keep cached intervals for 8 days (survives schedule drift)
 
     # Sport family mapping for per-sport monotony calculation
     # Multi-sport athletes get inflated total monotony when cross-training
