@@ -70,7 +70,7 @@
   },
   "metadata": {
     "athlete_id": "REDACTED",
-    "last_updated": "2026-03-20T13:46:53.351112",
+    "last_updated": "2026-03-20T14:39:04.625107",
     "data_range_days": 7,
     "extended_range_days": 28,
     "version": "3.86"
@@ -127,14 +127,14 @@
       "unavailable": 0
     },
     "phase_context": {
-      "phase": "Build",
-      "phase_week": 1,
-      "amber_threshold": 3,
-      "modifier_applied": "build_loosened"
+      "phase": "Deload",
+      "phase_week": 2,
+      "amber_threshold": 2,
+      "modifier_applied": "default"
     },
     "race_week_defers": false,
     "modification": null,
-    "reason": "P3 green light. 6 green, 0 amber (threshold 3), 0 red.",
+    "reason": "P3 green light. 6 green, 0 amber (threshold 2), 0 red.",
     "alarm_refs": []
   },
   "history": {
@@ -169,8 +169,8 @@
       "ctl": 51.51,
       "atl": 54.37,
       "tsb": -2.86,
-      "ramp_rate": 1.88,
-      "fitness_source": "Decayed from yesterday (today's planned workouts not yet completed)"
+      "ramp_rate": 0.47,
+      "fitness_source": "From Intervals.icu API (reflects completed workouts)"
     },
     "thresholds": {
       "eftp": 161.2,
@@ -229,7 +229,7 @@
       "respiration": null,
       "body_fat_pct": null,
       "abdomen_cm": null,
-      "steps": 2733,
+      "steps": 3978,
       "hydration_volume_l": null,
       "kcal_consumed": null,
       "carbohydrates_g": null,
@@ -361,16 +361,15 @@
         "note": "Compares 7d vs 28d Seiler TID to detect distribution shifts. pi_delta positive = more polarized acutely."
       }
     },
-    "consistency_index": 0.75,
+    "consistency_index": 1.0,
     "consistency_details": {
-      "planned_days": 4,
+      "planned_days": 3,
       "completed_days": 5,
       "matched_days": 3,
       "planned_dates": [
         "2026-03-17",
         "2026-03-18",
-        "2026-03-19",
-        "2026-03-20"
+        "2026-03-19"
       ],
       "completed_dates": [
         "2026-03-14",
@@ -381,10 +380,10 @@
       ]
     },
     "phase_detection": {
-      "phase": "Build",
-      "confidence": "low",
+      "phase": "Deload",
+      "confidence": "high",
       "reason_codes": [
-        "BUILD_RESUMING_AFTER_DELOAD_TENTATIVE"
+        "BUILD_HISTORY_REDUCED_LOAD_REBOUND_CONFIRMED"
       ],
       "basis": {
         "stream_1": {
@@ -394,24 +393,24 @@
           "weeks_available": 4
         },
         "stream_2": {
-          "planned_tss_delta": 0.45,
+          "planned_tss_delta": null,
           "hard_sessions_planned": 0,
           "race_proximity": null,
           "next_week_load": 1.44,
-          "plan_coverage_current_week": 0.2,
+          "plan_coverage_current_week": 0.0,
           "plan_coverage_next_week": 1.0
         },
         "data_quality": "good",
         "stream_agreement": null
       },
       "previous_phase": "Deload",
-      "phase_duration_weeks": 1,
+      "phase_duration_weeks": 2,
       "dossier_declared": null,
       "dossier_agreement": null
     },
-    "phase_detected": "Build",
+    "phase_detected": "Deload",
     "phase_triggers": [
-      "BUILD_RESUMING_AFTER_DELOAD_TENTATIVE"
+      "BUILD_HISTORY_REDUCED_LOAD_REBOUND_CONFIRMED"
     ],
     "seasonal_context": "Late Base / Build",
     "benchmark_indoor": {
@@ -434,13 +433,13 @@
     "p_max": 628,
     "power_model_source": "wellness.sportInfo",
     "vo2max": null,
-    "calculation_timestamp": "2026-03-20T13:46:53.350228",
+    "calculation_timestamp": "2026-03-20T14:39:04.624130",
     "data_quality": {
       "hrv_data_points": 7,
       "rhr_data_points": 7,
       "activities_7d": 6,
       "activities_28d": 26,
-      "planned_workouts_7d": 4,
+      "planned_workouts_7d": 3,
       "ftp_history_days": {
         "indoor": 0,
         "outdoor": 0
@@ -1037,7 +1036,7 @@
       "respiration": null,
       "body_fat_pct": null,
       "abdomen_cm": null,
-      "steps": 2733,
+      "steps": 3978,
       "hydration_volume_l": null,
       "kcal_consumed": null,
       "carbohydrates_g": null,
@@ -1049,18 +1048,6 @@
     }
   ],
   "planned_workouts": [
-    {
-      "id": 99256204,
-      "date": "2026-03-20",
-      "name": "Z2 \u57fa\u7840\u8010\u529b (65\u5206\u949f)",
-      "type": "WORKOUT",
-      "sport_type": "Ride",
-      "planned_tss": 57,
-      "duration_hours": 1.08,
-      "duration_formatted": "1h5m",
-      "workout_summary": null,
-      "description": "Main Set\n- 65m 125w 90-95rpm"
-    },
     {
       "id": 99406966,
       "date": "2026-03-23",
@@ -1169,12 +1156,12 @@
     }
   ],
   "workout_summary_stats": {
-    "attempted": 10,
+    "attempted": 9,
     "success": 5,
     "patternA": 5,
     "patternB": 0,
     "bail_no_workout_doc": 0,
-    "bail_no_match": 5
+    "bail_no_match": 4
   },
   "weekly_summary": {
     "total_training_hours": 5.54,
