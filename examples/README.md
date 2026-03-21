@@ -13,7 +13,7 @@ Working implementations for Section 11 integrations.
 | [reports](reports/) | Pre/post workout report templates | ✅ Ready |
 | [agentic](agentic/) | Write planned workouts to Intervals.icu calendar (code execution required) | ✅ Ready |
 | [workout-library](workout-library/) | Structured workout templates for AI prescription | ✅ Ready |
-| [json-examples](json-examples/) | Example JSON output (v3.85 schema reference) | ✅ Ready |
+| [json-examples](json-examples/) | Example JSON output (v3.86 schema reference) | ✅ Ready |
 
 ---
 
@@ -51,7 +51,7 @@ Both methods use the same `sync.py` script and produce these files:
 | `ftp_history.json` | FTP tracking for Benchmark Index | Yes |
 | `archive/` | Timestamped snapshots (auto-sync only) | Yes |
 
-See [json-examples/](json-examples/) for example output showing the full v3.85 schema.
+See [json-examples/](json-examples/) for example output showing the full v3.86 schema.
 
 ```bash
 # Manual local export
