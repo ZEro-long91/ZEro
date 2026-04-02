@@ -55,6 +55,7 @@ Both methods use the same `sync.py` script and produce these files:
 | `latest.json` | Current 7-day training data for AI consumption | Yes |
 | `history.json` | Longitudinal data — daily (90d), weekly (180d), monthly (3y) | Yes |
 | `intervals.json` | Per-interval segment data for recent structured sessions | Yes |
+| `routes.json` | Route/terrain data for events with GPX/TCX attachments | When attachments exist |
 | `ftp_history.json` | FTP tracking for Benchmark Index | Yes |
 | `archive/` | Timestamped snapshots (auto-sync only) | Yes |
 
@@ -116,6 +117,17 @@ intervals.json (on-demand — load when analysing activities with has_intervals:
     ├── activity_id      → Matches id in latest.json recent_activities
     ├── interval_summary → Group summary (e.g., "4x 9m56s 259w")
     └── intervals[]      → WORK + RECOVERY segments with power, HR, cadence, zone, decoupling
+
+routes.json (on-demand — load when planned events have has_terrain: true)
+├── generated_at         → Timestamp
+├── sync_version         → sync.py version
+├── script_hash          → Cache invalidation hash
+└── events[]             → Per-event terrain analysis
+    ├── event_id/name/date/category
+    ├── attachment_id    → GPX/TCX file identifier
+    └── terrain_summary  → Distance, elevation, course character, polyline
+        ├── climbs[]     → Cat 4–HC with position, gradient, coords
+        └── descents[]   → Recovery windows with position, gradient, coords
 ```
 
 ### Derived Metrics

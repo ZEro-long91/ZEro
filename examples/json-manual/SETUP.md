@@ -71,6 +71,7 @@ The script creates/maintains these files:
 | `latest.json` | Training data export | Every run with `--output` |
 | `history.json` | Longitudinal data — daily (90d), weekly (180d), monthly (3y) | First run, regenerates when outdated |
 | `intervals.json` | Per-interval data for structured sessions | Every run (incremental, 7-day retention) |
+| `routes.json` | Route/terrain data for events with GPX/TCX attachments | When attachments exist |
 | `ftp_history.json` | FTP progression tracking | Automatically on first run |
 | `.sync_config.json` | Your credentials + preferences (local only) | After `--setup` |
 
@@ -98,7 +99,7 @@ See [examples/README.md](../README.md#derived-metrics) for the full derived metr
 
 ## Use with AI
 
-**Option 1: Upload files** — Upload `latest.json` and `history.json` to your AI platform for a complete analysis with longitudinal context. Upload `intervals.json` when you want detailed post-workout analysis of structured sessions.
+**Option 1: Upload files** — Upload `latest.json` and `history.json` to your AI platform for a complete analysis with longitudinal context. Upload `intervals.json` when you want detailed post-workout analysis of structured sessions. Upload `routes.json` (if present) when you want terrain-aware coaching for planned events.
 
 **Option 2: Push to GitHub + configure AI** — Push to a GitHub repo (private recommended), then follow the [main README setup guide](../../README.md#web-chat-setup). Most AI platforms now have GitHub connectors that can access private repos directly.
 
