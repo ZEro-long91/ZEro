@@ -215,7 +215,7 @@ Most major AI platforms now have native GitHub connectors that can access privat
 | Mistral | Side panel → Intelligence → Connectors → GitHub | Yes | No (full read/write, no dispatch) | All tiers including free |
 | Perplexity | Connectors → GitHub | Yes | No (full read/write, no dispatch) | Pro, Max, and Enterprise |
 
-**Google Drive connector status (.json files).** For users on the [local sync](examples/json-local-sync/SETUP.md) path who want their AI to read data files via Google Drive instead of GitHub.
+**Google Drive connector status for web chat platforms (.json files).** For users on the [local sync](examples/json-local-sync/SETUP.md) path who want their AI to read data files via Google Drive.
 
 | Platform | Google Drive (.json) | How to Connect | Plan Notes |
 |----------|---------------------|----------------|------------|
@@ -246,7 +246,7 @@ Most major AI platforms now have native GitHub connectors that can access privat
 
 1. Create a Project
 2. Add instructions to "Project Instructions"
-3. **GitHub connector:** Click "+" in Project Knowledge → search/paste your repo URL → select files. Or connect via Settings → Integrations → GitHub. Available on all plans including Free.
+3. **GitHub connector:** Click "+" in Project Knowledge → search/paste your repo URL → select files. Or connect via Settings → Connectors → GitHub. Available on all plans including Free.
 4. **No connector?** Upload SECTION_11.md and DOSSIER.md to "Project Knowledge". If using the connector but `SECTION_11.md` isn't in your data repo, upload it separately (or connect the CrankAddict/section-11 repo too).
 5. Enable "Web search" in settings if using URL-based fetch instead of the connector
 
