@@ -4,6 +4,17 @@ Intervals.icu → GitHub/Local JSON Export
 Exports training data for LLM access.
 Supports both automated GitHub sync and manual local export.
   
+Version 3.97 - Readiness signal hygiene: low-side ACWR removed from readiness_decision ambers
+  and ACWR alerts — low ACWR is a load-state/undertraining context signal, not a fatigue signal,
+  and already surfaces via acwr_interpretation. RI amber now requires 2-day persistence (ri<0.7
+  today AND yesterday) to filter single-night noise; red still fires on any single day <0.6.
+  New derived metric: recovery_index_yesterday. ACWR high-side boundary unified across code and
+  docs: >=1.3 amber/caution, >=1.5 red/danger (replaces mixed >/>= usage).
+
+Version 3.96 - Course character fix: elevation_per_km as sole density metric (total elevation
+  is distance-blind); absolute elevation thresholds removed. Climb-category upgrade retained for
+  "flat with one big climb" cases.
+
 Version 3.95 - Polyline + event metadata: 500m downsampled polyline in terrain_summary for
   weather/wind/pacing lookups. Start time (HH:MM) on events when set. Indoor flag passthrough.
 
@@ -81,7 +92,7 @@ class IntervalsSync:
     HISTORY_FILE = "history.json"
     UPSTREAM_REPO = "CrankAddict/section-11"
     CHANGELOG_FILE = "changelog.json"
-    VERSION = "3.95"
+    VERSION = "3.98"
     INTERVALS_FILE = "intervals.json"
     ROUTES_FILE = "routes.json"
 
@@ -1680,6 +1691,18 @@ class IntervalsSync:
             ri = round(hrv_ratio / rhr_ratio, 2) if rhr_ratio > 0 else None
         else:
             ri = None
+
+        # Yesterday's RI — same formula, wellness_7d[-2] against same 7d baseline.
+        # Used for RI amber persistence check in readiness_decision (2-day rule).
+        ri_yesterday = None
+        if len(wellness_7d) >= 2:
+            y_hrv_raw = wellness_7d[-2].get("hrv")
+            y_hrv = y_hrv_raw if self._is_valid_hrv(y_hrv_raw) else None
+            y_rhr = wellness_7d[-2].get("restingHR")
+            if y_hrv and y_rhr and hrv_baseline_7d and rhr_baseline_7d:
+                y_hrv_ratio = y_hrv / hrv_baseline_7d
+                y_rhr_ratio = y_rhr / rhr_baseline_7d
+                ri_yesterday = round(y_hrv_ratio / y_rhr_ratio, 2) if y_rhr_ratio > 0 else None
         
         # === STRESS TOLERANCE ===
         # Formula: (Strain ÷ Monotony) ÷ 100
@@ -1708,10 +1731,10 @@ class IntervalsSync:
         # This is the "hard" work that should be ~20% in polarized training
         quality_intensity_percentage = round((z4_plus_time / total_zone_time) * 100, 1) if total_zone_time > 0 else None
         
-        # === POLARISATION INDEX ===
+        # === EASY TIME RATIO ===
         # Formula: (Z1 + Z2) / Total - measures how much time is "easy"
         # Target: ~80% for polarized training
-        polarisation_index = round((z1_time + z2_time) / total_zone_time, 2) if total_zone_time > 0 else None
+        easy_time_ratio = round((z1_time + z2_time) / total_zone_time, 2) if total_zone_time > 0 else None
         
         # === SEILER TID (Training Intensity Distribution) ===
         # Dual calculation: all-sport and primary-sport (like monotony)
@@ -1897,6 +1920,7 @@ class IntervalsSync:
         return {
             # Tier 1: Primary Readiness
             "recovery_index": ri,
+            "recovery_index_yesterday": ri_yesterday,
             "hrv_baseline_7d": hrv_baseline_7d,
             "rhr_baseline_7d": rhr_baseline_7d,
             "hrv_baseline_28d": hrv_baseline_28d,
@@ -1933,8 +1957,8 @@ class IntervalsSync:
             "grey_zone_note": "Gray Zone % (Z3/tempo) - minimize in polarized training",
             "quality_intensity_percentage": quality_intensity_percentage,
             "quality_intensity_note": "Quality Intensity % (Z4+/threshold+) - target ~20% in polarized training",
-            "polarisation_index": polarisation_index,
-            "polarisation_note": "Easy time (Z1+Z2) / Total - target ~80% in polarized training",
+            "easy_time_ratio": easy_time_ratio,
+            "easy_time_ratio_note": "Easy time (Z1+Z2) / Total - target ~80% in polarized training",
             "hard_days_this_week": hard_days_this_week,
             "hard_days_note": "Power ladder: z3+ >= 30min, z4+ >= 10min, z5+ >= 5min, z6+ >= 2min, z7 >= 1min. HR fallback (when no power): z4+ >= 10min, z5+ >= 5min. Per Seiler 3-zone model + Foster. HR-based days flagged with intensity_basis: hr",
             
@@ -2010,9 +2034,9 @@ class IntervalsSync:
             return None
         if acwr < 0.8:
             return "undertraining"
-        elif acwr <= 1.3:
+        elif acwr < 1.3:
             return "optimal"
-        elif acwr <= 1.5:
+        elif acwr < 1.5:
             return "caution"
         else:
             return "danger"
@@ -3575,16 +3599,16 @@ class IntervalsSync:
         mono_trend = features.get("monotony_trend")
         
         # Overreached: requires convergence of multiple signals, not a single metric.
-        # Path A: Current week ACWR > 1.5 (acute spike, Gabbett danger zone)
-        # Path B: Sustained elevated monotony (>2.5) + ACWR trending up or >1.3
+        # Path A: Current week ACWR >= 1.5 (acute spike, Gabbett danger zone)
+        # Path B: Sustained elevated monotony (>2.5) + ACWR trending up or >=1.3
         if mono_trend == "elevated":
             # Use CURRENT week's ACWR, not historical max — a spike 3 weeks ago
             # that's since resolved should not keep triggering Overreached
             current_acwr = recent_rows[-1].get("acwr") if recent_rows else None
-            if current_acwr is not None and current_acwr > 1.5:
+            if current_acwr is not None and current_acwr >= 1.5:
                 return "Overreached"
             # Sustained pattern: elevated monotony + ACWR still above normal
-            if current_acwr is not None and current_acwr > 1.3 and acwr_trend == "rising":
+            if current_acwr is not None and current_acwr >= 1.3 and acwr_trend == "rising":
                 return "Overreached"
         
         if ctl_slope is None:
@@ -4126,30 +4150,33 @@ class IntervalsSync:
         is_multi_sport = derived_metrics.get("multi_sport_detected", False)
         strain = derived_metrics.get("strain")
         ri = derived_metrics.get("recovery_index")
+        ri_yesterday = derived_metrics.get("recovery_index_yesterday")
         latest_hrv = derived_metrics.get("latest_hrv")
         latest_rhr = derived_metrics.get("latest_rhr")
         hrv_baseline_7d = derived_metrics.get("hrv_baseline_7d")
         rhr_baseline_7d = derived_metrics.get("rhr_baseline_7d")
         
         # --- ACWR Alerts ---
+        # High-side only. Low ACWR = undertraining / reduced recent load context,
+        # not overload risk. Low-side is surfaced via derived_metrics.acwr_interpretation.
         if acwr is not None:
-            if acwr <= 0.75 or acwr >= 1.35:
+            if acwr >= 1.35:
                 alerts.append({
                     "metric": "acwr",
                     "value": acwr,
                     "severity": "alarm",
-                    "threshold": "0.75 / 1.35",
-                    "context": f"ACWR {acwr} outside safe range. Injury/overreach risk elevated.",
+                    "threshold": "1.35",
+                    "context": f"ACWR {acwr} above safe range. Injury/overreach risk elevated.",
                     "persistence_days": None,
                     "tier": 2
                 })
-            elif acwr <= 0.8 or acwr >= 1.3:
+            elif acwr >= 1.3:
                 alerts.append({
                     "metric": "acwr",
                     "value": acwr,
                     "severity": "warning",
-                    "threshold": "0.8 / 1.3",
-                    "context": f"ACWR {acwr} at edge of optimal range. Monitor closely. Alarm at 0.75/1.35.",
+                    "threshold": "1.3",
+                    "context": f"ACWR {acwr} at edge of optimal range. Monitor closely. Alarm at 1.35.",
                     "persistence_days": None,
                     "tier": 2
                 })
@@ -4222,6 +4249,10 @@ class IntervalsSync:
             })
         
         # --- Recovery Index Alerts ---
+        # Aligned with readiness_decision RI rule:
+        #   alarm: ri < 0.6 (single day, immediate)
+        #   warning: ri < 0.7 AND ri_yesterday < 0.7 (persistent, 2+ days)
+        # Single-day dips 0.6–0.7 are context only, not warning-grade.
         if ri is not None:
             if ri < 0.6:
                 alerts.append({
@@ -4233,14 +4264,14 @@ class IntervalsSync:
                     "persistence_days": None,
                     "tier": 1
                 })
-            elif ri < 0.7:
+            elif ri < 0.7 and ri_yesterday is not None and ri_yesterday < 0.7:
                 alerts.append({
                     "metric": "recovery_index",
                     "value": ri,
                     "severity": "warning",
                     "threshold": 0.7,
-                    "context": f"RI {ri} < 0.7. Monitor — if persists >3 days, deload review required.",
-                    "persistence_days": None,
+                    "context": f"RI {ri} < 0.7 for 2+ consecutive days (yesterday {ri_yesterday}). Monitor — if persists 3+ days, deload review required.",
+                    "persistence_days": 2,
                     "tier": 1
                 })
         
@@ -4465,7 +4496,7 @@ class IntervalsSync:
         
         Priority ladder (first match wins):
           P0 — Safety stop: RI < 0.6 or any tier-1 alarm → Skip
-          P1 — Acute overload: ACWR > 1.5, compound TSB+HRV, RI < 0.7 + persistent alerts → Skip/Modify
+          P1 — Acute overload: ACWR >= 1.5, compound TSB+HRV, RI < 0.7 + persistent alerts → Skip/Modify
           P2 — Accumulated fatigue: signal counting with phase-adjusted thresholds → Modify
           P3 — Green light → Go
         
@@ -4542,12 +4573,12 @@ class IntervalsSync:
             signals["sleep"] = {"status": "unavailable", "hours": None, "quality": sleep_quality}
         
         # ACWR signal
+        # Readiness: high-side only. Low ACWR = reduced recent load (taper/undertraining),
+        # not a fatigue/overload signal — context surfaces via acwr_interpretation.
         if acwr is not None:
-            if acwr > 1.5:
+            if acwr >= 1.5:
                 acwr_status = "red"
-            elif acwr > 1.3:
-                acwr_status = "amber"
-            elif acwr < 0.8:
+            elif acwr >= 1.3:
                 acwr_status = "amber"
             else:
                 acwr_status = "green"
@@ -4555,17 +4586,21 @@ class IntervalsSync:
         else:
             signals["acwr"] = {"status": "unavailable", "value": None}
         
-        # RI signal (Section 8: >= 0.8 good, 0.6-0.79 moderate fatigue, < 0.6 deload)
+        # RI signal — amber requires 2-day persistence to filter single-night noise.
+        #   red: ri < 0.6 (single day, immediate)
+        #   amber: ri < 0.7 AND ri_yesterday < 0.7 (persistent)
+        #   green: otherwise (single-day dips 0.6–0.7 remain visible via value, not counted)
+        ri_yesterday = derived_metrics.get("recovery_index_yesterday")
         if ri is not None:
             if ri < 0.6:
                 ri_status = "red"
-            elif ri < 0.8:
+            elif ri < 0.7 and ri_yesterday is not None and ri_yesterday < 0.7:
                 ri_status = "amber"
             else:
                 ri_status = "green"
-            signals["ri"] = {"status": ri_status, "value": ri}
+            signals["ri"] = {"status": ri_status, "value": ri, "value_yesterday": ri_yesterday}
         else:
-            signals["ri"] = {"status": "unavailable", "value": None}
+            signals["ri"] = {"status": "unavailable", "value": None, "value_yesterday": ri_yesterday}
         
         # --- Count signals ---
         green_count = sum(1 for s in signals.values() if s["status"] == "green")
@@ -4611,8 +4646,8 @@ class IntervalsSync:
         p1_skip_reasons = []
         p1_modify_reasons = []
         
-        if acwr is not None and acwr > 1.5:
-            p1_skip_reasons.append(f"ACWR {acwr} > 1.5")
+        if acwr is not None and acwr >= 1.5:
+            p1_skip_reasons.append(f"ACWR {acwr} >= 1.5")
         
         # Compound: deep TSB + HRV confirming
         if tsb is not None and tsb < -30 and hrv_delta_pct is not None and hrv_delta_pct < -10:
@@ -4643,8 +4678,8 @@ class IntervalsSync:
             }
         
         # P1 modify tier (sub-skip thresholds)
-        if acwr is not None and acwr > 1.3:
-            p1_modify_reasons.append(f"ACWR {acwr} > 1.3")
+        if acwr is not None and acwr >= 1.3:
+            p1_modify_reasons.append(f"ACWR {acwr} >= 1.3")
         if tsb is not None and tsb < -25 and hrv_delta_pct is not None and hrv_delta_pct < -10:
             p1_modify_reasons.append(f"TSB {tsb} < -25 with HRV {hrv_delta_pct}% below baseline")
         
@@ -4661,7 +4696,7 @@ class IntervalsSync:
                     "modifier_applied": modifiers["modifier_applied"]
                 },
                 "race_week_defers": race_week_active,
-                "modification": self._build_modification(["acwr"] if acwr and acwr > 1.3 else amber_signals),
+                "modification": self._build_modification(["acwr"] if acwr and acwr >= 1.3 else amber_signals),
                 "reason": f"P1 acute overload (modify). {'; '.join(p1_modify_reasons)}.",
                 "alarm_refs": []
             }
@@ -7812,7 +7847,7 @@ def main():
         print(f"   Strain: {dm.get('strain')}")
         print(f"   Gray Zone %: {dm.get('grey_zone_percentage')}%")
         print(f"   Quality Intensity %: {dm.get('quality_intensity_percentage')}%")
-        print(f"   Polarisation: {dm.get('polarisation_index')} (target ~0.80)")
+        print(f"   Easy Time Ratio: {dm.get('easy_time_ratio')} (target ~0.80)")
         tid = dm.get('seiler_tid_7d', {})
         tid_ps = dm.get('seiler_tid_7d_primary', {})
         print(f"   Seiler TID: {tid.get('classification')} (PI: {tid.get('polarization_index')}) — Z1:{tid.get('z1_pct')}% Z2:{tid.get('z2_pct')}% Z3:{tid.get('z3_pct')}%")

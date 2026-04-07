@@ -42,6 +42,7 @@ Calories: 165 kcal
 TSS: 10 (planned 10)
 
 Weekly totals:
+Phase: Build Wk2
 Polarization: Z1+Z2 97%, Z3 1%, Z4+ 3%
 Durability: 2.14% 7d mean(3) / 2.50% 28d mean(11) (stable)
 EF: 1.45 7d mean(4) / 1.42 28d mean(14) (stable)
@@ -60,7 +61,7 @@ Interpretation:
 Both sessions compliant with plan. Bike decoupling 2.14% over 2h30m shows solid aerobic control.
 Rowing stayed in Z1-Z2 as prescribed. Load tracking well — TSB manageable heading into Thursday.
 
-Tomorrow: Threshold 1h30m — 3×12m @260W
+Tomorrow: Endurance 2h15m, 1h30m @173W + SkiErg 10m Z2 HR
 ```
 
 ---
@@ -95,6 +96,7 @@ Feel: 3/5 (Normal)
 RPE: 7/10
 
 Weekly totals:
+Phase: Build Wk3
 Polarization: Z1+Z2 84%, Z3 2%, Z4+ 13%
 Durability: 2.95% 7d mean(3) / 2.50% 28d mean(11) (stable)
 EF: 1.46 7d mean(4) / 1.43 28d mean(14) (stable)
@@ -147,6 +149,7 @@ Skipped workout: VirtualSki Training Session
 Reason: Precautionary — knee discomfort from ride
 
 Weekly totals:
+Phase: Base Wk4
 Polarization: Z1+Z2 98%, Z3 0%, Z4+ 2%
 Durability: 1.92% 7d mean(2) / 2.40% 28d mean(10) (improving)
 EF: 1.41 7d mean(3) / 1.42 28d mean(12) (stable)
@@ -186,6 +189,7 @@ Calories: 210 kcal
 TSS: 6
 
 Weekly totals:
+Phase: Base Wk2
 Polarization: Z1+Z2 97%, Z3 0%, Z4+ 3%
 Durability: 2.30% 7d mean(3) / 2.55% 28d mean(11) (stable)
 EF: 1.44 7d mean(4) / 1.43 28d mean(13) (stable)
