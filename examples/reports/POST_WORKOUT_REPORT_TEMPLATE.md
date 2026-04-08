@@ -33,7 +33,7 @@ Feel: [X/5] ([label])
 RPE: [X/10]
 Note: [description or chat_notes text]
 
-[Repeat block for additional sessions]
+[Repeat block for every completed activity whose date falls on the report day (athlete local time). One block per activity ID — never merge. Include walks, ski-erg, short rides, aborted rides, commutes. Never drop secondary sessions. Within a block, omit only fields the activity type does not have (e.g., no power for a walk).]
 
 Weekly totals:
 Phase: [phase_detection.phase] Wk[phase_detection.phase_duration_weeks]

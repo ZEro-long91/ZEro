@@ -1,10 +1,25 @@
 # Section 11 — AI Coach Protocol
 
-**Protocol Version:** 11.28  
-**Last Updated:** 2026-04-05
+**Protocol Version:** 11.29  
+**Last Updated:** 2026-04-07
 **License:** [MIT](https://opensource.org/licenses/MIT)
 
 ### Changelog
+
+**v11.29 — Post-Workout Report Completeness Rules:**
+- Three new Do-NOT rules in Post-Workout Report Structure: never omit any completed activity on the report day (walks, ski-erg, short/aborted rides, commutes all get their own block); never merge activities (one activity ID = one block); never invent explanations for anomalous sessions (use only `description`/`chat_notes` fields, otherwise report as-is)
+- POST_WORKOUT_REPORT_TEMPLATE.md: `[Repeat block for additional sessions]` replaced with explicit rule mirroring the Tomorrow-line guarantee — every completed activity on the report day (athlete local time), one block per activity ID, never merge
+- POST_WORKOUT_REPORT_EXAMPLES.md: new Example 2 (Multi-Sport Day: Short Ride + Bike + SkiErg + Walk) demonstrating short-session inclusion and the anti-hallucination pattern. Old Examples 2–4 renumbered to 3–5
+- Motivation: multi-model test showed two of three models dropping walks from post-workout reports, and one hallucinating a narrative for an unexplained short ride. Template said "one per activity" but lacked the force of the Tomorrow-line's "never drop secondary sessions" rule, and every multi-session example was cycling-only — models pattern-matched on examples over spec
+- Docs-only, no sync.py changes
+
+**v11.28 — Schema Hygiene: Easy Time Ratio Rename:**
+- Renamed `derived_metrics.polarisation_index` → `easy_time_ratio` to disambiguate from Seiler `polarization_index` (Treff PI). The two fields measure different things (0–1 easy-time share vs logarithmic Treff PI) and models were conflating them in reports
+- Renamed `polarisation_note` → `easy_time_ratio_note`
+- Old name was misleading: the field is a 0–1 ratio, not an index. The academic "Polarization Index" name (Treff et al. 2019) is reserved for the logarithmic formula, which stays as `seiler_tid_*.polarization_index`
+- All display labels updated across SECTION_11.md (metric reference tables, relationship tables, validated ranges, Tier 3 diagnostics, schema documentation, sample JSON); README.md, examples/README.md, examples/json-manual/SETUP.md updated to match
+- No formula change, no value change — rename only
+- Requires sync.py v3.98
 
 **v11.27 — Readiness Signal Hygiene (ACWR/RI):**
 - Low-side ACWR (<0.8) removed from readiness_decision ambers and ACWR alerts. Low ACWR is a load-state/undertraining context signal, not a fatigue or overload signal. Context still surfaces via `acwr_interpretation` in derived_metrics.
@@ -693,6 +708,9 @@ See **Output Format Guidelines** for full field reference, assessment labels, an
 - Ask follow-up questions when data is complete and metrics are good
 - Omit weekly totals (polarization, durability, TID 28d, TSB, CTL, ATL, ACWR, hours, TSS)
 - Cite "per Section 11" or "according to the protocol"
+- Omit any completed activity whose date falls on the report day (athlete local time). Every such activity gets its own session block — walks, ski-erg, short rides, aborted rides, commutes included.
+- Merge multiple activities into a single block. One activity ID, one block.
+- Invent explanations for anomalous sessions (very short duration, aborted, equipment issue). Report what the data shows. If context is needed, use only the activity's `description` or `chat_notes` fields. If neither explains it, include the block and, if relevant, note the anomaly plainly in the interpretation without speculating about cause.
 
 Elaborate only when thresholds are breached or athlete requests deeper analysis.
 

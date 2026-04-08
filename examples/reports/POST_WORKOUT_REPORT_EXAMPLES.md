@@ -66,7 +66,90 @@ Tomorrow: Endurance 2h15m, 1h30m @173W + SkiErg 10m Z2 HR
 
 ---
 
-## Example 2: Interval Session with Quality Check
+## Example 2: Multi-Sport Day (Short Ride + Bike + SkiErg + Walk)
+
+```
+Data (last_updated UTC: 2026-03-11T18:02:14)
+
+Tempo ride overshot planned load due to terrain; short ride, SkiErg, and walk also logged.
+
+Completed workout: Ride Training Session
+Start time: 09:42:18
+Duration: 5m
+Distance: 1.8 km
+Power: 72 W avg / 128 W NP
+HR: 112 avg / 124 max
+TSS: 2
+Feel: 2/5 (Good)
+RPE: 1/10
+
+Completed workout: Ride Training Session
+Start time: 10:05:33
+Duration: 2h12m (planned 2h00m)
+Distance: 58.4 km
+Power: 142 W avg / 162 W NP
+Power zones: 30% Zone 1, 36% Zone 2
+Grey Zone (Z3): 23%
+Quality (Z4+): 11%
+Session profile: Tempo
+HR: 135 avg / 158 max
+HR zones: 84% Zone 1, 16% Zone 2
+Cadence: 92 avg
+Decoupling: -4.12% (good)
+EF: 1.20
+Variability Index: 1.14 (variable)
+Calories: 1240 kcal
+Carbs used: 258 g
+TSS: 95 (planned 65)
+Feel: 2/5 (Good)
+RPE: 4/10
+
+Completed workout: VirtualSki SkiErg
+Start time: 13:28:00
+Duration: 12m (planned 10m)
+HR: 128 avg / 142 max
+HR zones: 65% Zone 1, 35% Zone 2
+Calories: 118 kcal
+TSS: 6 (planned 8)
+
+Completed workout: Walk Training Session
+Start time: 15:10:22
+Duration: 38m
+Distance: 3.4 km
+HR: 82 avg / 98 max
+HR zones: 100% Zone 1
+Calories: 156 kcal
+TSS: 5
+
+Weekly totals:
+Phase: Base Wk3
+Polarization: Z1+Z2 88%, Z3 7%, Z4+ 5% — Polarized (PI: 1.85)
+Durability: 3.20% 7d mean(3) / 2.75% 28d mean(12) (stable)
+EF: 1.38 7d mean(4) / 1.42 28d mean(15) (stable)
+HRRc: 32 bpm 7d mean(2) / 31 bpm 28d mean(8) (stable)
+TID 28d: Polarized (PI: 2.42) — drift: consistent
+TSB: -3.75
+CTL: 68.40
+ATL: 72.15
+Ramp rate: 0.85
+ACWR: 1.04 (optimal)
+Recovery Index: 0.94
+Hours: 11h48m
+TSS: 445
+
+Interpretation:
+Main ride overshot planned TSS (95 vs 65) due to terrain variability — VI 1.14 and 23% grey zone
+confirm the outdoor premium — but HR stayed fully in Z1-Z2 and negative decoupling (-4.12%) shows
+aerobic response was clean. Short 5m ride logged separately; no `description` or `chat_notes`
+attached, reported as-is. SkiErg and walk executed as easy secondary sessions. Load tracking
+normally at ACWR 1.04.
+
+Tomorrow: Threshold 1h15m, 3×10m @245W
+```
+
+---
+
+## Example 3: Interval Session with Quality Check
 
 ```
 Data (last_updated UTC: 2026-01-17T18:05:33)
@@ -119,7 +202,7 @@ acceptable. TSB at -11.40 reflects build week loading. Recovery spin tomorrow. �
 
 ---
 
-## Example 3: Shortened Session (Modified)
+## Example 4: Shortened Session (Modified)
 
 ```
 Data (last_updated UTC: 2026-01-20T12:48:55)
@@ -172,7 +255,7 @@ upper-body only. 🩹
 
 ---
 
-## Example 4: Rest Day (Active Recovery Walk)
+## Example 5: Rest Day (Active Recovery Walk)
 
 ```
 Data (last_updated UTC: 2026-01-22T16:45:12)
