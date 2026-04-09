@@ -74,7 +74,7 @@ Round zone percentages to the nearest **whole number** (1%). The JSON data sourc
 | Distance | Cycling, running | Omit for SkiErg, strength |
 | Power / Power zones | Activities with power data | Omit if no power meter |
 | Grey Zone / Quality | Always for cycling | Highlights polarization compliance |
-| Session profile | Activities with zone data | Per-session TID classification based on zone distribution (e.g., Endurance, Tempo, Threshold, VO2max) |
+| Session profile | Activities with zone data | Per-session intensity classification based on **executed** zone distribution (e.g., Recovery, Endurance, Tempo, Sweetspot, Threshold, VO2max, Anaerobic, Neuromuscular, Mixed). When the planned workout name and the executed character disagree, classify by what was actually done — IF and zone-time distribution — not by the planned label. Sweetspot requires VI ≤ 1.05; sessions averaging IF 0.88–0.94 with VI > 1.05 classify by dominant power zone instead |
 | Cadence | Cycling, running | Omit for SkiErg, strength |
 | Decoupling | Sessions ≥ 1 hour | Key aerobic efficiency marker. Per-session scale (<5% good) per Friel/Coggan. Aggregate durability uses tighter scale (<3% good) |
 | EF | Activities with power + HR | Aerobic efficiency (NP ÷ HR); track trend over like-for-like sessions. Absolute value is individual-dependent |
