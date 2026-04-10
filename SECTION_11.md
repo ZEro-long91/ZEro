@@ -1,10 +1,31 @@
 # Section 11 — AI Coach Protocol
 
-**Protocol Version:** 11.29  
-**Last Updated:** 2026-04-07
+**Protocol Version:** 11.30  
+**Last Updated:** 2026-04-09
 **License:** [MIT](https://opensource.org/licenses/MIT)
 
 ### Changelog
+
+**v11.30 — DFA a1 Protocol:**
+- New section: DFA a1 Protocol — non-linear HRV index from AlphaHRV Connect IQ data field, ingested via Intervals.icu streams when direct Garmin sync is used (Strava strips developer fields)
+- Threshold mapping: DFA a1 ≈ 1.0 ↔ LT1/AeT, DFA a1 ≈ 0.5 ↔ LT2/VT2 (Rowlands 2017, Gronwald 2020, Mateo-March 2023). Cycling-validated only — non-cycling sports get rollups but flagged validated=False
+- Per-session `dfa` block in `intervals.json`: artifact-filtered avg, 4-band TIZ split (below_lt1 / lt1_transition / transition_lt2 / above_lt2) with HR/power cross-references per band, drift (first vs last third) with `interpretable` flag tied to time-above-LT2, LT1/LT2 crossing-band estimates (avg HR/watts in narrow ±0.05 windows around each threshold), quality block with sufficient flag
+- `dfa_a1_profile` in `latest.json` capability block: latest_session + trailing_by_sport (per sport family, last 7 sessions, confidence low/moderate/high based on crossing-dwell N)
+- Quality gates: ≥20 min valid data per session, max 5% artifact rate per second, AlphaHRV sentinel zeros excluded
+- Tier-2 interpretive signal: does NOT enter readiness P0–P3 ladder, does NOT auto-update dossier zones; surfaces calibration deltas only
+- Drift-on-structured-sessions guard: `interpretable: false` when >15% of session was above LT2 (drift number reflects session structure, not autonomic)
+- Always-emit rule: when AlphaHRV streams fetched, dfa block is always written (even with `quality.sufficient: false`) so AI can distinguish "no AlphaHRV" from "AlphaHRV ran but unusable"
+- `intervals.json` scope widened: activities now included when they have **either** structured intervals **or** an AlphaHRV `dfa` block. Pure endurance rides without intervals appear when DFA recorded — that's where DFA drift detection is most valuable
+- Trailing window bumped 5 → 7 sessions so `confidence: high` (≥6 contributing) is achievable
+- `latest_session` now carries a `validated` flag (cycling = true, others = false) so the AI cannot accidentally overread non-cycling sessions
+- Intervals.json retention bumped 8d → 14d to support DFA drift analysis across multiple sessions
+- Evidence base: 5 entries (Rowlands 2017, Gronwald 2020, Schaffarczyk 2023, Mateo-March 2023, Altini methodology)
+- POST_WORKOUT_REPORT_TEMPLATE.md: new `DFA a1` line in per-session block (conditional on `dfa` block presence), Field Notes row with three-way branching rules (absent / sufficient=false / sufficient=true) and per-interval-vs-session-level distinction note, Assessment Labels row
+- POST_WORKOUT_REPORT_EXAMPLES.md: Example 6 (long Z2 ride with interpretable drift flag triggering fueling/heat cross-reference per protocol) and Example 7 (sweet spot session with consonant DFA reading, drift flagged structural)
+- BLOCK_REPORT_TEMPLATE.md: new `DFA a1 Calibration` section heavily gated (cycling only, validated=true, confidence ≥ moderate), Field Definitions row, Notes entry stressing protocol-anchored thresholds and no auto-zone-updates
+- BLOCK_REPORT_EXAMPLES.md: Example 3 (6-week aerobic base block with DFA calibration surfacing — moderate confidence, empirical LT1 delta vs dossier, LT2 estimate appropriately omitted due to lt2_crossing_sessions=2)
+- Interval Data Mirror loading rule: extended to also load when an activity has a `dfa` block (covers steady-state rides with no structured intervals — they now appear in intervals.json under the widened entry rule)
+- Requires sync.py v3.99
 
 **v11.29 — Post-Workout Report Completeness Rules:**
 - Three new Do-NOT rules in Post-Workout Report Structure: never omit any completed activity on the report day (walks, ski-erg, short/aborted rides, commutes all get their own block); never merge activities (one activity ID = one block); never invent explanations for anomalous sessions (use only `description`/`chat_notes` fields, otherwise report as-is)
@@ -239,9 +260,9 @@ In addition to the real-time `latest.json` mirror, athletes may provide a `histo
 
 #### Interval Data Mirror (intervals.json)
 
-Per-interval segment data for recent structured sessions. Activities in `latest.json` with `has_intervals: true` have corresponding detail in `intervals.json`.
+Per-interval segment data for recent structured sessions, plus optional DFA a1 session-level rollups when AlphaHRV recorded. Activities in `latest.json` with `has_intervals: true` have corresponding detail in `intervals.json`.
 
-**Scope:** 7-day retention, incrementally cached (72h scan window on subsequent runs, 7-day backfill on first run). Only activities in whitelisted sport families (cycling, run, ski, rowing, swim) with detected interval structure are included.
+**Scope:** 14-day retention, incrementally cached (72h scan window on subsequent runs, 14-day backfill on first run). Activities in whitelisted sport families (cycling, run, ski, rowing, swim) are included when they have **either** detected interval structure (`intervals` array populated) **or** an AlphaHRV-recorded `dfa_a1` stream (`dfa` block present). Pure endurance rides without structured intervals appear in this file when they have a DFA block — that's by design, since steady-state rides are exactly where DFA a1 drift detection is most useful.
 
 **Per-interval fields:**
 
@@ -259,10 +280,28 @@ Per-interval segment data for recent structured sessions. Activities in `latest.
 | `w_bal` | number/null | W' balance at end of segment |
 | `training_load` | number/null | Segment training load |
 | `decoupling` | number/null | HR:power decoupling for this segment |
+| `avg_dfa_a1` | number/null | Per-interval DFA a1 average (when AlphaHRV recorded) |
 
 Null fields are stripped from output — only populated fields appear per segment.
 
-**Loading rule:** Load `intervals.json` when analysing a specific activity with `has_intervals: true`. Use for: interval compliance, pacing analysis, cardiac drift per set, recovery quality. Do not load for readiness, load management, or weekly summaries.
+**Optional `dfa` block (per activity):** Present only when AlphaHRV Connect IQ data field recorded a `dfa_a1` stream and the activity reached Intervals.icu via direct Garmin sync. Absence of the block means no AlphaHRV recording. Block-present-with-`quality.sufficient: false` means AlphaHRV ran but data was unusable (too short, too noisy, sentinel-only).
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `avg` | number/null | Artifact-filtered, zero-excluded mean DFA a1 |
+| `p25` / `p50` / `p75` | number/null | Quartiles of valid DFA a1 values |
+| `tiz_below_lt1` | object/null | DFA a1 > 1.0 (below LT1, true aerobic): `secs`, `pct`, `avg_hr`, `avg_watts` |
+| `tiz_lt1_transition` | object/null | 0.75 ≤ DFA a1 ≤ 1.0 (upper Z2 / tempo) |
+| `tiz_transition_lt2` | object/null | 0.5 ≤ DFA a1 < 0.75 (sweet spot / threshold) |
+| `tiz_above_lt2` | object/null | DFA a1 < 0.5 (above LT2, supra-threshold) |
+| `drift` | object/null | First-third vs last-third comparison: `first_third_avg`, `last_third_avg`, `delta`, `interpretable` (false when >15% time above LT2 — structural noise) |
+| `lt1_crossing` | object | HR/watts in 0.95–1.05 band: `secs_in_band`, `avg_hr`, `avg_watts` (null when secs_in_band < 60) |
+| `lt2_crossing` | object | HR/watts in 0.45–0.55 band: same shape |
+| `quality` | object | `valid_secs`, `total_secs`, `valid_pct`, `artifact_rate_avg`, `sufficient` |
+
+**See DFA a1 Protocol section for interpretation rules.**
+
+**Loading rule:** Load `intervals.json` when (a) analysing a specific activity with `has_intervals: true`, or (b) analysing a specific activity that has a `dfa` block (steady-state rides without structured intervals now appear in this file when AlphaHRV recorded — see widened entry rule above), or (c) generating a block report and the cycling block has DFA-equipped sessions (for the DFA a1 Calibration section). Use for: interval compliance, pacing analysis, cardiac drift per set, recovery quality, DFA a1 session-level interpretation, block-scale calibration deltas. Do not load for readiness, load management, or weekly summaries.
 
 #### Data Source Usage Hierarchy
 
@@ -1491,6 +1530,127 @@ When route data is available, the AI can produce a structured pre-ride briefing 
 | Course character heuristic | Section 11 convention — flat/rolling/hilly/mountain boundaries from elevation density (m/km) + climb presence | Engineering decision for route classification |
 
 ---
+
+---
+
+### DFA a1 Protocol
+
+#### Overview
+
+DFA a1 (Detrended Fluctuation Analysis, short-term scaling exponent α1) is a non-linear heart rate variability index that quantifies the fractal correlation properties of beat-to-beat intervals during exercise. As intensity rises, autonomic balance shifts and the RR-interval signal loses its long-range correlations — DFA a1 falls. This makes it a continuous, real-time marker of internal load that maps meaningfully to ventilatory/lactate thresholds.
+
+**Required (hard prerequisites for DFA a1 features in Section 11):**
+- **AlphaHRV** Connect IQ data field by Marco Altini (free, [Garmin Connect IQ store](https://apps.garmin.com/en-US/apps/40fd5e67-1ed0-457b-944b-19fdb3aae7e7))
+- A **Garmin head unit** with Connect IQ data field support (Edge 530/540/830/840/1030/1040/1050, recent Forerunner / fenix / Epix)
+- A **chest strap** that broadcasts beat-to-beat RR intervals (Garmin HRM-Pro Plus, Polar H10, similar)
+- AlphaHRV added to a **visible data screen** on the active bike/run profile (Connect IQ fields don't run on screens that aren't rendered)
+- "**Save ALPHA1 to FIT**" enabled in AlphaHRV settings (and a full Edge restart after toggling)
+- **Direct Garmin → Intervals.icu sync**, not via Strava — Strava strips FIT developer fields and AlphaHRV's output never reaches Intervals.icu via that path
+
+**Non-Garmin athletes:** see [`examples/dfa_a1/NON_GARMIN.md`](../examples/dfa_a1/NON_GARMIN.md) for the current status of Suunto, Hammerhead Karoo, Wahoo, Coros, Polar, and phone-based fallback paths. As of v11.30, **only Garmin + AlphaHRV is verified end-to-end**. Other paths are documented as investigational with verification commands ready for users on those platforms to run.
+
+**Ingest path:** Direct Garmin Connect → Intervals.icu sync. AlphaHRV writes DFA a1 to the FIT file as a developer field. Intervals.icu ingests it natively and exposes it as a per-second `dfa_a1` stream plus per-interval `average_dfa_a1` field. `sync.py` reads both via the streams API and produces the per-session `dfa` block in `intervals.json`.
+
+**Quality dependency:** AlphaHRV needs uncorrupted RR data. The watch/head-unit ANT+ link to the strap must be clean. Connect IQ data fields can only run when active in the recording profile, so the field must be installed AND added to a data screen for the activity profile.
+
+#### Threshold Mapping
+
+The published mapping from DFA a1 to physiological thresholds:
+
+| DFA a1 value | Physiological state |
+|---|---|
+| > 1.0 | Below LT1 / aerobic threshold (true Z2, sustainable hours) |
+| ≈ 1.0 | LT1 / VT1 / aerobic threshold |
+| 0.75 | Mid-transition (upper Z2 / tempo / Sweet Spot lower bound) |
+| ≈ 0.5 | LT2 / VT2 / anaerobic threshold |
+| < 0.5 | Above LT2 (VO₂max work, supra-threshold) |
+
+**This mapping is cycling-validated** (Rowlands et al. 2017, Gronwald et al. 2020, Schaffarczyk et al. 2023, Mateo-March et al. 2023). Other sports get rollups computed but `validated: false` is flagged in `dfa_a1_profile.trailing_by_sport.{sport}` — running has higher movement-induced HRV noise and different autonomic dynamics, and per-sport calibration is not yet established. Treat non-cycling DFA estimates as informational only.
+
+**Important caveats:**
+- Athlete-specific calibration is needed before DFA-derived thresholds replace dossier values. The protocol surfaces deltas; the human decides.
+- Fatigue shifts the relationship — a fatigued athlete's DFA a1 is depressed at submaximal work, so a "low" reading mid-session may reflect accumulated fatigue rather than true threshold crossing.
+- Heat, dehydration, and glycogen state all push DFA a1 down at constant external load. Cross-reference Environmental Conditions Protocol and nutrition state before interpreting low readings as fitness signal.
+
+#### Pre-Computed Signals Available
+
+The AI does not compute DFA a1 statistics — `sync.py` does. The AI reads pre-computed values from two locations:
+
+**`intervals.json` per-activity `dfa` block** (see Interval Data Mirror section above for full schema). Contains: artifact-filtered avg + quartiles, 4-band TIZ split with HR/power cross-references per band, drift (first vs last third) with `interpretable` flag, LT1/LT2 crossing-band estimates (`avg_hr`/`avg_watts` in narrow ±0.05 windows around each threshold), quality block.
+
+**`latest.json` `derived_metrics.capability.dfa_a1_profile`**:
+- `latest_session` — most recent activity with a sufficient dfa block: avg, tiz_split_pct, drift_delta, drift_interpretable, quality_pct, sufficient flag. If no recent session is sufficient, surfaces the most recent insufficient one with `sufficient: false` so the AI can see "AlphaHRV ran but data unusable".
+- `trailing_by_sport` — keyed by sport family. Per sport: n_sessions (up to 7 most recent sufficient), date_range, avg_dfa_a1, drift_delta_mean, lt1_crossing_sessions / lt2_crossing_sessions (diagnostic: how many of n_sessions had ≥60s dwell in each crossing band — reveals whether low confidence is due to athlete rarely crossing a band vs other causes), lt1_estimate `{hr, watts, n_sessions}`, lt2_estimate (same shape), quality_avg_pct, validated flag, confidence (`low` / `moderate` / `high` / null based on N sessions contributing to crossing-band estimates: 3 → low, 4–5 → moderate, ≥6 → high).
+
+#### Zone Validation Use
+
+When `latest.json.derived_metrics.capability.dfa_a1_profile.trailing_by_sport.cycling` has `confidence: "moderate"` or `"high"`, the AI may compare the empirical LT1/LT2 estimates (HR and watts at the crossing bands) against the dossier-defined cycling thresholds.
+
+**If the empirical estimate disagrees with the dossier value by >5%:**
+- The AI surfaces a calibration delta as a coaching observation
+- The AI does NOT auto-update dossier zones
+- The AI does NOT modify prescribed workouts based on DFA-derived thresholds
+- The athlete is told the delta exists, the magnitude, and the underlying N sessions
+- Final decision on whether to retest formally and update dossier rests with the athlete
+
+**Confidence floor:** Do not surface calibration deltas at `confidence: "low"` (3 sessions). Single-session noise is too high. Wait for `moderate` or `high`.
+
+**Validated sports only:** Only cycling estimates qualify for calibration delta surfacing. Other sports' estimates are descriptive only.
+
+#### Session Interpretation Rules
+
+For each completed session with a sufficient `dfa` block, the AI may apply the following interpretive rules:
+
+**Steady-state Z1/Z2 rides** (prescribed as endurance):
+- Should hold DFA a1 > 1.0 throughout
+- If `drift.interpretable: true` AND `drift.delta < -0.2`, flag as physiological drift signal — likely fueling state, accumulated heat stress, dehydration, or fatigue. Cross-reference Environmental Conditions Protocol (heat tier) and the session's nutrition/hydration log if available.
+- If session held below 1.0 for substantial time despite Z2 prescription, the session was harder internally than external load suggests — note this in the post-workout report
+
+**Sweet Spot / threshold intervals**:
+- Work intervals should land in 0.5–0.75 range
+- Substantial time below 0.5 indicates the intervals went above LT2 — note as "harder than prescribed internally" if power was on target
+- DFA a1 staying above 0.75 during work intervals indicates the work was lighter than threshold internally
+
+**VO₂max intervals**:
+- Work intervals should drop below 0.5
+- DFA a1 staying above 0.5 during work efforts indicates incomplete recruitment of supra-threshold metabolic state
+
+**Drift interpretability:** The AI checks `drift.interpretable` before applying the drift rule. When `false` (set automatically when >15% of session was above LT2), drift reflects session structure, not autonomic state, and the rule does not apply.
+
+#### Quality Gates
+
+The AI must check the quality block before any DFA-based statement:
+
+| Condition | AI behavior |
+|---|---|
+| `quality.sufficient: false` | Refuse to interpret. Note "DFA a1 data exists but did not meet quality threshold (X% valid, Y minutes — minimum 20 min required)". Do not invent or infer values. |
+| `quality.sufficient: true`, `quality.valid_pct < 80` | Interpret with reduced confidence; mention quality limitation in the report |
+| `quality.sufficient: true`, `quality.valid_pct ≥ 80` | Standard interpretation |
+| `dfa_a1_profile.trailing_by_sport.{sport}.confidence: null` or `"low"` | Do not surface threshold calibration deltas. Use only for descriptive reporting. |
+| `dfa` block absent on activity | No AlphaHRV recording — say nothing about DFA for that session. Do not say "no data" as if it were a problem; the data was never expected. |
+
+#### Boundaries
+
+DFA a1 is a **Tier-2 interpretive signal**. The following constraints are absolute:
+
+1. **Does NOT enter the readiness P0–P3 ladder.** No DFA-based readiness override. The readiness decision uses its existing 7 signals only.
+2. **Does NOT auto-update dossier zones.** The AI surfaces deltas, the human decides on retesting and updating.
+3. **Does NOT modify prescribed workout intensity.** A planned threshold session remains threshold even if yesterday's DFA suggested LT2 is 5W lower than dossier — the session is executed as planned, the calibration question is handled separately.
+4. **One signal among many.** DFA a1 disagreeing with HR/power/RPE/feel is an observation, not a verdict. The AI cross-references rather than treating DFA as ground truth.
+5. **Quality gates are non-negotiable.** When quality fails, the AI refuses to interpret. No "best guess" from insufficient data.
+
+#### DFA a1 — Evidence Base
+
+| Source | Finding | Application |
+|---|---|---|
+| Rowlands et al. (2017) Front Physiol — original framework | DFA a1 from short-term RR scaling correlates with ventilatory thresholds during incremental exercise; α1 ≈ 1.0 marks aerobic threshold, α1 ≈ 0.5 marks anaerobic threshold | Threshold mapping (1.0 ↔ LT1, 0.5 ↔ LT2) |
+| Gronwald et al. (2020) Front Physiol — incremental cycling validation | DFA a1 dynamics during graded cycling test confirm the threshold mapping; loss of correlation properties accelerates near VT2 | Cycling-specific validation; rationale for 0.5 cutoff |
+| Schaffarczyk et al. (2023) Sports Med Open — trained cyclists | DFA a1 thresholds in trained male cyclists correspond to gas-exchange thresholds with acceptable agreement; intra-individual variability noted | Confirms cycling validation; supports per-athlete calibration caveat |
+| Mateo-March et al. (2023) Eur J Appl Physiol — pro cyclists | DFA a1 vs lactate threshold comparison in elite cyclists; method viable for field use, lactate remains gold standard | Pro-level cycling validation; DFA as accessible field proxy, not lab replacement |
+| Rogers, Peake et al. (2025) Eur J Appl Physiol — Fatmaxxer validation | Open-source Android implementation (Fatmaxxer) shows close alignment with Kubios HRV reference for both DFA a1 responses and HRV thresholds across 23 cyclists in step-ramp-step protocol | Validates the open-source phone-app path documented in `examples/dfa_a1/NON_GARMIN.md`; relevant when phone fallback ever ships |
+| Altini methodology (HRV4Training / AlphaHRV documentation) | Implementation: rolling 2-min windows, RR artifact correction, 5% artifact rate as trustworthiness threshold; sentinel zeros during warmup/uncorrected windows | Quality gates: 5% artifact filter, sentinel-zero exclusion, minimum dwell time |
+
+
 
 ### Audit and Determinism Notes
 

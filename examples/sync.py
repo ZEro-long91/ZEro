@@ -4,6 +4,19 @@ Intervals.icu → GitHub/Local JSON Export
 Exports training data for LLM access.
 Supports both automated GitHub sync and manual local export.
   
+Version 3.99 - DFA a1 Protocol: per-session dfa block in intervals.json (artifact-filtered avg,
+  4-zone TIZ split with HR/power cross-references, drift, LT1/LT2 crossing-band estimates,
+  quality gates). New generic streams fetcher infrastructure (_fetch_activity_streams). dfa_a1_profile
+  in latest.json capability block (latest_session + trailing_by_sport with confidence + validation
+  flags). Always emits dfa block when streams fetched, even if quality.sufficient is False, so the
+  AI can distinguish "no AlphaHRV" from "AlphaHRV ran but unusable". Intervals retention 8d → 14d
+  to support drift analysis across multiple AlphaHRV sessions. Sport scope: all interval families;
+  threshold mapping (1.0/0.5) cycling-validated, other sports flagged validated=False.
+  Requires AlphaHRV Connect IQ data field, direct Garmin sync (Strava strips dev fields).
+
+Version 3.98 - Schema rename: derived_metrics.polarisation_index → easy_time_ratio (and _note).
+  Disambiguates from Seiler polarization_index (Treff PI). Rename only — no formula or value change.
+
 Version 3.97 - Readiness signal hygiene: low-side ACWR removed from readiness_decision ambers
   and ACWR alerts — low ACWR is a load-state/undertraining context signal, not a fatigue signal,
   and already surfaces via acwr_interpretation. RI amber now requires 2-day persistence (ri<0.7
@@ -92,7 +105,7 @@ class IntervalsSync:
     HISTORY_FILE = "history.json"
     UPSTREAM_REPO = "CrankAddict/section-11"
     CHANGELOG_FILE = "changelog.json"
-    VERSION = "3.98"
+    VERSION = "3.99"
     INTERVALS_FILE = "intervals.json"
     ROUTES_FILE = "routes.json"
 
@@ -101,7 +114,24 @@ class IntervalsSync:
     # per-interval detail for. Walk, strength, yoga, other excluded.
     INTERVAL_SPORT_FAMILIES = {"cycling", "run", "ski", "rowing", "swim"}
     INTERVAL_SCAN_HOURS = 72    # Only scan recent activities for new intervals
-    INTERVAL_RETENTION_DAYS = 8  # Keep cached intervals for 8 days (survives schedule drift)
+    INTERVAL_RETENTION_DAYS = 14  # Keep cached intervals for 14 days (DFA drift analysis window)
+
+    # --- DFA a1 Protocol (v3.99) ---
+    # Per-session DFA a1 rollups computed from streams when AlphaHRV Connect IQ field
+    # has written to the FIT and Intervals.icu surfaces dfa_a1 + artifacts streams.
+    # Threshold mapping (1.0 / 0.5) is cycling-validated (Rowlands 2017, Gronwald 2020,
+    # Mateo-March 2023). Other sports get rollups but validated=False.
+    DFA_LT1 = 1.0                       # DFA a1 above this = below LT1 (true aerobic)
+    DFA_LT2 = 0.5                       # DFA a1 below this = above LT2 (supra-threshold)
+    DFA_LT1_BAND = 0.05                 # crossing window for LT1 estimate: 0.95-1.05
+    DFA_LT2_BAND = 0.05                 # crossing window for LT2 estimate: 0.45-0.55
+    DFA_MIN_CROSSING_DWELL_SECS = 60    # min seconds in crossing band to emit threshold estimate
+    DFA_ARTIFACT_MAX_PCT = 5.0          # drop seconds where artifacts % exceeds this
+    DFA_MIN_VALID_VALUE = 0.01          # exclude AlphaHRV sentinel zeros
+    DFA_MIN_DURATION_SECS = 1200        # 20 min minimum valid data for sufficient=True
+    DFA_DRIFT_INTERPRETABLE_MAX_LT2_PCT = 15.0  # if >15% time above LT2, drift is structural noise
+    DFA_TRAILING_WINDOW_N = 7           # latest N AlphaHRV sessions for trailing window (≥6 needed for 'high' confidence)
+    DFA_VALIDATED_SPORTS = {"cycling"}  # sports where 1.0/0.5 mapping is literature-validated
 
     # Sport family mapping for per-sport monotony calculation
     # Multi-sport athletes get inflated total monotony when cross-training
@@ -249,16 +279,246 @@ class IntervalsSync:
             if self.debug:
                 print(f"    ⚠️  Could not fetch intervals for {activity_id}: {e}")
             return []
+
+    def _fetch_activity_streams(self, activity_id: str, types: List[str]) -> Dict[str, List]:
+        """
+        Fetch per-second streams for a single activity.
+
+        Generic streams fetcher for any rollup metric that needs second-by-second data.
+        Returns a dict keyed by stream type, value is the data list. Streams not present
+        in the response are simply absent from the returned dict.
+
+        Returns empty dict on 404/exception. Many activities won't have AlphaHRV-derived
+        streams (no Connect IQ field installed, sourced via Strava which strips dev fields,
+        wrong sport, etc.) — that's expected and not an error.
+
+        Note on cache invalidation: streams are fetched once per activity. If the underlying
+        FIT is reprocessed in AlphaHRV's mobile app and re-uploaded, the cached rollup will
+        be stale. Rare in practice; workaround is to delete intervals.json.
+        """
+        url = f"{self.INTERVALS_BASE_URL}/activity/{activity_id}/streams"
+        headers = {
+            "Authorization": f"Basic {self.intervals_auth}",
+            "Accept": "application/json"
+        }
+        try:
+            response = requests.get(url, headers=headers)
+            response.raise_for_status()
+            data = response.json()
+            if not isinstance(data, list):
+                return {}
+            wanted = set(types)
+            out = {}
+            for s in data:
+                stype = s.get("type")
+                if stype in wanted:
+                    sdata = s.get("data")
+                    if isinstance(sdata, list):
+                        out[stype] = sdata
+            return out
+        except Exception as e:
+            if self.debug:
+                print(f"    ⚠️  Could not fetch streams for {activity_id}: {e}")
+            return {}
+
+    def _compute_dfa_block(self, streams: Dict[str, List]) -> Optional[Dict]:
+        """
+        Compute per-session DFA a1 rollup from raw streams.
+
+        Inputs: streams dict from _fetch_activity_streams, expected keys:
+          dfa_a1, artifacts, heartrate, watts (heartrate/watts optional but degrade output)
+
+        Returns the dfa block dict, or None if dfa_a1 stream is absent entirely
+        (i.e. AlphaHRV did not record on this activity).
+
+        When dfa_a1 IS present but data is insufficient to interpret (too short,
+        too noisy), returns a block with quality.sufficient=False so the AI can
+        distinguish "no AlphaHRV" (None → no dfa key in output) from "AlphaHRV
+        ran but unusable" (block present, sufficient=False).
+
+        Filtering rules (in order):
+          1. Drop seconds where dfa_a1 < DFA_MIN_VALID_VALUE (AlphaHRV sentinel zeros)
+          2. Drop seconds where artifacts > DFA_ARTIFACT_MAX_PCT (5%, Altini convention)
+        Both filters applied jointly to dfa_a1, hr, watts so they stay aligned.
+        """
+        dfa_stream = streams.get("dfa_a1")
+        if not dfa_stream:
+            return None  # no AlphaHRV recording on this activity
+
+        artifacts_stream = streams.get("artifacts") or [0.0] * len(dfa_stream)
+        hr_stream = streams.get("heartrate") or [None] * len(dfa_stream)
+        watts_stream = streams.get("watts") or [None] * len(dfa_stream)
+
+        # Align all streams to dfa_a1 length (defensive — should already match)
+        n = len(dfa_stream)
+        if len(artifacts_stream) != n:
+            artifacts_stream = (artifacts_stream + [0.0] * n)[:n]
+        if len(hr_stream) != n:
+            hr_stream = (hr_stream + [None] * n)[:n]
+        if len(watts_stream) != n:
+            watts_stream = (watts_stream + [None] * n)[:n]
+
+        # Apply filters
+        valid_dfa, valid_hr, valid_watts = [], [], []
+        artifact_sum = 0.0
+        artifact_count = 0
+        for i in range(n):
+            d = dfa_stream[i]
+            a = artifacts_stream[i]
+            if a is not None:
+                artifact_sum += a
+                artifact_count += 1
+            if d is None or d < self.DFA_MIN_VALID_VALUE:
+                continue
+            if a is not None and a > self.DFA_ARTIFACT_MAX_PCT:
+                continue
+            valid_dfa.append(d)
+            valid_hr.append(hr_stream[i])
+            valid_watts.append(watts_stream[i])
+
+        valid_secs = len(valid_dfa)
+        total_secs = n
+        valid_pct = round(100.0 * valid_secs / total_secs, 1) if total_secs else 0.0
+        artifact_rate_avg = round(artifact_sum / artifact_count, 2) if artifact_count else None
+        sufficient = valid_secs >= self.DFA_MIN_DURATION_SECS
+
+        quality = {
+            "valid_secs": valid_secs,
+            "total_secs": total_secs,
+            "valid_pct": valid_pct,
+            "artifact_rate_avg": artifact_rate_avg,
+            "sufficient": sufficient,
+        }
+
+        if not sufficient:
+            # Emit minimal block — AI sees AlphaHRV ran but data unusable
+            return {
+                "avg": None,
+                "p25": None, "p50": None, "p75": None,
+                "tiz_below_lt1": None,
+                "tiz_lt1_transition": None,
+                "tiz_transition_lt2": None,
+                "tiz_above_lt2": None,
+                "drift": None,
+                "lt1_crossing": None,
+                "lt2_crossing": None,
+                "quality": quality,
+            }
+
+        # Sufficient — full rollup
+        sorted_dfa = sorted(valid_dfa)
+        avg = round(sum(valid_dfa) / valid_secs, 3)
+        p25 = round(sorted_dfa[valid_secs // 4], 3)
+        p50 = round(sorted_dfa[valid_secs // 2], 3)
+        p75 = round(sorted_dfa[(valid_secs * 3) // 4], 3)
+
+        # 4-band TIZ with HR/power cross-references per band
+        def _band_stats(predicate):
+            secs = 0
+            hr_sum, hr_n = 0, 0
+            w_sum, w_n = 0, 0
+            for i in range(valid_secs):
+                if predicate(valid_dfa[i]):
+                    secs += 1
+                    if valid_hr[i] is not None:
+                        hr_sum += valid_hr[i]
+                        hr_n += 1
+                    if valid_watts[i] is not None:
+                        w_sum += valid_watts[i]
+                        w_n += 1
+            if secs == 0:
+                return None
+            return {
+                "secs": secs,
+                "pct": round(100.0 * secs / valid_secs, 1),
+                "avg_hr": round(hr_sum / hr_n) if hr_n else None,
+                "avg_watts": round(w_sum / w_n) if w_n else None,
+            }
+
+        tiz_below_lt1 = _band_stats(lambda d: d > self.DFA_LT1)
+        tiz_lt1_transition = _band_stats(lambda d: 0.75 <= d <= self.DFA_LT1)
+        tiz_transition_lt2 = _band_stats(lambda d: self.DFA_LT2 <= d < 0.75)
+        tiz_above_lt2 = _band_stats(lambda d: d < self.DFA_LT2)
+
+        # Drift: first-third vs last-third of valid data
+        third = valid_secs // 3
+        if third >= 60:  # need at least 60s per third for meaningful drift
+            first_third = valid_dfa[:third]
+            last_third = valid_dfa[-third:]
+            first_avg = round(sum(first_third) / len(first_third), 3)
+            last_avg = round(sum(last_third) / len(last_third), 3)
+            drift_delta = round(last_avg - first_avg, 3)
+            # Drift is interpretable only on steady-state work — if significant time
+            # was spent above LT2, the session has hard intervals and drift is structural
+            above_lt2_pct = tiz_above_lt2["pct"] if tiz_above_lt2 else 0.0
+            interpretable = above_lt2_pct <= self.DFA_DRIFT_INTERPRETABLE_MAX_LT2_PCT
+            drift = {
+                "first_third_avg": first_avg,
+                "last_third_avg": last_avg,
+                "delta": drift_delta,
+                "interpretable": interpretable,
+            }
+        else:
+            drift = None
+
+        # LT1 / LT2 crossing-band estimates (the actually-coachable threshold candidates)
+        def _crossing_stats(center, band):
+            lo, hi = center - band, center + band
+            secs = 0
+            hr_sum, hr_n = 0, 0
+            w_sum, w_n = 0, 0
+            for i in range(valid_secs):
+                if lo <= valid_dfa[i] <= hi:
+                    secs += 1
+                    if valid_hr[i] is not None:
+                        hr_sum += valid_hr[i]
+                        hr_n += 1
+                    if valid_watts[i] is not None:
+                        w_sum += valid_watts[i]
+                        w_n += 1
+            if secs < self.DFA_MIN_CROSSING_DWELL_SECS:
+                return {"secs_in_band": secs, "avg_hr": None, "avg_watts": None}
+            return {
+                "secs_in_band": secs,
+                "avg_hr": round(hr_sum / hr_n) if hr_n else None,
+                "avg_watts": round(w_sum / w_n) if w_n else None,
+            }
+
+        lt1_crossing = _crossing_stats(self.DFA_LT1, self.DFA_LT1_BAND)
+        lt2_crossing = _crossing_stats(self.DFA_LT2, self.DFA_LT2_BAND)
+
+        return {
+            "avg": avg,
+            "p25": p25, "p50": p50, "p75": p75,
+            "tiz_below_lt1": tiz_below_lt1,
+            "tiz_lt1_transition": tiz_lt1_transition,
+            "tiz_transition_lt2": tiz_transition_lt2,
+            "tiz_above_lt2": tiz_above_lt2,
+            "drift": drift,
+            "lt1_crossing": lt1_crossing,
+            "lt2_crossing": lt2_crossing,
+            "quality": quality,
+        }
+
     
-    def _generate_intervals(self, activities: List[Dict]) -> set:
+    def _generate_intervals(self, activities: List[Dict], anonymize: bool = False) -> set:
         """
         Generate intervals.json with incremental caching.
         
-        First run (no cache): scans full retention window (7 days) to backfill.
+        First run (no cache): scans full retention window (14 days) to backfill.
         Subsequent runs: scans recent activities (72h) for new sessions only.
         Fetches per-interval data for new qualifying activities, merges
-        with cached data, and purges entries older than 7 days.
-        
+        with cached data, and purges entries older than 14 days.
+
+        DFA a1 (v3.99): for each new qualifying activity, also fetches streams
+        (dfa_a1, artifacts, heartrate, watts) and computes a per-session dfa block.
+        Attached to the activity entry as 'dfa' key when AlphaHRV recorded.
+
+        Anonymization (v3.99 fix): when anonymize=True, outdoor activity names are
+        replaced with "Training Session" matching _format_activities behaviour.
+        Without this, intervals.json would leak raw outdoor names while latest.json
+        anonymizes them — a privacy consistency bug.
+
         Returns set of activity IDs that have interval data (for has_intervals flag).
         """
         now = datetime.now()
@@ -284,16 +544,20 @@ class IntervalsSync:
                 cached = {"activities": []}
                 first_run = True
         
-        # First run: backfill full retention window (7 days). Subsequent: scan 72h only.
+        # First run: backfill full retention window (14 days). Subsequent: scan 72h only.
         if first_run:
             scan_cutoff = retention_cutoff
-            print("    First run — scanning 7 days for interval data...")
+            print("    First run — scanning 14 days for interval data...")
         else:
             scan_cutoff = (now - timedelta(hours=self.INTERVAL_SCAN_HOURS)).strftime("%Y-%m-%d")
         
         cached_ids = {a["activity_id"] for a in cached.get("activities", [])}
         
-        # Filter activities to scan window + sport family whitelist + interval_summary non-null
+        # Filter activities to scan window + sport family whitelist.
+        # NOTE (v3.99): interval_summary requirement removed. Pure endurance rides
+        # without structured intervals are exactly where DFA a1 is most valuable
+        # (steady-state drift detection, LT1 calibration). We attempt both intervals
+        # AND streams fetches; entry is emitted if either yields data.
         candidates = []
         for act in activities:
             date_str = act.get("start_date_local", "")[:10]
@@ -302,8 +566,6 @@ class IntervalsSync:
             act_type = act.get("type", "")
             family = self.SPORT_FAMILIES.get(act_type)
             if family not in self.INTERVAL_SPORT_FAMILIES:
-                continue
-            if not act.get("interval_summary"):
                 continue
             act_id = act.get("id")
             if act_id in cached_ids:
@@ -314,12 +576,12 @@ class IntervalsSync:
         new_entries = []
         for act in candidates:
             act_id = act.get("id")
-            print(f"    Fetching intervals for {act.get('name', act_id)}...")
+            print(f"    Fetching intervals/streams for {act.get('name', act_id)}...")
             raw_intervals = self._fetch_activity_intervals(act_id)
-            if not raw_intervals:
-                continue
-            
-            # Format interval segments
+            # raw_intervals may be empty for unstructured endurance rides — that's fine,
+            # we still attempt streams below for DFA a1.
+
+            # Format interval segments (empty list if no structured intervals exist)
             segments = []
             for iv in raw_intervals:
                 segment = {
@@ -335,20 +597,49 @@ class IntervalsSync:
                     "w_bal": iv.get("w_bal"),
                     "training_load": iv.get("training_load"),
                     "decoupling": iv.get("decoupling"),
+                    # Per-interval avg_dfa_a1 is the Intervals.icu-computed value (UNFILTERED).
+                    # The session-level dfa.avg below IS artifact-filtered. Don't try to
+                    # reconcile the two — they use different denominators by design.
+                    "avg_dfa_a1": iv.get("average_dfa_a1"),
                 }
                 # Strip None values to keep output lean
                 segment = {k: v for k, v in segment.items() if v is not None}
                 segments.append(segment)
-            
-            if segments:
-                new_entries.append({
+
+            # DFA a1 session-level rollup (v3.99) — fetch streams, compute block.
+            # None means no AlphaHRV recording on this activity (skip dfa key entirely).
+            # A block with quality.sufficient=False means AlphaHRV ran but data unusable.
+            dfa_block = None
+            try:
+                streams = self._fetch_activity_streams(
+                    act_id, ["dfa_a1", "artifacts", "heartrate", "watts"]
+                )
+                if streams.get("dfa_a1"):
+                    dfa_block = self._compute_dfa_block(streams)
+            except Exception as e:
+                if self.debug:
+                    print(f"    ⚠️  DFA a1 computation failed for {act_id}: {e}")
+                dfa_block = None
+
+            # Emit entry if EITHER segments OR dfa block exists.
+            # Pure endurance rides with AlphaHRV: no segments, has dfa.
+            # Structured intervals without AlphaHRV: has segments, no dfa.
+            # Both: full entry. Neither: skip silently.
+            if segments or dfa_block is not None:
+                entry_name = act.get("name", "")
+                if anonymize and act.get("type", "") in self.OUTDOOR_TYPES:
+                    entry_name = "Training Session"
+                entry = {
                     "activity_id": act_id,
                     "date": act.get("start_date_local", "")[:10],
                     "type": act.get("type", "Unknown"),
-                    "name": act.get("name", ""),
+                    "name": entry_name,
                     "interval_summary": act.get("interval_summary"),
                     "intervals": segments
-                })
+                }
+                if dfa_block is not None:
+                    entry["dfa"] = dfa_block
+                new_entries.append(entry)
         
         if new_entries:
             print(f"    ✅ Fetched intervals for {len(new_entries)} new activit{'y' if len(new_entries) == 1 else 'ies'}")
@@ -1324,6 +1615,17 @@ class IntervalsSync:
         else:
             print("  📊 No sport families with sustainability data")
         
+        # Generate interval-level data (v3.82, expanded v3.99)
+        # Uses the already-fetched activity list — no extra listing API calls.
+        # Pre-filters by sport family whitelist; no longer requires interval_summary.
+        # Incremental: only fetches intervals for new qualifying activities.
+        # MUST run before _calculate_derived_metrics so self._intervals_data is
+        # populated when _calculate_dfa_a1_profile reads it (v3.99 fix).
+        print("Checking for interval data...")
+        interval_activity_ids = self._generate_intervals(activities_display, anonymize)
+        if interval_activity_ids:
+            print(f"  📊 {len(interval_activity_ids)} activit{'y' if len(interval_activity_ids) == 1 else 'ies'} with interval data")
+        
         # Calculate derived metrics for Section 11 compliance
         print("Calculating derived metrics...")
         derived_metrics = self._calculate_derived_metrics(
@@ -1402,22 +1704,13 @@ class IntervalsSync:
         # History confidence (v3.3.0)
         history_info = self._get_history_confidence()
         
-        # Generate interval-level data (v3.82)
-        # Uses the already-fetched activity list — no extra listing API calls.
-        # Pre-filters by sport family whitelist + interval_summary non-null.
-        # Incremental: only fetches intervals for new qualifying activities.
-        print("Checking for interval data...")
-        interval_activity_ids = self._generate_intervals(activities_display)
-        if interval_activity_ids:
-            print(f"  📊 {len(interval_activity_ids)} activit{'y' if len(interval_activity_ids) == 1 else 'ies'} with interval data")
-        
         data = {
             "READ_THIS_FIRST": {
                 "instruction_for_ai": "DO NOT calculate totals from individual activities. Use the pre-calculated values in 'summary', 'weekly_summary', and 'derived_metrics' sections below. These are already computed accurately from the API data.",
                 "display_formatting": "For durations and sleep, always display the '_formatted' fields (e.g., sleep_formatted, duration_formatted, total_training_formatted) instead of converting decimal '_hours' values. The formatted fields are pre-calculated from raw seconds and avoid rounding errors.",
                 "data_period": f"Last {days_back} days (including today)",
                 "extended_data_note": f"ACWR and baselines calculated from {days_for_acwr} days of data",
-                "capability_metrics_note": "The 'capability' block in derived_metrics contains durability trend (aggregate decoupling 7d/28d), efficiency factor trend (aggregate EF 7d/28d), HRRc trend (heart rate recovery 7d/28d), TID comparison (7d vs 28d distribution drift), power curve delta (MMP shift at anchor durations across 28d windows — energy system adaptation direction), HR curve delta (max sustained HR shift at anchor durations — cardiac adaptation, cross-sport), and sustainability profile (per-sport power/HR sustainability table for race estimation — 42d window, sport-filtered). These measure HOW the athlete expresses fitness, not just load. Use these for coaching context alongside traditional load metrics. Durability and EF trend direction matters more than absolute values. HRRc is display only — higher = better parasympathetic recovery. Power curve delta rotation_index reveals whether gains are sprint-biased (positive) or endurance-biased (negative). HR curve delta is ambiguous — rising max sustained HR may indicate fitness or fatigue; cross-reference with resting HRV/HR and RPE. Sustainability profile provides race estimation lookup: actual MMP, Coggan predicted (cycling only), CP/W' model (cycling only), model_divergence_pct (actual vs CP — divergence IS the coaching signal). CP/W' is primary for durations ≤20min; Coggan duration factors are the established reference for ≥60min. Source flag (observed_outdoor/observed_indoor) matters for cycling race estimation — indoor MMP is typically 3-5% lower.",
+                "capability_metrics_note": "The 'capability' block in derived_metrics contains durability trend (aggregate decoupling 7d/28d), efficiency factor trend (aggregate EF 7d/28d), HRRc trend (heart rate recovery 7d/28d), TID comparison (7d vs 28d distribution drift), power curve delta (MMP shift at anchor durations across 28d windows — energy system adaptation direction), HR curve delta (max sustained HR shift at anchor durations — cardiac adaptation, cross-sport), sustainability profile (per-sport power/HR sustainability table for race estimation — 42d window, sport-filtered), and DFA a1 profile (per-session non-linear HRV index from AlphaHRV Connect IQ field — latest_session + trailing_by_sport with crossing-band LT1/LT2 estimates). These measure HOW the athlete expresses fitness, not just load. Use these for coaching context alongside traditional load metrics. Durability and EF trend direction matters more than absolute values. HRRc is display only — higher = better parasympathetic recovery. Power curve delta rotation_index reveals whether gains are sprint-biased (positive) or endurance-biased (negative). HR curve delta is ambiguous — rising max sustained HR may indicate fitness or fatigue; cross-reference with resting HRV/HR and RPE. Sustainability profile provides race estimation lookup: actual MMP, Coggan predicted (cycling only), CP/W' model (cycling only), model_divergence_pct (actual vs CP — divergence IS the coaching signal). CP/W' is primary for durations ≤20min; Coggan duration factors are the established reference for ≥60min. Source flag (observed_outdoor/observed_indoor) matters for cycling race estimation — indoor MMP is typically 3-5% lower. DFA a1 profile: thresholds (1.0 ≈ LT1, 0.5 ≈ LT2) cycling-validated only — non-cycling sports get rollups but validated=False. Crossing-band estimates (avg HR/watts in narrow bands around each threshold) are provisional at confidence='low' (suppressed for calibration delta surfacing) and usable at 'moderate' or 'high'. DFA a1 is a Tier-2 interpretive signal — does NOT enter readiness P0–P3 ladder, does NOT auto-update dossier zones; surfaces calibration deltas only. Quality gate: refuse to interpret when latest_session.sufficient=false or trailing confidence=null. See SECTION_11.md DFA a1 Protocol for full interpretation rules.",
                 "readiness_decision_note": "The 'readiness_decision' block contains a pre-computed go/modify/skip recommendation with priority level (P0=safety, P1=overload, P2=fatigue, P3=green), individual signal statuses, phase-adjusted thresholds, and structured modification guidance. Use this as the baseline for pre-workout recommendations. Override with explanation in the coach note if the AI's contextual judgment disagrees.",
                 "zone_preference": self.zone_preference if self.zone_preference else "default (power preferred, HR fallback)",
                 "wellness_field_scales": {
@@ -1798,6 +2091,11 @@ class IntervalsSync:
             icu_weight=icu_weight
         )
 
+        # === DFA a1 PROFILE (v3.99) ===
+        # Reads from self._intervals_data populated by _generate_intervals().
+        # Returns None when no AlphaHRV-equipped sessions exist in the 14d window.
+        dfa_a1_profile = self._calculate_dfa_a1_profile()
+
         # === CONSISTENCY INDEX ===
         consistency_index, consistency_details = self._calculate_consistency_index(
             activities_for_consistency, past_events
@@ -1977,6 +2275,7 @@ class IntervalsSync:
                 "power_curve_delta": power_curve_delta,
                 "hr_curve_delta": hr_curve_delta,
                 "sustainability_profile": sustainability_profile,
+                "dfa_a1_profile": dfa_a1_profile,
             },
             
             # Tier 3: Consistency & Compliance
@@ -3088,6 +3387,184 @@ class IntervalsSync:
                      "output (good) or accumulated fatigue/dehydration/heat (bad). Cross-reference with "
                      "resting HRV, resting HR, RPE, and environmental context before interpreting. "
                      "Null when either window has fewer than 3 valid anchor durations.")
+        }
+
+    def _calculate_dfa_a1_profile(self) -> Optional[Dict]:
+        """
+        Build dfa_a1_profile for latest.json capability block.
+
+        Reads from self._intervals_data (must be set first by _generate_intervals).
+        Returns:
+          - latest_session: most recent activity with a sufficient dfa block (any sport)
+          - trailing_by_sport: per sport family, aggregated rollups across the latest
+            DFA_TRAILING_WINDOW_N sessions, with confidence + validated flags
+
+        Returns None if no intervals data or no DFA-equipped sessions exist.
+        """
+        intervals_data = getattr(self, "_intervals_data", None)
+        if not intervals_data:
+            return None
+        activities = intervals_data.get("activities", [])
+        # Keep only activities with a dfa block (i.e. AlphaHRV recorded), most recent first
+        dfa_activities = [a for a in activities if a.get("dfa") is not None]
+        if not dfa_activities:
+            return None
+        dfa_activities.sort(key=lambda a: a.get("date", ""), reverse=True)
+
+        # --- latest_session: most recent SUFFICIENT session ---
+        latest_session = None
+        for a in dfa_activities:
+            block = a["dfa"]
+            quality = block.get("quality", {})
+            if quality.get("sufficient"):
+                tiz_split = {}
+                for key, label in [
+                    ("tiz_below_lt1", "below_lt1"),
+                    ("tiz_lt1_transition", "lt1_transition"),
+                    ("tiz_transition_lt2", "transition_lt2"),
+                    ("tiz_above_lt2", "above_lt2"),
+                ]:
+                    band = block.get(key)
+                    tiz_split[label] = band["pct"] if band else 0.0
+                drift = block.get("drift") or {}
+                latest_session = {
+                    "activity_id": a.get("activity_id"),
+                    "date": a.get("date"),
+                    "name": a.get("name"),
+                    "sport": a.get("type"),
+                    "validated": self.SPORT_FAMILIES.get(a.get("type", "")) in self.DFA_VALIDATED_SPORTS,
+                    "avg": block.get("avg"),
+                    "tiz_split_pct": tiz_split,
+                    "drift_delta": drift.get("delta"),
+                    "drift_interpretable": drift.get("interpretable"),
+                    "quality_pct": quality.get("valid_pct"),
+                    "sufficient": True,
+                }
+                break
+
+        # If no sufficient session, surface the most recent insufficient one so the AI
+        # can see "AlphaHRV ran but unusable" instead of "no data".
+        if latest_session is None:
+            a = dfa_activities[0]
+            latest_session = {
+                "activity_id": a.get("activity_id"),
+                "date": a.get("date"),
+                "name": a.get("name"),
+                "sport": a.get("type"),
+                "validated": self.SPORT_FAMILIES.get(a.get("type", "")) in self.DFA_VALIDATED_SPORTS,
+                "avg": None,
+                "tiz_split_pct": None,
+                "drift_delta": None,
+                "drift_interpretable": None,
+                "quality_pct": a["dfa"].get("quality", {}).get("valid_pct"),
+                "sufficient": False,
+            }
+
+        # --- trailing_by_sport: per-sport aggregation across last N sufficient sessions ---
+        trailing_by_sport = {}
+        # Group dfa activities by sport family
+        by_family = {}
+        for a in dfa_activities:
+            if not a["dfa"].get("quality", {}).get("sufficient"):
+                continue
+            family = self.SPORT_FAMILIES.get(a.get("type", ""), "other")
+            by_family.setdefault(family, []).append(a)
+
+        for family, acts in by_family.items():
+            window = acts[: self.DFA_TRAILING_WINDOW_N]
+            n = len(window)
+            if n == 0:
+                continue
+            avg_dfa_values = [a["dfa"]["avg"] for a in window if a["dfa"].get("avg") is not None]
+            avg_dfa = round(sum(avg_dfa_values) / len(avg_dfa_values), 3) if avg_dfa_values else None
+            drift_values = [
+                a["dfa"]["drift"]["delta"]
+                for a in window
+                if a["dfa"].get("drift") and a["dfa"]["drift"].get("interpretable")
+                and a["dfa"]["drift"].get("delta") is not None
+            ]
+            drift_mean = round(sum(drift_values) / len(drift_values), 3) if drift_values else None
+
+            # Threshold estimates from crossing bands — only sessions with sufficient dwell
+            def _avg_crossing(key, field):
+                vals = []
+                for a in window:
+                    cb = a["dfa"].get(key)
+                    if cb and cb.get("secs_in_band", 0) >= self.DFA_MIN_CROSSING_DWELL_SECS:
+                        v = cb.get(field)
+                        if v is not None:
+                            vals.append(v)
+                if not vals:
+                    return None, 0
+                return round(sum(vals) / len(vals)), len(vals)
+
+            lt1_hr, lt1_n_hr = _avg_crossing("lt1_crossing", "avg_hr")
+            lt1_watts, lt1_n_w = _avg_crossing("lt1_crossing", "avg_watts")
+            lt2_hr, lt2_n_hr = _avg_crossing("lt2_crossing", "avg_hr")
+            lt2_watts, lt2_n_w = _avg_crossing("lt2_crossing", "avg_watts")
+
+            # Observability: how many sessions in window had ≥dwell threshold in each band.
+            # If confidence stays stuck at low/null with high n_sessions, these counts reveal
+            # whether the issue is "athlete rarely crosses this band" (count low) vs some
+            # other failure mode. Diagnostic only — not used in confidence logic itself.
+            lt1_crossing_sessions = sum(
+                1 for a in window
+                if (a["dfa"].get("lt1_crossing") or {}).get("secs_in_band", 0)
+                >= self.DFA_MIN_CROSSING_DWELL_SECS
+            )
+            lt2_crossing_sessions = sum(
+                1 for a in window
+                if (a["dfa"].get("lt2_crossing") or {}).get("secs_in_band", 0)
+                >= self.DFA_MIN_CROSSING_DWELL_SECS
+            )
+
+            # Confidence based on n sessions contributing to crossing estimates
+            crossing_n = max(lt1_n_hr, lt1_n_w, lt2_n_hr, lt2_n_w)
+            if crossing_n >= 6:
+                confidence = "high"
+            elif crossing_n >= 4:
+                confidence = "moderate"
+            elif crossing_n >= 3:
+                confidence = "low"
+            else:
+                confidence = None  # not enough sessions for any threshold estimate
+
+            quality_avg = round(
+                sum(a["dfa"]["quality"]["valid_pct"] for a in window) / n, 1
+            )
+
+            validated = family in self.DFA_VALIDATED_SPORTS
+            sport_block = {
+                "n_sessions": n,
+                "date_range": [window[-1].get("date"), window[0].get("date")],
+                "avg_dfa_a1": avg_dfa,
+                "drift_delta_mean": drift_mean,
+                "lt1_crossing_sessions": lt1_crossing_sessions,
+                "lt2_crossing_sessions": lt2_crossing_sessions,
+                "lt1_estimate": {
+                    "hr": lt1_hr if confidence else None,
+                    "watts": lt1_watts if confidence else None,
+                    "n_sessions": max(lt1_n_hr, lt1_n_w),
+                } if confidence else None,
+                "lt2_estimate": {
+                    "hr": lt2_hr if confidence else None,
+                    "watts": lt2_watts if confidence else None,
+                    "n_sessions": max(lt2_n_hr, lt2_n_w),
+                } if confidence else None,
+                "quality_avg_pct": quality_avg,
+                "validated": validated,
+                "confidence": confidence,
+            }
+            if not validated:
+                sport_block["note"] = (
+                    f"DFA a1 threshold mapping (1.0/0.5) is cycling-validated. "
+                    f"{family} thresholds may differ — treat estimates as informational only."
+                )
+            trailing_by_sport[family] = sport_block
+
+        return {
+            "latest_session": latest_session,
+            "trailing_by_sport": trailing_by_sport,
         }
 
     def _calculate_sustainability_profile(self, sustainability_curves: Dict,

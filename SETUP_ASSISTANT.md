@@ -84,6 +84,8 @@ Check that they have:
 
 Confirm before continuing.
 
+**Optional — DFA a1 features.** Section 11 v11.30+ includes a DFA a1 Protocol that provides empirical aerobic/threshold zone calibration from in-activity HRV. This is an **optional feature** with a hard hardware/software requirement: **Garmin head unit + AlphaHRV Connect IQ data field + chest strap that broadcasts beat-to-beat RR (HRM-Pro Plus, Polar H10) + direct Garmin → Intervals.icu sync**. The athlete can skip this entirely and Section 11 still works fully — DFA a1 just won't appear in their reports. If they're on Wahoo, Suunto, Karoo, Coros, Polar, or any non-Garmin platform, point them at [`examples/dfa_a1/NON_GARMIN.md`](examples/dfa_a1/NON_GARMIN.md) — it documents what's known about their platform and how to help us verify a path. **Do not promise DFA a1 features to non-Garmin athletes** — only Garmin + AlphaHRV is verified end-to-end as of v11.30.
+
 ### Step 2: Get Intervals.icu credentials
 
 Walk them through:

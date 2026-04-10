@@ -59,6 +59,17 @@ Sustainability Ceilings (omit section if sustainability_profile null):
   [For non-cycling sports: show actual_watts + actual_hr + pct_lthr only, no model columns]
   Block-over-block: [did ceilings move? did coverage improve? did model divergence shift?]
 
+DFA a1 Calibration (omit section entirely if dfa_a1_profile null, OR cycling block missing, OR trailing_by_sport.cycling.confidence in {null, "low"}, OR trailing_by_sport.cycling.validated false):
+  Sessions in window: [N] sufficient (LT1 crossings: [X], LT2 crossings: [Y])
+  Confidence: [moderate / high]
+  Average DFA a1: [X.XX] (drift mean: [+/-X.XX])
+  Empirical LT1: [XXX] bpm / [XXX] W (from [N] sessions in 0.95–1.05 band)
+  Empirical LT2: [XXX] bpm / [XXX] W (from [N] sessions in 0.45–0.55 band) [omit line if lt2_estimate null — happens when athlete rarely crosses 0.5]
+  Dossier LT1 (cycling): [XXX] bpm / [XXX] W
+  Dossier LT2 (cycling): [XXX] bpm / [XXX] W
+  Delta: [LT1 +X% / LT2 -Y% / no notable delta] [report only deltas >5% per DFA a1 Protocol §Zone Validation Use]
+  [If delta surfaced: 1-2 sentence note flagging the delta as a coaching observation, NOT an auto-update. Recommend formal retest before any dossier change.]
+
 Polarization (block average):
   Z1+Z2: [XX]%
   Z3 (Grey Zone): [X]% (target <5%)
@@ -138,6 +149,7 @@ Next Block Plan:
 | **Power Curve Rotation** | rotation_index from capability.power_curve_delta | Sprint-biased (positive) vs endurance-biased (negative) adaptation across the block. Omit if null |
 | **HR Curve Rotation** | rotation_index from capability.hr_curve_delta | Intensity-biased (positive) vs endurance-biased (negative) HR shift. AMBIGUOUS — cross-reference with HRV/RHR. Omit if null |
 | **Sustainability Ceilings** | capability.sustainability_profile.{sport}.anchors | Per-sport MMP + HR at race-relevant durations. Cycling: Coggan + CP/W' model layers with divergence. Coverage ratio flags data gaps. Block-over-block: compare ceilings, coverage, and divergence shift. Omit if null |
+| **DFA a1 Calibration** | capability.dfa_a1_profile.trailing_by_sport.cycling | Empirical LT1/LT2 estimates from artifact-filtered AlphaHRV data, surfaced only when cycling block present, validated=true, and confidence is moderate or high. Crossing-band averages of HR and power in the ±0.05 windows around DFA a1 = 1.0 (LT1) and 0.5 (LT2). Compare against dossier-defined cycling thresholds; surface deltas >5% as coaching observations only. Never auto-updates dossier zones. lt2_estimate may be null even at moderate/high confidence if the athlete rarely crosses 0.5 — that's by design, surface lt1 only in that case. See `lt1_crossing_sessions` / `lt2_crossing_sessions` for diagnostic counts. Tier-2 interpretive signal — does NOT affect the Phase Progression Check |
 | **Decoupling trend** | Long ride aerobic efficiency | Improving decoupling = aerobic base building |
 | **Polarization by Week** | Weekly zone distributions | Catches grey zone creep within a block. Append classification + PI only when week diverges from block-scale TID |
 | **Durability by Week** | Weekly mean decoupling from steady-state sessions | VI ≤ 1.05, ≥ 90min. Shows aerobic efficiency trajectory across block |
@@ -179,6 +191,7 @@ Next Block Plan:
 - **Efficiency Factor by Week** catches aerobic fitness trends that complement durability; rising EF at same intensity = improving fitness
 - **HRRc by Week** shows recovery quality trajectory across the block; omit entire section if fewer than 3 qualifying sessions in the block. Individual weeks with 0 qualifying sessions show "— no data". Context-dependent: varies with exercise intensity, type, and recording conditions
 - **Sustainability Ceilings** show what the athlete can sustain right now at race-relevant durations. Block-over-block: rising ceilings confirm adaptation; narrowing model divergence confirms model inputs are current; improving coverage means the athlete is producing efforts across more durations. Low coverage (<50%) means the profile is heavily model-dependent — note this. Indoor source on key anchors means outdoor race ceiling is likely 3–5% higher
+- **DFA a1 Calibration** is the appropriate cadence for surfacing empirical-vs-dossier threshold deltas — block-scale, not weekly. The section is heavily gated (cycling only, validated=true, confidence ≥ moderate) because non-validated or low-confidence estimates create more noise than signal. When the section appears, treat the deltas as coaching observations: flag the discrepancy, recommend formal retest, do not modify dossier or workouts based on the estimate alone. The protocol explicitly forbids auto-updating zones from DFA — see SECTION_11.md DFA a1 Protocol §Boundaries
 - **Phase Timeline** makes phase stability visible across the block — the Phase Progression Check is more meaningful when you can see the phase held steady or oscillated
 - **Phase Progression Check** makes the protocol's decision logic transparent to the athlete
 - **Next Block Plan** should flow directly from the Phase Progression Check — if criteria aren't met, explain what the next block does differently
