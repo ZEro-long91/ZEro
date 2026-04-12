@@ -1,10 +1,17 @@
 # Section 11 — AI Coach Protocol
 
-**Protocol Version:** 11.30  
-**Last Updated:** 2026-04-09
+**Protocol Version:** 11.31  
+**Last Updated:** 2026-04-10
 **License:** [MIT](https://opensource.org/licenses/MIT)
 
 ### Changelog
+
+**v11.31 — DFA Power Calibration Indoor/Outdoor Split:**
+- `trailing_by_sport.cycling` lt1_estimate / lt2_estimate: watts split by environment — `watts_outdoor`, `watts_indoor` (always present, null when no qualifying sessions in that environment). HR stays pooled (physiology signal, not environment-dependent). Non-cycling sports unchanged (`watts` key retained)
+- Per-environment session counts: `n_sessions_outdoor`, `n_sessions_indoor` on each estimate block. Same 3/4–5/≥6 confidence thresholds apply per environment for watts calibration delta surfacing
+- Zone Validation Use updated: compare `watts_outdoor` against dossier `ftp`, `watts_indoor` against `ftp_indoor`. Fallback: if only one environment has data and the other context's dossier FTP is missing, the available estimate may inform directionally with cross-environment caveat
+- Shared `_is_indoor_cycling()` resolver (VirtualRide = indoor) used by DFA profile and sustainability profile
+- Requires sync.py v3.100
 
 **v11.30 — DFA a1 Protocol:**
 - New section: DFA a1 Protocol — non-linear HRV index from AlphaHRV Connect IQ data field, ingested via Intervals.icu streams when direct Garmin sync is used (Strava strips developer fields)
@@ -1580,20 +1587,26 @@ The AI does not compute DFA a1 statistics — `sync.py` does. The AI reads pre-c
 
 **`latest.json` `derived_metrics.capability.dfa_a1_profile`**:
 - `latest_session` — most recent activity with a sufficient dfa block: avg, tiz_split_pct, drift_delta, drift_interpretable, quality_pct, sufficient flag. If no recent session is sufficient, surfaces the most recent insufficient one with `sufficient: false` so the AI can see "AlphaHRV ran but data unusable".
-- `trailing_by_sport` — keyed by sport family. Per sport: n_sessions (up to 7 most recent sufficient), date_range, avg_dfa_a1, drift_delta_mean, lt1_crossing_sessions / lt2_crossing_sessions (diagnostic: how many of n_sessions had ≥60s dwell in each crossing band — reveals whether low confidence is due to athlete rarely crossing a band vs other causes), lt1_estimate `{hr, watts, n_sessions}`, lt2_estimate (same shape), quality_avg_pct, validated flag, confidence (`low` / `moderate` / `high` / null based on N sessions contributing to crossing-band estimates: 3 → low, 4–5 → moderate, ≥6 → high).
+- `trailing_by_sport` — keyed by sport family. Per sport: n_sessions (up to 7 most recent sufficient), date_range, avg_dfa_a1, drift_delta_mean, lt1_crossing_sessions / lt2_crossing_sessions (diagnostic: how many of n_sessions had ≥60s dwell in each crossing band — reveals whether low confidence is due to athlete rarely crossing a band vs other causes), lt1_estimate, lt2_estimate, quality_avg_pct, validated flag, confidence (`low` / `moderate` / `high` / null based on N sessions contributing to crossing-band estimates: 3 → low, 4–5 → moderate, ≥6 → high).
+
+**Estimate shape — cycling:** `{hr, watts_outdoor, watts_indoor, n_sessions, n_sessions_outdoor, n_sessions_indoor}`. HR is pooled across all sessions (physiology signal). Watts are split by environment because the power-DFA relationship differs meaningfully between indoor (VirtualRide) and outdoor cycling — pooling would produce a blended estimate that is not actionable in either context. `watts_outdoor` / `watts_indoor` are always present; null when no qualifying sessions exist in that environment.
+
+**Estimate shape — non-cycling:** `{hr, watts, n_sessions}`. No indoor/outdoor distinction.
 
 #### Zone Validation Use
 
-When `latest.json.derived_metrics.capability.dfa_a1_profile.trailing_by_sport.cycling` has `confidence: "moderate"` or `"high"`, the AI may compare the empirical LT1/LT2 estimates (HR and watts at the crossing bands) against the dossier-defined cycling thresholds.
+When `latest.json.derived_metrics.capability.dfa_a1_profile.trailing_by_sport.cycling` has `confidence: "moderate"` or `"high"`, the AI may compare the empirical LT1/LT2 estimates against the dossier-defined cycling thresholds.
+
+**Environment-aware comparison (cycling):** Compare `watts_outdoor` against dossier `ftp` (outdoor). Compare `watts_indoor` against dossier `ftp_indoor`. Compare `hr` (pooled) against `lthr`. Use per-environment `n_sessions_outdoor` / `n_sessions_indoor` to assess depth — apply the same 3/4–5/≥6 confidence thresholds per environment before surfacing a watts calibration delta. If only one environment has sufficient data and the dossier lacks a threshold for the other environment, the available estimate may inform the missing context as a directional reference — but note the cross-environment caveat explicitly.
 
 **If the empirical estimate disagrees with the dossier value by >5%:**
 - The AI surfaces a calibration delta as a coaching observation
 - The AI does NOT auto-update dossier zones
 - The AI does NOT modify prescribed workouts based on DFA-derived thresholds
-- The athlete is told the delta exists, the magnitude, and the underlying N sessions
+- The athlete is told the delta exists, the magnitude, the environment, and the underlying N sessions
 - Final decision on whether to retest formally and update dossier rests with the athlete
 
-**Confidence floor:** Do not surface calibration deltas at `confidence: "low"` (3 sessions). Single-session noise is too high. Wait for `moderate` or `high`.
+**Confidence floor:** Do not surface calibration deltas at `confidence: "low"` (3 sessions). Single-session noise is too high. Wait for `moderate` or `high`. Per-environment watts deltas additionally require the environment-specific `n_sessions_outdoor` or `n_sessions_indoor` to meet the same thresholds.
 
 **Validated sports only:** Only cycling estimates qualify for calibration delta surfacing. Other sports' estimates are descriptive only.
 

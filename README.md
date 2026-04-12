@@ -223,7 +223,7 @@ Most major AI platforms now have native GitHub connectors that can access privat
 | Gemini | ✅ | + → Drive (enable Workspace extensions) | Free tier works |
 | Perplexity | ✅ | Settings → Connectors → Google Drive | Pro, Max, and Enterprise |
 | ChatGPT | ⚠️ | Settings → Apps → Google Drive | Workspace accounts only — not personal Gmail |
-| Claude | ❌ | — | Google Docs only — use GitHub connector |
+| Claude | ✅ | Settings → Connectors → Google Drive | All plans including Free |
 | Grok | ✅ | Settings → Connected Apps → Google Drive | Business/Enterprise only |
 | Mistral | ⚠️ | Side panel → Connectors → Google Drive | Beta — Team & Enterprise; admin setup required |
 
