@@ -33,13 +33,13 @@
       "hash": "83e54e5a2c719e9c003fd5aed232ce7f871372090c1bcf5939af9527e3f0d8ee"
     },
     "examples/agentic/EXTERNAL_APIS.md": {
-      "hash": "81a83a2b1f84de2fbe3b9fc20618e2bb363d44e40b87ee7acd52bf1f2185c622"
+      "hash": "306fedffa1d222422b1c25cb230993cf8052b6974a55a5a2dcb575be03bb405f"
     },
     "examples/agentic/README.md": {
       "hash": "c5aed7fc8ac04d54c006b2f0b49e26ede7fda52e38ba134b1919fc945352dd42"
     },
     "examples/agentic/openclaw/HEARTBEAT_TEMPLATE.md": {
-      "hash": "3c6664fa82fa0cea6c3b386edbbff286168c7df0539709ad5a4625ab2cd09a1c"
+      "hash": "e8221e569729dab19585ceb9b5783433b6a6a94de6b308307f1699b6d38dc376"
     },
     "examples/agentic/push-workout.yml": {
       "hash": "c9e586d433e7dd6abc3d80a3daf9ca5156b02c0de7cc8011fec138f2d09701b4"
@@ -117,7 +117,7 @@
       "hash": "dea437cb289785c243314d11d1fdb897a0e367420e0c4336931f443cb23a44a2"
     },
     "examples/sync.py": {
-      "hash": "1733e822a89e55e71cbbc7e54e7f8487371ba28fddaa818679d1cb9bff428f42"
+      "hash": "9a6a11cf71d26149119c19959b4b3f1adf023b8b7ae488580ac3efad5da26f78"
     },
     "examples/workout-library/README.md": {
       "hash": "f22d96050da8a601aac627ddb44b717f31daa9adc88b1cedf3f56a0b87dec6f4"

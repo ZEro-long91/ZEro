@@ -4,6 +4,21 @@ Intervals.icu → GitHub/Local JSON Export
 Exports training data for LLM access.
 Supports both automated GitHub sync and manual local export.
 
+Version 3.102 - Phase detection fixes: corrected three independent bugs causing in-Build weeks
+  to misclassify as Base on Mon/Tue after a deload→Build cycle. (1) ctl_slope was a 2-point chord
+  divided by len(values) instead of (n-1) and included the in-progress current week's partial
+  mid-day CTL — replaced with statistics.linear_regression over finalized weeks (chord-over-(n-1)
+  fallback for Python <3.10). (2) Build/Base scorer used hard_sessions_planned (current week
+  remainder only), never merging completed-so-far with planned-remaining — added
+  current_week_hard_days_completed and current_week_hard_days_total on stream_2; scorer now
+  reads the merged total. (3) plan_coverage_* denominator was hard-coded expected_sessions=5,
+  producing values up to 2.6 for athletes training 12-17 sessions/week — now derives from rolling
+  4-week mean activity_count over finalized weeks (fallback 5). New is_backfill flag on
+  _phase_stream1_features and _detect_phase_v2 controls whether weekly_rows[-1] is sliced off
+  (live, in-progress week excluded) or kept (backfill, target week sits at [-1]). History
+  regen loop now skips the in-progress current week entirely. Live weekly_rows build extended
+  to include activity_count per row (was history-only before).
+
 Version 3.101 - has_dfa split + dfa_summary: new has_dfa boolean on recent_activities[] in
   latest.json, independent from has_intervals. has_intervals semantics narrowed to structured
   segments only — a steady Z2 ride with AlphaHRV now reports has_intervals: false, has_dfa: true
@@ -84,7 +99,7 @@ class IntervalsSync:
     HISTORY_FILE = "history.json"
     UPSTREAM_REPO = "CrankAddict/section-11"
     CHANGELOG_FILE = "changelog.json"
-    VERSION = "3.101"
+    VERSION = "3.102"
     INTERVALS_FILE = "intervals.json"
     ROUTES_FILE = "routes.json"
 
@@ -2195,6 +2210,7 @@ class IntervalsSync:
                 "primary_sport_tss": round(w_primary_tss, 0),
                 "primary_sport": primary_sport,
                 "hard_days": w_hard_days,
+                "activity_count": len(week_acts),
             })
         
         # Current week gets live CTL/ATL/ACWR/monotony (already computed this run)
@@ -3995,7 +4011,8 @@ class IntervalsSync:
     def _detect_phase_v2(self, weekly_rows: List[Dict], planned_workouts: List[Dict],
                           race_calendar: Dict, previous_phase: Optional[str] = None,
                           today: str = None, dossier_declared: Optional[str] = None,
-                          primary_sport: Optional[str] = None) -> Dict:
+                          primary_sport: Optional[str] = None,
+                          is_backfill: bool = False) -> Dict:
         """
         Dual-stream phase detection (v2).
         
@@ -4005,6 +4022,10 @@ class IntervalsSync:
         Returns full phase output structure with confidence and reason_codes.
         
         Phase states: Build, Base, Peak, Taper, Deload, Recovery, Overreached, null.
+
+        is_backfill: forwarded to _phase_stream1_features. Set True only when
+        called from history regeneration (each historical week's classifier
+        needs to see its own row at weekly_rows[-1]).
         """
         if today is None:
             today = datetime.now().strftime("%Y-%m-%d")
@@ -4012,8 +4033,8 @@ class IntervalsSync:
         reason_codes = []
         
         # Compute features from both streams
-        s1 = self._phase_stream1_features(weekly_rows)
-        s2 = self._phase_stream2_features(planned_workouts, race_calendar, s1, today, primary_sport)
+        s1 = self._phase_stream1_features(weekly_rows, is_backfill=is_backfill)
+        s2 = self._phase_stream2_features(planned_workouts, race_calendar, s1, today, primary_sport, weekly_rows=weekly_rows)
         
         # Data quality assessment
         data_quality = self._phase_data_quality(weekly_rows, s1, reason_codes)
@@ -4060,6 +4081,8 @@ class IntervalsSync:
                 "stream_2": {
                     "planned_tss_delta": s2.get("planned_tss_delta"),
                     "hard_sessions_planned": s2.get("hard_sessions_planned"),
+                    "current_week_hard_days_completed": s2.get("current_week_hard_days_completed"),
+                    "current_week_hard_days_total": s2.get("current_week_hard_days_total"),
                     "race_proximity": s2.get("race_proximity"),
                     "next_week_load": s2.get("next_week_tss_delta"),
                     "plan_coverage_current_week": s2.get("plan_coverage_current_week"),
@@ -4074,10 +4097,17 @@ class IntervalsSync:
             "dossier_agreement": dossier_agreement
         }
     
-    def _phase_stream1_features(self, weekly_rows: List[Dict]) -> Dict:
+    def _phase_stream1_features(self, weekly_rows: List[Dict],
+                                is_backfill: bool = False) -> Dict:
         """
         Extract Stream 1 (retrospective) features from weekly_180d rows.
         Uses last 4 weeks for trend detection.
+
+        is_backfill: when True, weekly_rows[-1] is the target week being
+        classified retroactively (history regen); include it in the lookback so
+        its own data is visible to stream1. When False (live mode),
+        weekly_rows[-1] is the in-progress current week with partial mid-day
+        CTL — exclude it.
         """
         result = {
             "weeks_available": len(weekly_rows),
@@ -4095,15 +4125,35 @@ class IntervalsSync:
         if not weekly_rows:
             return result
         
-        # Use last 4 weeks (or fewer if not available)
-        recent = weekly_rows[-4:] if len(weekly_rows) >= 4 else weekly_rows
+        # Live mode: weekly_rows[-1] is the in-progress current week (partial
+        # mid-day CTL); exclude it so the regression sees only finalized weeks.
+        # Backfill mode: weekly_rows[-1] IS the target week being classified;
+        # include it so its own data drives the classification (otherwise a
+        # deload week is invisible to its own classifier).
+        if is_backfill:
+            finalized = weekly_rows
+        else:
+            finalized = weekly_rows[:-1] if len(weekly_rows) >= 2 else weekly_rows
+        recent = finalized[-4:] if len(finalized) >= 4 else finalized
         
-        # CTL slope: linear trend over available weeks
+        # CTL slope: linear regression (CTL units per week) over finalized window.
+        # Previous impl was a 2-point endpoint chord divided by len(values) instead
+        # of (len-1), which both ignored interior points and mis-scaled the
+        # denominator — producing spuriously negative slopes when a deload week
+        # sat inside the lookback.
         ctl_values = [r.get("ctl_end") for r in recent if r.get("ctl_end") is not None]
         result["ctl_values"] = ctl_values
         if len(ctl_values) >= 2:
-            # Simple slope: (last - first) / n_weeks
-            result["ctl_slope"] = round((ctl_values[-1] - ctl_values[0]) / len(ctl_values), 2)
+            try:
+                slope, _ = statistics.linear_regression(
+                    range(len(ctl_values)), ctl_values
+                )
+                result["ctl_slope"] = round(slope, 2)
+            except (AttributeError, statistics.StatisticsError):
+                # Fallback for Python <3.10: chord over (n-1) intervals
+                result["ctl_slope"] = round(
+                    (ctl_values[-1] - ctl_values[0]) / (len(ctl_values) - 1), 2
+                )
         
         # TSS values for trend
         result["tss_values"] = [r.get("total_tss", 0) or 0 for r in recent]
@@ -4178,7 +4228,8 @@ class IntervalsSync:
     
     def _phase_stream2_features(self, planned_workouts: List[Dict], race_calendar: Dict,
                                  stream1: Dict, today: str,
-                                 primary_sport: Optional[str] = None) -> Dict:
+                                 primary_sport: Optional[str] = None,
+                                 weekly_rows: Optional[List[Dict]] = None) -> Dict:
         """
         Extract Stream 2 (prospective) features from planned workouts and race calendar.
         
@@ -4194,10 +4245,18 @@ class IntervalsSync:
         are filtered to primary sport only (numerator from planned workouts,
         denominator from weekly history). Falls back to all-sport when
         primary sport data is unavailable.
+
+        weekly_rows (optional): live weekly aggregates including the in-progress
+        current week at [-1]. Used to (a) compute current_week_hard_days_total
+        by merging the in-progress week's completed hard_days with planned
+        hard sessions remaining, and (b) derive expected_sessions for plan
+        coverage from recent activity_count instead of hard-coding 5.
         """
         result = {
             "planned_tss_delta": None,
             "hard_sessions_planned": 0,
+            "current_week_hard_days_completed": 0,
+            "current_week_hard_days_total": 0,
             "race_proximity": None,
             "race_category": None,
             "next_week_tss_delta": None,
@@ -4257,17 +4316,22 @@ class IntervalsSync:
             elif next_week_start <= pw_date <= next_week_end:
                 next_week_workouts.append(pw)
         
-        # Plan coverage: sessions / expected sessions
-        # TODO(v3.71): expected_sessions should use avg activity_count from weekly_180d rows
-        # (available in rows but not currently passed through stream1 features).
-        # Hard-coded 5 means athletes training 7×/week get coverage >1.0, and 3×/week get 0.6.
-        # Impact is limited: plan_coverage only adjusts confidence, not classification.
+        # Plan coverage: sessions / expected sessions.
+        # Derive expected_sessions from recent weekly history (activity_count
+        # average over finalized weeks) instead of the legacy hard-coded 5.
+        # Falls back to 5 when no history is available (e.g. first runs).
         tss_values = stream1.get("tss_values", [])
         primary_tss_values = stream1.get("primary_tss_values", [])
         weeks_avail = stream1.get("weeks_available", 0)
         expected_sessions = 5
-        if weeks_avail > 0:
-            pass  # Future: extract from weekly_rows activity_count average
+        if weekly_rows:
+            # Use finalized weeks only (exclude in-progress current week at [-1])
+            finalized = weekly_rows[:-1] if len(weekly_rows) >= 2 else weekly_rows
+            recent = finalized[-4:] if len(finalized) >= 4 else finalized
+            counts = [r.get("activity_count") for r in recent
+                      if r.get("activity_count") is not None]
+            if counts:
+                expected_sessions = max(1, round(statistics.mean(counts)))
         
         result["plan_coverage_current_week"] = round(
             len(current_week_workouts) / expected_sessions, 2
@@ -4324,6 +4388,18 @@ class IntervalsSync:
                 hard_count += 1
         result["hard_sessions_planned"] = hard_count
         result["next_7d_sessions"] = current_week_sessions  # renamed semantically but key preserved for compat
+        
+        # Merge completed (so far) + planned (remaining) hard days for the
+        # current week. Without this, on the first day of a new week the
+        # scorer sees only N-1 planned hard sessions even though completed
+        # ones already happened — biasing Build-shaped weeks toward Base.
+        # The in-progress week's hard_days count lives in weekly_rows[-1]
+        # (built live from activities_28d in _calculate_derived_metrics).
+        completed_hard_days = 0
+        if weekly_rows:
+            completed_hard_days = weekly_rows[-1].get("hard_days") or 0
+        result["current_week_hard_days_completed"] = completed_hard_days
+        result["current_week_hard_days_total"] = completed_hard_days + hard_count
         
         # Stream 2 suggested phase
         result["suggested_phase"] = self._phase_from_stream2(result)
@@ -4586,11 +4662,19 @@ class IntervalsSync:
         elif acwr_trend == "falling":
             base_score += 1
         
-        # Planned week continues pattern (Stream 2) — only if enough planned sessions
+        # Current-week hard-day intent (Stream 2) — uses completed (so far) +
+        # planned (remaining) so the score doesn't drop on Mon/Tue of a new
+        # week just because most hard sessions haven't happened yet. Only
+        # applied when there are enough planned sessions for the signal to
+        # mean anything.
         if next_7d_sessions >= 3:
-            if s2.get("hard_sessions_planned", 0) >= 2:
+            cw_hard_total = s2.get("current_week_hard_days_total")
+            # Fallback to legacy planned-only field if merged value missing
+            if cw_hard_total is None:
+                cw_hard_total = s2.get("hard_sessions_planned", 0)
+            if cw_hard_total >= 2:
                 build_score += 1
-            elif s2.get("hard_sessions_planned", 0) <= 1:
+            elif cw_hard_total <= 1:
                 base_score += 1
         
         # Determine winner
@@ -5595,10 +5679,14 @@ class IntervalsSync:
         weekly_180d = self._build_weekly_tier(activities_by_date, wellness_by_date, days=180)
         
         # === PHASE BACKFILL ===
-        # Retroactively classify phase for each weekly row using trailing 4-week window.
-        # Stream 2 (planned calendar) is unavailable for historical weeks — confidence is limited.
+        # Retroactively classify phase for each COMPLETED weekly row using
+        # trailing 4-week window. The in-progress current week (last row) is
+        # skipped — it's not finalized, only has partial data, and its phase
+        # is determined live each run by _detect_phase_v2 in the main flow.
+        # Stream 2 (planned calendar) is unavailable for historical weeks —
+        # confidence is limited.
         empty_race_cal = {"next_race": None, "all_races": [], "taper_alert": {"active": False}, "race_week": {"active": False}}
-        for i in range(len(weekly_180d)):
+        for i in range(len(weekly_180d) - 1):  # skip last row (in-progress)
             lookback = weekly_180d[max(0, i-3):i+1]
             prev_phase = weekly_180d[i-1].get("phase_detected") if i > 0 else None
             result = self._detect_phase_v2(
@@ -5606,7 +5694,8 @@ class IntervalsSync:
                 planned_workouts=[],
                 race_calendar=empty_race_cal,
                 previous_phase=prev_phase,
-                today=weekly_180d[i]["week_start"]
+                today=weekly_180d[i]["week_start"],
+                is_backfill=True,
             )
             weekly_180d[i]["phase_detected"] = result["phase"]
         
