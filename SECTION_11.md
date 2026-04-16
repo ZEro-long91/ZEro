@@ -1,10 +1,19 @@
 # Section 11 — AI Coach Protocol
 
-**Protocol Version:** 11.32  
-**Last Updated:** 2026-04-10
+**Protocol Version:** 11.33  
+**Last Updated:** 2026-04-15
 **License:** [MIT](https://opensource.org/licenses/MIT)
 
 ### Changelog
+
+**v11.33 — Athlete Profile, Notes & Activity Unit Labels:**
+- New top-level `athlete_profile` block in `latest.json` — stable identity fields from existing athlete endpoint call (zero new API calls): `date_of_birth`, derived `age`, `height_m`, `sex`, `location`, `timezone`, `platform_activated`, derived `years_on_platform`
+- New top-level `athlete_notes` block — raw string passthrough of `icu_notes` (free-text athlete-maintained notes). Opaque text; AI may reference for context but should not parse for structured coaching parameters. Future schema work may restructure into a typed mini-dossier
+- Per-field unit labels added to `recent_activities[]` entries: `avg_temp_unit` (`C`/`F` from athlete account setting), `wind_speed_unit` (`MPS`/`KPH`/`MPH` passthrough), `avg_speed_unit` and `max_speed_unit` (always `KPH` — sync.py force-converts m/s → km/h regardless of athlete preference; label surfaces this latent asymmetry vs. account-respecting temp/wind)
+- Sibling-field form (e.g. `avg_temp` + `avg_temp_unit`) chosen over nested `{value, unit}` object — additive, non-breaking for existing consumers reading these as scalars
+- Behavior posture: `athlete_profile` fields are informational. They do NOT enter readiness P0–P3 logic, threshold computation, or any numeric coaching pathway in the current protocol
+- Data hygiene: silent trailing-space bug in Intervals.icu location strings (`'Aalborg '`, `'Nordjylland '`) handled via `.strip()` in `_compose_location` helper
+- Requires sync.py v3.103
 
 **v11.32 — has_dfa Split & dfa_summary:**
 - New `has_dfa` boolean on `recent_activities[]` in `latest.json` — independent from `has_intervals`. AlphaHRV-equipped sessions now flag explicitly rather than overloading `has_intervals`
@@ -45,48 +54,12 @@
 - Interval Data Mirror loading rule: extended to also load when an activity has a `dfa` block (covers steady-state rides with no structured intervals — they now appear in intervals.json under the widened entry rule)
 - Requires sync.py v3.99
 
-**v11.29 — Post-Workout Report Completeness Rules:**
-- Three new Do-NOT rules in Post-Workout Report Structure: never omit any completed activity on the report day (walks, ski-erg, short/aborted rides, commutes all get their own block); never merge activities (one activity ID = one block); never invent explanations for anomalous sessions (use only `description`/`chat_notes` fields, otherwise report as-is)
-- POST_WORKOUT_REPORT_TEMPLATE.md: `[Repeat block for additional sessions]` replaced with explicit rule mirroring the Tomorrow-line guarantee — every completed activity on the report day (athlete local time), one block per activity ID, never merge
-- POST_WORKOUT_REPORT_EXAMPLES.md: new Example 2 (Multi-Sport Day: Short Ride + Bike + SkiErg + Walk) demonstrating short-session inclusion and the anti-hallucination pattern. Old Examples 2–4 renumbered to 3–5
-- Motivation: multi-model test showed two of three models dropping walks from post-workout reports, and one hallucinating a narrative for an unexplained short ride. Template said "one per activity" but lacked the force of the Tomorrow-line's "never drop secondary sessions" rule, and every multi-session example was cycling-only — models pattern-matched on examples over spec
-- Docs-only, no sync.py changes
-
-**v11.28 — Schema Hygiene: Easy Time Ratio Rename:**
-- Renamed `derived_metrics.polarisation_index` → `easy_time_ratio` to disambiguate from Seiler `polarization_index` (Treff PI). The two fields measure different things (0–1 easy-time share vs logarithmic Treff PI) and models were conflating them in reports
-- Renamed `polarisation_note` → `easy_time_ratio_note`
-- Old name was misleading: the field is a 0–1 ratio, not an index. The academic "Polarization Index" name (Treff et al. 2019) is reserved for the logarithmic formula, which stays as `seiler_tid_*.polarization_index`
-- All display labels updated across SECTION_11.md (metric reference tables, relationship tables, validated ranges, Tier 3 diagnostics, schema documentation, sample JSON); README.md, examples/README.md, examples/json-manual/SETUP.md updated to match
-- No formula change, no value change — rename only
-- Requires sync.py v3.98
-
-**v11.27 — Readiness Signal Hygiene (ACWR/RI):**
-- Low-side ACWR (<0.8) removed from readiness_decision ambers and ACWR alerts. Low ACWR is a load-state/undertraining context signal, not a fatigue or overload signal. Context still surfaces via `acwr_interpretation` in derived_metrics.
-- RI amber now requires 2-day persistence (`ri < 0.7` today AND yesterday) to filter single-night noise from a composite signal. Single-day dips in the 0.6–0.7 band are context, not amber. Red (`ri < 0.6`) unchanged — fires on any single day.
-- ACWR high-side boundary unified across code and docs: `≥ 1.3` amber/caution, `≥ 1.5` red/danger (replaces mixed `>` / `>=` usage).
-- Signal Classification table and Validated Endurance Ranges table reconciled to match the new readiness_decision logic.
-- New transparency note under Signal Classification explaining both changes.
-- Requires sync.py v3.97 (`recovery_index_yesterday`).
-
-**v11.26 — Nutrition & Pacing Protocol:**
-- Nutrition Protocol expansion: kJ→carbs dosing table, absorption limits by carb type, glycogen budget model, temperature-driven hydration frequency
-- Fast-start penalty emphasis (pacing literature, no specific magnitude claim)
-- W′ depletion under glycogen deficit: ~20% W′ reduction (Miura et al., 2000)
-- Evidence base: 4 new entries (Jeukendrup 2014 expanded, Hearris et al. 2022, CTS/Rutberg 2025, Miura et al. 2000)
-
-**v11.25 — Course Character Fix:**
-- Course character classification uses elevation_per_km only (distance-blind absolute thresholds removed)
-- start_time added to routes.json events
-
-**v11.24 — Route & Terrain Protocol:**
-- New section: route analysis, terrain-adjusted power estimation, wind overlay, drafting, segment reasoning, nutrition timing, weather, pre-ride briefing flow
-- Variable power pacing by gradient (Atkinson & Brunskill, Boswell)
-- Progressive target adjustment cross-referencing sustainability_profile and durability metrics
-- Wind impact classification by gradient tier
-- Strava segment feasibility and wind×bearing attempt/skip logic
-- Conditional terrain context block in pre-workout reports
-- Evidence base: 11 entries (9 cited, 2 convention disclosures)
-- Requires sync.py v3.95 (polyline, start_time, indoor flag)
+**v11.29** — Post-Workout Report Completeness Rules: per-activity block enforcement, anti-merge, anti-hallucination guard for unexplained sessions; new multi-sport example; docs-only  
+**v11.28** — Schema rename: `derived_metrics.polarisation_index` → `easy_time_ratio` (disambiguates from Seiler PI, no value change); sync.py v3.98  
+**v11.27** — Readiness signal hygiene: low-side ACWR removed from ambers, RI amber requires 2-day persistence, ACWR high-side boundary unified ≥1.3/≥1.5; sync.py v3.97  
+**v11.26** — Nutrition & Pacing Protocol expansion: kJ→carbs dosing, absorption limits, glycogen budget, temperature-driven hydration; fast-start penalty; W′ depletion under glycogen deficit  
+**v11.25** — Course character fix: elevation_per_km as sole density metric; start_time on routes.json events  
+**v11.24** — Route & Terrain Protocol: new section — route analysis, terrain-adjusted power, wind/drafting overlay, segment feasibility, pre-ride briefing; sync.py v3.95
 
 **v11.23** — Checklist 5b: training metrics must come from current JSON data read, never from conversation history, prior messages, or cached/recalled context  
 **v11.22** — Sustainability Profile capability metric: per-sport power/HR sustainability table for race estimation, 42-day window, cycling three-layer model (actual MMP, Coggan factors, CP/W'); sync.py v3.91  
@@ -263,6 +236,35 @@ If multiple Intervals.icu sport settings map to the same family:
 1. Prefer the entry with the highest count of populated (non-null) fields across `{ftp, ftp_indoor, lthr, max_hr, threshold_pace}`
 2. If tied, select by activity type name (alphabetical) for deterministic stability
 3. Record in audit metadata which entry was selected
+
+#### Athlete Profile Schema
+
+`athlete_profile` is a stable identity block sourced from the Intervals.icu athlete endpoint at sync time. Fields:
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `date_of_birth` | string/null | ISO `YYYY-MM-DD` |
+| `age` | int/null | Derived from `date_of_birth` at sync time |
+| `height_m` | float/null | Meters |
+| `sex` | string/null | `M` / `F` |
+| `location` | string/null | `"city, state, country"` (omitting null parts; whitespace stripped) |
+| `timezone` | string/null | IANA tz, e.g. `Europe/Copenhagen` |
+| `platform_activated` | string/null | ISO `YYYY-MM-DD` — Intervals.icu account creation date |
+| `years_on_platform` | int/null | Derived from `platform_activated` at sync time; indicates available data depth |
+
+These fields are informational context for AI coaching. They do NOT enter readiness P0–P3 logic, threshold computation, or any numeric coaching pathway in the current protocol.
+
+#### Athlete Notes Schema
+
+`athlete_notes` is a raw string passthrough of the athlete's `icu_notes` field — free-text athlete-maintained notes (training plan summaries, weekly structure, season context). Treated as opaque text by the protocol; AI may reference it for context but should not parse it for structured coaching parameters. Future schema work may restructure this into a typed mini-dossier.
+
+#### Activity Unit Labels
+
+`recent_activities[].avg_temp_unit`, `wind_speed_unit`, `avg_speed_unit`, and `max_speed_unit` accompany their respective numeric fields:
+
+- `avg_temp_unit`: `"C"` or `"F"` — reflects athlete's Intervals.icu account temperature setting; the API returns `avg_temp` in this unit.
+- `wind_speed_unit`: `"MPS"`, `"KPH"`, or `"MPH"` — reflects athlete's account wind setting; the API returns `wind_speed` in this unit.
+- `avg_speed_unit` / `max_speed_unit`: always `"KPH"` — sync.py converts m/s → km/h unconditionally regardless of athlete preference. Surfacing the label makes this asymmetry visible.
 
 #### History Data Mirror (history.json)
 
@@ -754,7 +756,7 @@ Reports use a structured line-by-line format per session, not bullet-point summa
    - TSS (actual vs planned)
    - Note (athlete text or coach notes, if present on the activity)
    Omit fields only if data unavailable for that activity type.
-4. **Weekly totals block:** Polarization, Durability (7d/28d + trend), TID 28d (+ drift), TSB, CTL, ATL, Ramp rate, ACWR, Hours, TSS
+4. **Weekly totals (rolling 7d) block:** Polarization, Durability (7d/28d + trend), TID 28d (+ drift), TSB, CTL, ATL, Ramp rate, ACWR, Hours, TSS
 5. **Overall:** Coach note (2–4 sentences — compliance, key quality observations, load context, recovery note if applicable)
 
 See **Output Format Guidelines** for full field reference, assessment labels, and report templates.

@@ -4,6 +4,26 @@ Intervals.icu → GitHub/Local JSON Export
 Exports training data for LLM access.
 Supports both automated GitHub sync and manual local export.
 
+Version 3.103 - Athlete profile + notes + per-field unit labels: new top-level athlete_profile
+  block in latest.json (date_of_birth, derived age, height_m, sex, location, timezone,
+  platform_activated, derived years_on_platform) sourced from the existing athlete endpoint
+  call — zero new API calls. New top-level athlete_notes block (raw string passthrough of
+  icu_notes; raw form chosen to keep the change minimal — restructure expected when mini-
+  dossier work lands). Per-field unit labels added to recent_activities entries:
+  avg_temp_unit ("C"/"F" from athlete.fahrenheit), wind_speed_unit (MPS/KPH/MPH from
+  athlete.wind_speed enum, passthrough), avg_speed_unit and max_speed_unit (hardcoded
+  "KPH" — sync.py converts m/s → km/h unconditionally at format time, label reflects the
+  emitted value, not user preference; a US user gets KPH regardless of account setting,
+  which is the current latent behavior the label now surfaces). Sibling-field form chosen
+  over nested {value, unit} object — additive, non-breaking for existing consumers reading
+  these as scalars. New helpers _years_since() (ISO YYYY-MM-DD → complete years to today,
+  null-safe; serves both age-from-DOB and tenure-from-activation) and _compose_location()
+  (joins city/state/country with .strip() to handle Intervals.icu trailing-space data,
+  returns null when all parts empty). athlete_profile fields are informational; do NOT
+  enter readiness P0–P3 logic, threshold computation, or any numeric coaching pathway.
+  icu_api_key is in the raw athlete dict response — explicit-allow extraction pattern
+  preserved; never serialize the raw athlete dict.
+
 Version 3.102 - Phase detection fixes: corrected three independent bugs causing in-Build weeks
   to misclassify as Base on Mon/Tue after a deload→Build cycle. (1) ctl_slope was a 2-point chord
   divided by len(values) instead of (n-1) and included the in-progress current week's partial
@@ -38,30 +58,8 @@ Version 3.100 - DFA power calibration indoor/outdoor split: trailing_by_sport.cy
   Shared _is_indoor_cycling() resolver (VirtualRide = indoor) replaces inline checks.
   Non-cycling sports unchanged. Activity name anonymization removed — names pass through as-is
   for coaching context (route identification, terrain association). athlete_id always redacted.
-  
-Version 3.99 - DFA a1 Protocol: per-session dfa block in intervals.json (artifact-filtered avg,
-  4-zone TIZ split with HR/power cross-references, drift, LT1/LT2 crossing-band estimates,
-  quality gates). New generic streams fetcher infrastructure (_fetch_activity_streams). dfa_a1_profile
-  in latest.json capability block (latest_session + trailing_by_sport with confidence + validation
-  flags). Always emits dfa block when streams fetched, even if quality.sufficient is False, so the
-  AI can distinguish "no AlphaHRV" from "AlphaHRV ran but unusable". Intervals retention 8d → 14d
-  to support drift analysis across multiple AlphaHRV sessions. Sport scope: all interval families;
-  threshold mapping (1.0/0.5) cycling-validated, other sports flagged validated=False.
-  Requires AlphaHRV Connect IQ data field, direct Garmin sync (Strava strips dev fields).
 
-Version 3.98 - Schema rename: derived_metrics.polarisation_index → easy_time_ratio (and _note).
-  Disambiguates from Seiler polarization_index (Treff PI). Rename only — no formula or value change.
-
-Version 3.97 - Readiness signal hygiene: low-side ACWR removed from readiness_decision ambers
-  and ACWR alerts — low ACWR is a load-state/undertraining context signal, not a fatigue signal,
-  and already surfaces via acwr_interpretation. RI amber now requires 2-day persistence (ri<0.7
-  today AND yesterday) to filter single-night noise; red still fires on any single day <0.6.
-  New derived metric: recovery_index_yesterday. ACWR high-side boundary unified across code and
-  docs: >=1.3 amber/caution, >=1.5 red/danger (replaces mixed >/>= usage).
-
-Version 3.96 - Course character fix: elevation_per_km as sole density metric (total elevation
-  is distance-blind); absolute elevation thresholds removed. Climb-category upgrade retained for
-  "flat with one big climb" cases.
+Version 3.99–3.96 — DFA a1 Protocol (per-session dfa block, dfa_a1_profile, streams fetcher, 14d retention); schema rename derived_metrics.polarisation_index → easy_time_ratio; readiness signal hygiene (low-side ACWR removed, RI 2-day persistence, ACWR boundary unification, recovery_index_yesterday); course character fix (elevation_per_km only, climb-category upgrade retained).
 
 Version 3.95–3.88 — Polyline + event metadata; phase detection live weekly rows; Route & Terrain Intelligence (GPX/TCX → routes.json); local-sync auto-clear on script change; Sustainability Profile (per-sport power/HR for race estimation); sleep signal simplified to hours-only; phase detection current-week runtime overlay; HR Curve Delta (4 anchor durations, cross-sport).
 
@@ -99,7 +97,7 @@ class IntervalsSync:
     HISTORY_FILE = "history.json"
     UPSTREAM_REPO = "CrankAddict/section-11"
     CHANGELOG_FILE = "changelog.json"
-    VERSION = "3.102"
+    VERSION = "3.103"
     INTERVALS_FILE = "intervals.json"
     ROUTES_FILE = "routes.json"
 
@@ -1442,6 +1440,27 @@ class IntervalsSync:
         
         return None, None
     
+    def _years_since(self, date_str: Optional[str]) -> Optional[int]:
+        """Compute complete years between an ISO YYYY-MM-DD date and today.
+        Returns None if missing/malformed. Used for both age (from DOB) and
+        platform tenure (from activation date)."""
+        if not date_str:
+            return None
+        try:
+            d = datetime.strptime(date_str, "%Y-%m-%d")
+            today = datetime.now()
+            return today.year - d.year - ((today.month, today.day) < (d.month, d.day))
+        except (ValueError, TypeError):
+            return None
+    
+    def _compose_location(self, city: Optional[str], state: Optional[str],
+                          country: Optional[str]) -> Optional[str]:
+        """Join city/state/country into a display string, stripping trailing spaces
+        (Intervals.icu returns 'Aalborg ' / 'Nordjylland ' with trailing whitespace).
+        Returns None if all parts are empty/None."""
+        parts = [p.strip() for p in (city, state, country) if p and p.strip()]
+        return ", ".join(parts) if parts else None
+    
     def collect_training_data(self, days_back: int = 7) -> Dict:
         """Collect all training data for LLM analysis"""
         # Extended range for ACWR calculation (need 28 days minimum)
@@ -1453,6 +1472,34 @@ class IntervalsSync:
         
         print("Fetching athlete data...")
         athlete = self._intervals_get("")
+        
+        # Athlete profile (stable identity fields from athlete endpoint) — v3.103
+        # SECURITY: explicit-allow only. Never serialize the raw athlete dict —
+        # it contains icu_api_key, icu_friend_invite_token, and other secrets.
+        dob = athlete.get("icu_date_of_birth")
+        platform_activated_raw = athlete.get("icu_activated")  # ISO 8601 with time
+        platform_activated = platform_activated_raw[:10] if platform_activated_raw else None
+        years_on_platform = self._years_since(platform_activated)
+        athlete_profile = {
+            "date_of_birth": dob,
+            "age": self._years_since(dob),
+            "height_m": athlete.get("height"),
+            "sex": athlete.get("sex"),
+            "location": self._compose_location(
+                athlete.get("city"), athlete.get("state"), athlete.get("country")
+            ),
+            "timezone": athlete.get("timezone"),
+            "platform_activated": platform_activated,
+            "years_on_platform": years_on_platform,
+        }
+        athlete_notes = athlete.get("icu_notes")  # raw string passthrough; mini-dossier later
+        
+        # Per-field unit labels for recent_activities (v3.103)
+        # Temp/wind: API returns values in athlete's account unit — label reflects that.
+        # Speed: sync.py force-converts m/s → km/h at format time → always "KPH".
+        temp_unit = "F" if athlete.get("fahrenheit") else "C"
+        wind_unit = athlete.get("wind_speed") or "MPS"
+        speed_unit = "KPH"
         
         # Extract per-sport-family thesholds from user settings
         sport_settings = self._build_sport_thresholds(athlete)
@@ -1787,6 +1834,8 @@ class IntervalsSync:
                 "extended_range_days": days_for_acwr,
                 "version": self.VERSION
             },
+            "athlete_profile": athlete_profile,
+            "athlete_notes": athlete_notes,
             "alerts": alerts,
             "readiness_decision": readiness_decision,
             "history": history_info,
@@ -1849,7 +1898,10 @@ class IntervalsSync:
                 }
             },
             "derived_metrics": derived_metrics,
-            "recent_activities": self._format_activities(activities_extended, interval_activity_ids),
+            "recent_activities": self._format_activities(
+                activities_extended, interval_activity_ids,
+                temp_unit=temp_unit, wind_unit=wind_unit, speed_unit=speed_unit
+            ),
             "wellness_data": self._format_wellness(wellness),
             "planned_workouts": formatted_planned_workouts,
             "workout_summary_stats": getattr(self, '_summary_stats', {}),
@@ -6427,8 +6479,15 @@ class IntervalsSync:
             if self.debug:
                 print(f"  Could not create update issue: {e}")
     
-    def _format_activities(self, activities: List[Dict], interval_activity_ids: set = None) -> List[Dict]:
-        """Format activities for LLM analysis"""
+    def _format_activities(self, activities: List[Dict], interval_activity_ids: set = None,
+                           temp_unit: str = "C", wind_unit: str = "MPS",
+                           speed_unit: str = "KPH") -> List[Dict]:
+        """Format activities for LLM analysis.
+        
+        Unit kwargs default to metric for backward compatibility with any caller
+        not yet passing them; collect_training_data passes the athlete's actual
+        account preferences (or KPH for speed since sync.py force-converts).
+        """
         interval_activity_ids = interval_activity_ids or set()
         # v3.100: O(1) lookup from intervals.json entries for has_intervals/has_dfa split.
         intervals_by_id = {
@@ -6523,12 +6582,16 @@ class IntervalsSync:
                 "max_hr": max_hr,
                 "avg_cadence": avg_cadence,
                 "avg_speed": avg_speed,
+                "avg_speed_unit": speed_unit,
                 "max_speed": max_speed,
+                "max_speed_unit": speed_unit,
                 "avg_pace": avg_pace,
                 "avg_temp": avg_temp,
+                "avg_temp_unit": temp_unit,
                 "weather": weather,
                 "humidity": humidity,
                 "wind_speed": wind_speed,
+                "wind_speed_unit": wind_unit,
                 "work_kj": work_kj,
                 "calories": calories,
                 "carbs_used": carbs_used,
