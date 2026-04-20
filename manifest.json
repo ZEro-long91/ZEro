@@ -93,10 +93,10 @@
       "hash": "cb4ce5bc1f4b3c2d2ab33278f01142f997c755e4aa7443b938ba4aad9d45f892"
     },
     "examples/reports/POST_WORKOUT_REPORT_EXAMPLES.md": {
-      "hash": "c3872298c83353ca7297432a3e78a7ddf3d90a434be2095d71272ffb9c740472"
+      "hash": "1f5dfbc932ef180a274527fb8a12b5b5ef16760ba3d99237c64f37eca4268702"
     },
     "examples/reports/POST_WORKOUT_REPORT_TEMPLATE.md": {
-      "hash": "064b2db46bdfeef2f3e74087e8be21a8e7dc4d363cd36d984c3800d5e3cc2784"
+      "hash": "31c1a840a71b884e5b4d4646d49ffe914def3da61dd7b908261ceb9d80e4d60b"
     },
     "examples/reports/PRE_WORKOUT_REPORT_EXAMPLES.md": {
       "hash": "ad9b1ee073d6492235f41fd38a9328a44353fc21ff31d758526990db86e07719"
@@ -111,10 +111,10 @@
       "hash": "6acd33c11d114c21788a76cfbcb453c4f1c14f9bc1e0754bdb2869108389a1fa"
     },
     "examples/reports/WEEKLY_REPORT_EXAMPLES.md": {
-      "hash": "78e454729fc47f81e28361d946a46daccdc41ee7a6984da5594dd07b38179933"
+      "hash": "9510f06eb679389c4577cc14ad5c665f5ac2a04681b0740e13a8378d24ce8d53"
     },
     "examples/reports/WEEKLY_REPORT_TEMPLATE.md": {
-      "hash": "b53ad4b3fe72871d41842a96d41dce8c102e7c28c8e0e6e318e49ea137697495"
+      "hash": "27911f78ca6f7be23bc86eabb94d4486c5120f901366e4a8b2811792c3001550"
     },
     "examples/sync.py": {
       "hash": "74e1c7fc0294753067597cce5d6161110916059324e2817f27c8d36a77e01942"

@@ -14,14 +14,14 @@ Data (last_updated UTC: [YYYY-MM-DDTHH:MM:SS])
 Completed workout: [ActivityType] [WorkoutName]
 Start time: [HH:MM:SS]
 Duration: [XhYm] (planned [XhYm])
-Distance: [XX.X] km
+Distance: [XX.XX] km
 Power: [XXX] W avg / [XXX] W NP
-Power zones: [XX]% Zone 1, [XX]% Zone 2
+Power zones: [XX]% Zone 1, [XX]% Zone 2, [XX]% Zone 3, ... (list every zone with ≥1% after rounding; omit zones that round to 0%)
 Grey Zone (Z3): [XX]%
 Quality (Z4+): [XX]%
 Session profile: [Classification]
 HR: [XXX] avg / [XXX] max
-HR zones: [XX]% Zone 1, [XX]% Zone 2
+HR zones: [XX]% Zone 1, [XX]% Zone 2, [XX]% Zone 3, ... (list every zone with ≥1% after rounding; omit zones that round to 0%)
 Cadence: [XX] avg
 Decoupling: [X.XX]%
 EF: [X.XX]

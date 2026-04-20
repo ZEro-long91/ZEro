@@ -33,12 +33,12 @@ Session Breakdown:
 Quality Session Detail:
   [Session 1 name]:
     Target: [XXX]W | Actual: [XXX]W avg / [XXX]W NP
-    Decoupling: [X.XX]% ([assessment])
+    Decoupling: [X.XX]%
     VI: [X.XX] ([assessment])
     HR: [XXX] avg / [XXX] max
   [Session 2 name]:
     Target: [XXX]W | Actual: [XXX]W avg / [XXX]W NP
-    Decoupling: [X.XX]% ([assessment])
+    Decoupling: [X.XX]%
     VI: [X.XX] ([assessment])
     HR: [XXX] avg / [XXX] max
 
