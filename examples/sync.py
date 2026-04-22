@@ -4,6 +4,19 @@ Intervals.icu → GitHub/Local JSON Export
 Exports training data for LLM access.
 Supports both automated GitHub sync and manual local export.
 
+Version 3.105 - Effort Response Signal: new effort_response key on every recent_activities[]
+  entry. Deterministic classifier mapping session IF (icu_intensity) against reported RPE
+  (icu_rpe) through the v11.34 RPE Expectation Bands. Values: "positive" (RPE below band —
+  fitness/freshness tell), "neutral" (RPE within band), "negative" (RPE above band —
+  fatigue/under-recovery tell), null when IF or RPE absent, RPE <= 0, or IF < 0.65 (out of
+  band coverage — recovery/aborted sessions are a deliberate gap, not missing data). Session
+  IF used by design; matches whole-session RPE the athlete actually logs, and work-portion
+  IF from intervals.json is available for case-by-case inspection but not the field value.
+  icu_intensity is stored as percentage (0-100+); classifier normalizes to decimal at entry
+  to match the canonical band table in SECTION_11.md §RPE Expectation Bands. Interpretive
+  overlay — does NOT alter Feel/RPE Override rules (v11.14) and does NOT enter the
+  readiness P0-P3 ladder.
+
 Version 3.104 - Aggregate Durability reliability gate: alarm (28d mean > 5%) now requires
   qualifying_sessions_28d >= 5 before firing; declining warning (7d > 28d by > 2%) now
   requires qualifying_sessions_7d >= 3 AND qualifying_sessions_28d >= 5. Below gate, metrics
@@ -106,7 +119,7 @@ class IntervalsSync:
     HISTORY_FILE = "history.json"
     UPSTREAM_REPO = "CrankAddict/section-11"
     CHANGELOG_FILE = "changelog.json"
-    VERSION = "3.104"
+    VERSION = "3.105"
     INTERVALS_FILE = "intervals.json"
     ROUTES_FILE = "routes.json"
 
@@ -2469,6 +2482,49 @@ class IntervalsSync:
                 return "elevated"
             else:
                 return "normal"
+
+    def _classify_effort_response(self, if_value: Optional[float],
+                                    rpe: Optional[float]) -> Optional[str]:
+        """
+        Classify effort response per the v11.34 RPE Expectation Bands.
+
+        Reads session IF (icu_intensity, stored as percentage 0-100+) and reported RPE
+        (icu_rpe, 1-10). Normalizes IF to decimal at entry to match the canonical band
+        table in SECTION_11.md §RPE Expectation Bands.
+
+        Returns:
+            "positive" - RPE below the expected band (fitness/freshness tell)
+            "neutral"  - RPE within the expected band
+            "negative" - RPE above the expected band (fatigue/under-recovery tell)
+            None       - IF absent, RPE absent or <= 0, or IF < 0.65 (out of coverage)
+
+        The IF < 0.65 null is a deliberate design gap, not missing data — recovery rides
+        and aborted sessions fall outside the bands' calibration range, and fabricating a
+        band there would produce noise on the sessions least worth flagging.
+
+        Interpretive overlay only. Does NOT alter Feel/RPE Override rules (v11.14) and
+        does NOT enter the readiness P0-P3 ladder.
+        """
+        if if_value is None or rpe is None or rpe <= 0:
+            return None
+        if_decimal = if_value / 100.0
+        if if_decimal < 0.65:
+            return None
+        if if_decimal < 0.75:
+            band_low, band_high = 2, 4
+        elif if_decimal < 0.85:
+            band_low, band_high = 4, 6
+        elif if_decimal < 0.95:
+            band_low, band_high = 6, 8
+        elif if_decimal < 1.05:
+            band_low, band_high = 8, 9
+        else:
+            band_low, band_high = 9, 10
+        if rpe < band_low:
+            return "positive"
+        if rpe > band_high:
+            return "negative"
+        return "neutral"
 
     def _calculate_consistency_index(self, activities: List[Dict], 
                                       past_events: List[Dict]) -> Tuple[Optional[float], Dict]:
@@ -6639,6 +6695,9 @@ class IntervalsSync:
                 "elevation_m": act.get("total_elevation_gain"),
                 "feel": act.get("feel"),
                 "rpe": act.get("icu_rpe"),
+                "effort_response": self._classify_effort_response(
+                    act.get("icu_intensity"), act.get("icu_rpe")
+                ),
                 "zone_distribution": zone_dist,
                 "has_intervals": False,
                 "has_dfa": False,

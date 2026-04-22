@@ -16,6 +16,7 @@ Start time: [HH:MM:SS]
 Duration: [XhYm] (planned [XhYm])
 Distance: [XX.XX] km
 Power: [XXX] W avg / [XXX] W NP
+IF: [X.XX] [omit line if null]
 Power zones: [XX]% Zone 1, [XX]% Zone 2, [XX]% Zone 3, ... (list every zone with ≥1% after rounding; omit zones that round to 0%)
 Grey Zone (Z3): [XX]%
 Quality (Z4+): [XX]%
@@ -33,6 +34,7 @@ Carbs used: [XXX] g
 TSS: [XXX] (planned [XXX])
 Feel: [X/5] ([label])
 RPE: [X/10]
+Effort response: [positive/neutral/negative] [omit line if null]
 Note: [description or chat_notes text]
 
 [Repeat block for every completed activity whose date falls on the report day (athlete local time). One block per activity ID — never merge. Include walks, ski-erg, short rides, aborted rides, commutes. Never drop secondary sessions. Within a block, omit only fields the activity type does not have (e.g., no power for a walk).]
@@ -75,6 +77,7 @@ Round zone percentages to the nearest **whole number** (1%). The JSON data sourc
 |-------|----------------|-------|
 | Distance | Cycling, running | Omit for SkiErg, strength |
 | Power / Power zones | Activities with power data | Omit if no power meter |
+| IF | Activities with `intensity_factor` present | Intensity Factor (session-level, NP ÷ FTP). Rendered to 2 decimals (divide the stored percentage by 100). Omit line when null. Source for Effort Response band lookup |
 | Grey Zone / Quality | Always for cycling | Highlights polarization compliance |
 | Session profile | Activities with zone data | Per-session intensity classification based on **executed** zone distribution (e.g., Recovery, Endurance, Tempo, Sweetspot, Threshold, VO2max, Anaerobic, Neuromuscular, Mixed). When the planned workout name and the executed character disagree, classify by what was actually done — IF and zone-time distribution — not by the planned label. Sweetspot requires VI ≤ 1.05; sessions averaging IF 0.88–0.94 with VI > 1.05 classify by dominant power zone instead |
 | Cadence | Cycling, running | Omit for SkiErg, strength |
@@ -86,6 +89,7 @@ Round zone percentages to the nearest **whole number** (1%). The JSON data sourc
 | Carbs used | Sessions with power data | Omit if unavailable |
 | Feel | Omit line if null | 1=Strong, 2=Good, 3=Normal, 4=Poor, 5=Weak. Set in Intervals.icu or pushed from device (e.g. Garmin post-ride prompt). Can appear on any activity type |
 | RPE | Omit line if null | Rate of Perceived Exertion, 1–10 scale. Set in Intervals.icu or pushed from device. Can appear on any activity type |
+| Effort response | Omit line if null | Session IF vs reported RPE against the RPE Expectation Bands (SECTION_11.md §Testing Protocol). `positive` = RPE below band (fitness/freshness tell), `neutral` = within band, `negative` = above band (fatigue/under-recovery tell). Null when IF absent, RPE absent or ≤ 0, or IF < 0.65 (out of band coverage — recovery rides and aborted sessions). Interpretive overlay: does NOT alter Feel/RPE Override rules (v11.14) and does NOT alter the readiness decision. A single `positive`/`negative` is an observation to surface; a repeated pattern across sessions deserves Interpretation-section commentary |
 | Note | Omit line if neither present | Athlete's own text or coach messages attached to the activity. If both `description` and `chat_notes` exist, combine. Omit line entirely when neither is present |
 | Heat context | When `avg_temp` indicates Tier 1+ heat stress (delta above 14d thermal baseline, or absolute fallback) | Contextualize decoupling, power, and RPE against temperature in the Interpretation section. Do not flag heat-elevated decoupling as durability decline. See **Environmental Conditions Protocol** in SECTION_11.md |
 | Durability (weekly) | Aggregate decoupling 7d/28d | Steady-state sessions only (VI ≤ 1.05, ≥ 90min). Trend direction matters more than absolute value |

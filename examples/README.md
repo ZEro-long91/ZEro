@@ -94,7 +94,7 @@ latest.json
 ├── derived_metrics      → Section 11 calculated values (see below)
 │   ├── capability       → Durability, EF, HRRc trends + TID drift (7d vs 28d)
 │   └── phase_detection  → Dual-stream phase detection with confidence
-├── recent_activities    → Detailed activity data with zones, EF, HRRc, has_intervals, has_dfa, dfa_summary
+├── recent_activities    → Detailed activity data with zones, EF, HRRc, has_intervals, has_dfa, dfa_summary, effort_response
 ├── wellness_data        → Daily HRV, RHR, sleep, subjective state, vitals, nutrition, lifestyle
 ├── planned_workouts     → Upcoming scheduled sessions with workout_summary
 ├── workout_summary_stats → Planned-vs-actual matching statistics

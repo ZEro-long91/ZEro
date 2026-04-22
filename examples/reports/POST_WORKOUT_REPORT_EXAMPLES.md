@@ -17,6 +17,7 @@ Start time: 09:30:15
 Duration: 2h30m (planned 2h30m)
 Distance: 76.42 km
 Power: 155 W avg / 156 W NP
+IF: 0.57
 Power zones: 12% Zone 1, 88% Zone 2
 Grey Zone (Z3): 0%
 Quality (Z4+): 0%
@@ -78,6 +79,7 @@ Start time: 09:42:18
 Duration: 5m
 Distance: 1.80 km
 Power: 72 W avg / 128 W NP
+IF: 0.49
 HR: 112 avg / 124 max
 TSS: 2
 Feel: 2/5 (Good)
@@ -88,6 +90,7 @@ Start time: 10:05:33
 Duration: 2h12m (planned 2h00m)
 Distance: 58.37 km
 Power: 142 W avg / 162 W NP
+IF: 0.66
 Power zones: 30% Zone 1, 36% Zone 2, 23% Zone 3, 9% Zone 4, 2% Zone 5
 Grey Zone (Z3): 23%
 Quality (Z4+): 11%
@@ -103,6 +106,7 @@ Carbs used: 258 g
 TSS: 95 (planned 65)
 Feel: 2/5 (Good)
 RPE: 4/10
+Effort response: neutral
 
 Completed workout: VirtualSki SkiErg
 Start time: 13:28:00
@@ -161,6 +165,7 @@ Start time: 08:15:42
 Duration: 1h30m (planned 1h30m)
 Distance: 48.23 km
 Power: 178 W avg / 205 W NP
+IF: 0.80
 Power zones: 28% Zone 1, 31% Zone 2, 3% Zone 3, 33% Zone 4, 4% Zone 5, 1% Zone 6
 Grey Zone (Z3): 3%
 Quality (Z4+): 37%
@@ -177,6 +182,7 @@ Carbs used: 196 g
 TSS: 95 (planned 90)
 Feel: 3/5 (Normal)
 RPE: 7/10
+Effort response: negative
 
 Weekly totals (rolling 7d):
 Phase: Build Wk3
@@ -214,6 +220,7 @@ Start time: 10:02:18
 Duration: 1h30m (planned 2h30m)
 Distance: 45.14 km
 Power: 148 W avg / 149 W NP
+IF: 0.56
 Power zones: 19% Zone 1, 81% Zone 2
 Grey Zone (Z3): 0%
 Quality (Z4+): 0%
@@ -305,6 +312,7 @@ Start time: 09:15:00
 Duration: 4h12m (planned 4h00m)
 Distance: 118.50 km
 Power: 168 W avg / 174 W NP
+IF: 0.72
 Power zones: 18% Zone 1, 78% Zone 2, 4% Zone 3
 Grey Zone (Z3): 4%
 Quality (Z4+): 0%
@@ -322,6 +330,7 @@ Carbs used: 412 g
 TSS: 218 (planned 210)
 Feel: 3/5 (Normal)
 RPE: 6/10
+Effort response: negative
 
 Weekly totals (rolling 7d):
 Phase: Base Wk4
@@ -367,6 +376,7 @@ Start time: 09:00:00
 Duration: 1h25m (planned 1h25m)
 Distance: 42.85 km
 Power: 195 W avg / 215 W NP
+IF: 0.79
 Power zones: 22% Zone 1, 28% Zone 2, 8% Zone 3, 38% Zone 4, 3% Zone 5, 1% Zone 6
 Grey Zone (Z3): 8%
 Quality (Z4+): 42%
@@ -384,6 +394,7 @@ Carbs used: 168 g
 TSS: 88 (planned 85)
 Feel: 2/5 (Good)
 RPE: 6/10
+Effort response: neutral
 
 Weekly totals (rolling 7d):
 Phase: Build Wk2
@@ -412,3 +423,64 @@ Tomorrow: Endurance 2h, Z2 steady
 ```
 
 ---
+
+## Example 8: Threshold Intervals with Positive Effort Response
+
+```
+Data (last_updated UTC: 2026-02-17T10:30:00)
+
+Post-deload threshold session executed to prescription — RPE came in notably low for the IF achieved. Fitness/freshness tell.
+
+Completed workout: Ride 4x10min Threshold - Tuesday
+Start time: 08:30:00
+Duration: 1h30m (planned 1h30m)
+Distance: 47.20 km
+Power: 210 W avg / 238 W NP
+IF: 0.88
+Power zones: 16% Zone 1, 22% Zone 2, 5% Zone 3, 52% Zone 4, 4% Zone 5, 1% Zone 6
+Grey Zone (Z3): 5%
+Quality (Z4+): 57%
+Session profile: Threshold
+HR: 148 avg / 168 max
+HR zones: 18% Zone 1, 22% Zone 2, 26% Zone 3, 32% Zone 4, 2% Zone 5
+Cadence: 88 avg
+Decoupling: 2.10%
+EF: 1.61
+HRRc: 38 bpm
+Variability Index: 1.13
+Calories: 892 kcal
+Carbs used: 182 g
+TSS: 117 (planned 115)
+Feel: 1/5 (Strong)
+RPE: 5/10
+Effort response: positive
+
+Weekly totals (rolling 7d):
+Phase: Build Wk1
+Polarization: Z1+Z2 84%, Z3 4%, Z4+ 12%
+Durability: 2.30% 7d mean(2) / 2.65% 28d mean(11) (improving)
+EF: 1.58 7d mean(3) / 1.50 28d mean(13) (improving)
+HRRc: 38 bpm 7d mean(2) / 34 bpm 28d mean(9) (improving)
+TID 28d: Polarized (PI: 3.12) — drift: consistent
+TSB: 3.20
+CTL: 72.50
+ATL: 69.30
+Ramp rate: 0.45
+ACWR: 0.95 (optimal)
+Recovery Index: 1.08
+Hours: 7h48m
+TSS: 312
+
+Interpretation:
+Threshold work at IF 0.88 with RPE 5 — below the 6–8 band for this intensity. Coming off a
+deload week with positive TSB (+3.2) and improving HRRc trend, this reads as fitness showing
+through rather than a measurement error. Decoupling 2.10% and EF 1.61 (7d mean improving vs
+28d) are consistent. Neither athlete nor AI should over-read a single positive session, but
+the pattern is worth naming: if the next two threshold touches hold at similar IF with RPE in
+the low-to-mid range, that's a fitness signal the block is working.
+
+Tomorrow: Endurance 2h, Z2 steady
+```
+
+---
+

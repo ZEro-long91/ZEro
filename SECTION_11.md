@@ -1,10 +1,21 @@
 # Section 11 — AI Coach Protocol
 
-**Protocol Version:** 11.35  
-**Last Updated:** 2026-04-19
+**Protocol Version:** 11.36  
+**Last Updated:** 2026-04-21
 **License:** [MIT](https://opensource.org/licenses/MIT)
 
 ### Changelog
+
+**v11.36 — Effort Response Signal:**
+- New `effort_response` key on every `recent_activities[]` entry in `latest.json`. Deterministic classifier reading session IF (`intensity_factor`) against reported RPE (`rpe`) through the v11.34 RPE Expectation Bands
+- Values: `"positive"` (RPE below band — fitness/freshness tell), `"neutral"` (RPE within band), `"negative"` (RPE above band — fatigue/under-recovery tell), `null` (IF absent, RPE absent or ≤ 0, or IF < 0.65)
+- The IF < 0.65 null is a **deliberate design gap**, not missing data — recovery rides and aborted sessions fall outside the bands' calibration range. Classifier returns null rather than fabricating a band there
+- Session IF used by design. Matches whole-session RPE the athlete actually logs. Work-portion IF from `intervals.json` remains available for case-by-case inspection but is not the field value
+- `intensity_factor` is stored as percentage (0–100+) and is normalized to decimal at the classifier boundary to match the canonical band table
+- New rendered `IF:` line on the post-workout per-session block (previously unrendered despite the field being on every activity)
+- Interpretive overlay only. Does NOT alter Feel/RPE Override rules (v11.14) and does NOT enter the readiness P0–P3 ladder
+- Closes the first of the `Known Future Touchpoints` flagged in v11.34
+- Requires sync.py v3.105
 
 **v11.35 — Aggregate Durability Reliability Gate:**
 - Alert-firing paths now gated on sample size: alarm (28d mean > 5%) requires `qualifying_sessions_28d ≥ 5`; declining warning (7d > 28d by > 2%) requires `qualifying_sessions_7d ≥ 3 AND qualifying_sessions_28d ≥ 5`
@@ -1783,6 +1794,33 @@ Reference table for interpreting effort against the intensity factor actually ac
 
 Bands are interpretive overlays; they do NOT alter the Feel/RPE Override rules (v11.14). A reported RPE outside the expected band is an observation to surface, not a signal that changes the readiness decision or the planned session.
 
+#### Effort Response Signal
+
+Since v11.36, every `recent_activities[]` entry in `latest.json` carries an `effort_response` field. This is the deterministic encoding of the RPE Expectation Bands above. The AI layer consumes it; it does not need to re-derive it.
+
+Values:
+
+| Value      | Meaning                                                                    |
+|------------|----------------------------------------------------------------------------|
+| `positive` | Reported RPE falls below the expected band for the IF achieved. Fitness/freshness tell |
+| `neutral`  | Reported RPE within the expected band                                      |
+| `negative` | Reported RPE above the expected band. Fatigue/under-recovery tell          |
+| `null`     | Session IF absent, RPE absent or ≤ 0, or IF < 0.65 (out of band coverage)  |
+
+**Session IF by design.** The field reads `intensity_factor` (session-level IF) against `rpe` (whole-session RPE the athlete logs). Work-portion IF is computable from `intervals.json` for highly structured sessions where warm-up and cool-down dilute session IF, but the emitted field value uses session IF — matching what the athlete's logged RPE actually references. Structured-session edge cases where the dilution materially distorts the read are caught by the Feel/RPE Override layer (v11.14) rather than by redefining the signal here.
+
+**The IF < 0.65 null is intentional.** Recovery rides and aborted sessions sit below the bands' calibration range. A fabricated band in that regime would produce noise on exactly the sessions least worth flagging. `null` is the correct emission for "out of coverage," distinct from `null` for "missing data."
+
+**Coverage expectation.** The field is sparse in practice — only activities with both a session IF and a logged RPE populate non-null. In a typical athlete's window this may be a small fraction of all activities (outdoor rides predominantly, where RPE is manually entered). Treat it as a low-frequency durability tell, not a per-session readout.
+
+**Interpretation posture.**
+- A single `positive` or `negative` reading is an observation to surface, not a trigger. Cross-reference Environmental Conditions Protocol (heat tier, altitude), recent sleep, and position in the training block before assigning meaning
+- A repeated `negative` pattern across consecutive sessions — especially at stable or rising IF — is a stronger under-recovery signal and should inform the Interpretation section of the report and any conversation about near-term load
+- `positive` readings during Race-Week Protocol or directly after a deload are expected; during build weeks they are a fitness tell worth naming
+- The field does NOT modify the readiness P0–P3 decision. That ladder uses its existing six signals only
+
+Report rendering: the post-workout report template emits `Effort response: [value]` on the per-session block, paired with a newly-rendered `IF: [X.XX]` line so the signal is verifiable at a glance. Null cases omit the line per the same convention used for Feel, RPE, and HRRc.
+
 #### Boundaries
 
 Testing Protocol constraints are absolute:
@@ -1795,8 +1833,6 @@ Testing Protocol constraints are absolute:
 
 #### Known Future Touchpoints
 
-- Post-workout report RPE-vs-expected commentary line (reads this section's bands). Not in v11.34 scope; separate template pass when the Effort Response Signal lands.
-- Future Effort Response Signal implementation consumes the RPE Expectation Bands as its spec. The bands here are the canonical definition.
 - Running-specific RPE bands (pace- or HR-calibrated) land with the pace curve extension.
 
 
