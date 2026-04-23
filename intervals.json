@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-23T12:41:30.673979",
+  "generated_at": "2026-04-23T14:59:42.875748",
   "version": "3.104",
   "script_hash": "74e1c7fc0294",
   "scan_hours": 72,
@@ -1386,6 +1386,48 @@
           "zone": 1,
           "training_load": 0.07392509,
           "decoupling": 100.0
+        }
+      ]
+    },
+    {
+      "activity_id": "i142301366",
+      "date": "2026-04-23",
+      "type": "VirtualRide",
+      "name": "Night \u865a\u62df\u9a91\u884c",
+      "interval_summary": null,
+      "intervals": [
+        {
+          "type": "RECOVERY",
+          "duration_secs": 279,
+          "avg_power": 97,
+          "max_power": 290,
+          "avg_hr": 134,
+          "max_hr": 152,
+          "avg_cadence": 54.362965,
+          "zone": 2,
+          "training_load": 4.793477,
+          "decoupling": 38.49731
+        }
+      ]
+    },
+    {
+      "activity_id": "i142299132",
+      "date": "2026-04-23",
+      "type": "Ride",
+      "name": "\u665a\u95f4\u9a91\u884c",
+      "interval_summary": null,
+      "intervals": [
+        {
+          "type": "RECOVERY",
+          "duration_secs": 1297,
+          "avg_power": 71,
+          "max_power": 297,
+          "avg_hr": 120,
+          "max_hr": 149,
+          "avg_cadence": 48.227203,
+          "zone": 1,
+          "training_load": 11.376716,
+          "decoupling": 0.90720016
         }
       ]
     }
