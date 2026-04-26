@@ -94,7 +94,7 @@ latest.json
 ├── derived_metrics      → Section 11 calculated values (see below)
 │   ├── capability       → Durability, EF, HRRc trends + TID drift (7d vs 28d)
 │   └── phase_detection  → Dual-stream phase detection with confidence
-├── recent_activities    → Detailed activity data with zones, EF, HRRc, has_intervals, has_dfa, dfa_summary, effort_response
+├── recent_activities    → Detailed activity data with zones, EF, HRRc, has_intervals, has_dfa, dfa_summary, effort_response, terrain_summary/weather_summary (outdoor only)
 ├── wellness_data        → Daily HRV, RHR, sleep, subjective state, vitals, nutrition, lifestyle
 ├── planned_workouts     → Upcoming scheduled sessions with workout_summary
 ├── workout_summary_stats → Planned-vs-actual matching statistics
@@ -129,6 +129,8 @@ routes.json (on-demand — load when planned events have has_terrain: true)
         ├── climbs[]     → Cat 4–HC with position, gradient, coords
         └── descents[]   → Recovery windows with position, gradient, coords
 ```
+
+> **Note on terrain data location:** `routes.json` holds **planned-route** terrain (events with GPX/TCX attachments). **Completed-activity** terrain — what was actually ridden — lives embedded on each outdoor activity in `latest.json`'s `recent_activities[]` as `terrain_summary` and `weather_summary`. Same base schema, different time direction. See SECTION_11.md "Completed-Activity Terrain & Weather" for interpretation rules.
 
 ### Derived Metrics
 

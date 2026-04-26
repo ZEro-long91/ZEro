@@ -1,10 +1,25 @@
 # Section 11 — AI Coach Protocol
 
-**Protocol Version:** 11.36  
-**Last Updated:** 2026-04-21
+**Protocol Version:** 11.38  
+**Last Updated:** 2026-04-25
 **License:** [MIT](https://opensource.org/licenses/MIT)
 
 ### Changelog
+
+**v11.38 — Completed-Activity Terrain & Weather:**
+- `terrain_summary` and `weather_summary` blocks now embedded on outdoor activities in `recent_activities[]` (types: Ride, MountainBikeRide, GravelRide, EBikeRide, Run, TrailRun, NordicSki, Walk, Hike). Indoor activities have no field (type is the indoor signal).
+- State semantics for terrain: `terrain_summary` present (success), `terrain_status: "no_gps" | "no_elevation" | "failed"` (terminal non-success), or no field (indoor / not yet processed / transient retry pending). Weather: `weather_summary` present, `weather_status: "unavailable"` (re-evaluated each sync), or no field (indoor).
+- New activity-level fields beyond the routes.json shape: `max_grade_pct` (steepest 200m chunk anywhere on the route, not just inside detected climbs), `grade_distribution` (flat/gentle/moderate/steep percent buckets), `start_coords`. No polyline (raw streams available on demand via pull.py).
+- Weather summary uses stable keys with explicit `units` block ({wind, temp, rain}) so values stay account-unit-agnostic. AI must read units from the block, not assume metric.
+- Documented inside the existing Route & Terrain Protocol — same vocabulary as planned-route briefings, retrospectively applied. Post-workout interpretation is the primary consumer; weekly/block review secondary.
+- Requires sync.py v3.107
+
+**v11.37 — has_intervals Semantics Fix:**
+- `has_intervals` now requires at least one `type == "WORK"` segment in the intervals.json entry — previously any non-empty segment list set the flag true
+- Pre-existing bug dating to v3.101 narrowing: Intervals.icu emits a single whole-session `RECOVERY` placeholder on unstructured endurance rides, which the prior check treated as structured. Live evidence from the v3.105 test run: 9 false positives (SkiErg, virtual endurance) vs 3 true RECOVERY,WORK activities across 62 sessions
+- v3.101 intent ("narrowed to structured segments only") now actually enforced at the check level. Descriptive docs already reflected the intended behavior — no consumer semantics change, only the implementation catching up
+- `has_dfa` behavior unchanged. `_generate_intervals` collection logic unchanged — intervals are still fetched for DFA purposes whether or not a WORK segment exists
+- Requires sync.py v3.106
 
 **v11.36 — Effort Response Signal:**
 - New `effort_response` key on every `recent_activities[]` entry in `latest.json`. Deterministic classifier reading session IF (`intensity_factor`) against reported RPE (`rpe`) through the v11.34 RPE Expectation Bands
@@ -1562,6 +1577,51 @@ When route data is available, the AI can produce a structured pre-ride briefing 
 6. **Nutrition skeleton** — fueling timing anchored to terrain features. Pre-climb fueling windows, descent fueling opportunities, flat-section backstops. Connects kJ expenditure estimates to the route profile.
 
 **Conditional inclusion in pre-workout reports:** When `has_terrain: true` on a planned event and `routes.json` contains the corresponding terrain data, the pre-workout report should include a condensed terrain context block after the planned workout section: course character, key climbs (condensed), and a pacing note. The full briefing is available on request. Do not include terrain context when `has_terrain` is false or absent — the data doesn't exist.
+
+#### Completed-Activity Terrain & Weather
+
+The same terrain and weather framework also applies retrospectively to completed activities. Each entry in `recent_activities[]` for an outdoor activity (`Ride`, `MountainBikeRide`, `GravelRide`, `EBikeRide`, `Run`, `TrailRun`, `NordicSki`, `Walk`, `Hike`) carries optional `terrain_summary` and `weather_summary` blocks describing what the rider actually encountered — not just what was planned.
+
+The primary consumer is **post-workout interpretation**: explaining elevated RPE, HR drift, or pacing patterns by reference to the actual terrain and conditions encountered. Secondary consumers are weekly and block-level review, where comparing terrain/weather exposure across sessions adds context to load patterns. The pre-ride briefing flow described above continues to use planned-route data from `routes.json`, not completed-activity data.
+
+**`terrain_summary` shape:** Same base schema as `routes.json` — `total_distance_km`, `total_elevation_m`, `elevation_per_km`, `course_character`, `climbs[]`, `descents[]` — with activity-specific additions: `max_grade_pct` (steepest detected pitch), `grade_distribution` (percent of distance in `flat_pct` / `gentle_pct` / `moderate_pct` / `steep_pct` buckets), `start_coords`. The `polyline` field is intentionally **not** present on activities to keep `latest.json` lean — for full GPS at higher resolution, fetch raw streams via `pull.py trace --activity-id <id>`. All climb classification, course character thresholds, and gradient interpretation rules from the planned-route protocol above apply unchanged.
+
+**`weather_summary` shape:** Pre-computed Intervals/Open-Meteo data — `avg_wind_speed`, `avg_wind_gust`, `prevailing_wind_deg`, `headwind_pct`, `tailwind_pct`, `avg_temp` (ambient), `avg_temp_device` (sensor — typically reads higher in direct sun), `avg_feels_like` with `min`/`max`, ambient temp range, `clouds_pct`, `rain`, `snow`. A nested `units` block (`{wind, temp, rain}`) gives the unit code for each value — the AI MUST read this rather than assume metric. The same Wind Overlay headwind/tailwind logic from the planning protocol applies in retrospect.
+
+**State semantics — distinguish these cases explicitly:**
+
+| Field state | Meaning |
+|---|---|
+| `terrain_summary` present | Use the data; standard terrain interpretation rules apply |
+| `terrain_status: "no_gps"` | Outdoor activity but no usable GPS recorded — terrain unknown, do not speculate |
+| `terrain_status: "no_elevation"` | GPS available, altitude unavailable — elevation and gradient effects cannot be confirmed; do not infer climbs OR flatness |
+| `terrain_status: "failed"` | Fetch error (rare) — terrain unavailable for this activity |
+| Terrain field absent, activity is indoor | `type` not in `OUTDOOR_TYPES` — terrain doesn't apply; no field is the correct state |
+| Terrain field absent, activity is outdoor | Either not yet processed by current sync, or transient fetch failure pending retry — terrain context is unavailable; do not infer |
+| `weather_summary` present | Use the data |
+| `weather_status: "unavailable"` | Weather not (yet) computed by Intervals — re-evaluated each sync, may populate later |
+| Weather field absent, activity is indoor | `type` not in `OUTDOOR_TYPES` — weather doesn't apply |
+| Weather field absent, activity is outdoor | Same handling as terrain absent on outdoor — context unavailable, do not infer |
+
+**Do not invent terrain or weather context.** When summary blocks are absent or status fields indicate unavailable data, the AI must say the data isn't available rather than guessing from name, distance, or duration. Length-based route inference is a documented failure mode and produces confident but wrong narratives.
+
+**Post-workout report integration:**
+
+These are anchors for surfacing context, not gates. Apply judgment to the specific activity rather than mechanical thresholds.
+
+1. **Surface terrain when it materially shaped the effort.** Typical triggers: significant elevation density (`elevation_per_km ≥ 20`), `course_character` of `hilly` or `mountain`, or `max_grade_pct ≥ 8` on otherwise moderate routes. A flat ride's terrain block is not noise to highlight; absence of mention is the correct signal.
+
+   *Note on `max_grade_pct` calibration:* The value is computed from smoothed elevation in 200m chunks, which dampens GPS/barometric noise but also attenuates peak gradients — a real-world 12-15% kicker typically reads as 6-8% in `max_grade_pct`. The `≥ 8` threshold is calibrated to this smoothed scale; do not compare it to gradients quoted from Strava, Garmin Connect, or other tools that report unsmoothed peaks.
+
+2. **Surface weather when it explains a deviation from expected response.** Typical triggers: headwind percentage materially elevated (commonly ≥ 30%), gusts substantial relative to athlete's typical conditions, `feels_like` outside the rider's neutral band (cross-reference Environmental Conditions Protocol heat/cold tiers), or precipitation present. Calm, mild conditions do not need narration.
+
+3. **Combine with effort-response signals.** When elevated RPE or HR drift cannot be explained by load alone, terrain and weather are the first context layer to check before invoking fatigue. A flat-ride effort-response negative on a day with 35% headwind is environmentally explained, not a fitness signal.
+
+4. **`no_elevation` requires explicit acknowledgment.** Treating a no-elevation ride as either flat OR climbed without saying so risks misattributing physiological signals to the wrong cause. Phrasing: "GPS-only ride (no altitude recorded) — terrain effects on this session can't be confirmed." Then interpret remaining signals (power, HR, RPE) on their own terms.
+
+**Weekly and block review applicability:** Across 7-day or block-level windows, comparing `headwind_pct` exposure, accumulated `total_elevation_m`, and `course_character` distribution adds context to TSS / CTL / TSB patterns. A week with three high-headwind rides and a stale TSB gives a different read than the same TSB with calm conditions. Use sparingly — the goal is correct attribution of fatigue, not exhaustive environmental accounting.
+
+**Ride comparison:** When the rider asks "how did this same loop go last time," activity-level `terrain_summary` and `weather_summary` enable side-by-side comparison without needing the activity to be linked to a `routes.json` event. Compare power-per-meter-elevation, headwind exposure, and feels-like against the prior ride to contextualize today's expectations.
 
 #### Route & Terrain — Evidence Base
 

@@ -25,7 +25,7 @@ An open protocol for deterministic, auditable AI-powered endurance coaching. Bui
 |------|-------------|
 | [SECTION_11.md](SECTION_11.md) | Complete protocol: AI Coach Guidance (11 A), Training Plan Protocol (11 B), Validation Protocol (11 C) |
 | [examples/workout-library/](examples/workout-library/) | Workout Reference Library — 26 session templates that Section 11 B §8 requires AI systems to select from |
-| [examples/agentic/](examples/agentic/) | Write planned workouts to Intervals.icu calendar — for agentic AI platforms with code execution |
+| [examples/agentic/](examples/agentic/) | Agentic tools — calendar writes, raw activity stream reads, external API reference — for AI platforms with code execution |
 | [examples/json-local-sync/](examples/json-local-sync/) | Local automated sync for agentic platforms — no GitHub needed |
 | [examples/dfa_a1/NON_GARMIN.md](examples/dfa_a1/NON_GARMIN.md) | DFA a1 platform support status — documents that the feature requires Garmin + AlphaHRV today, plus discovery commands for Suunto / Karoo / phone-fallback verification |
 | [DOSSIER_TEMPLATE.md](DOSSIER_TEMPLATE.md) | Blank athlete dossier template — fill in your own data |
@@ -128,9 +128,15 @@ Cowork is a desktop app that can read files directly from your filesystem.
 1. Install: `npm install -g @google/gemini-cli` (or `npx @google/gemini-cli`)
 2. Clone your data repo locally — Gemini CLI has full filesystem access
 
-### Pushing Workouts to Calendar
+### Agentic Tools
 
-Agentic platforms can write planned workouts to your Intervals.icu calendar using [push.py](examples/agentic/). This requires code execution — web chat platforms cannot use this feature.
+Agentic platforms can use the tools in [examples/agentic/](examples/agentic/) for:
+
+- **`push.py`** — write planned workouts to your Intervals.icu calendar (push, list, move, delete), update sport-specific thresholds, annotate activities
+- **`pull.py`** — fetch raw per-second activity streams (GPS, altitude, watts, HR, …) when `terrain_summary`/`weather_summary` in `latest.json` aren't enough and the AI needs the underlying track
+- **`EXTERNAL_APIS.md`** — endpoint reference for Strava, MET Norway, Open-Meteo, and Intervals.icu streams + weather, used by agentic flows for pre-ride enrichment
+
+These all require code execution — web chat platforms cannot use them.
 
 See [examples/agentic/README.md](examples/agentic/README.md) for setup, commands, and workout syntax.
 

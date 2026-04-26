@@ -37,5 +37,9 @@ These example files were generated from sync.py v3.86 / Section 11 v11.17. Key f
 - `athlete_profile` — stable identity block (DOB, age, height, sex, location, timezone, platform tenure)
 - `athlete_notes` — raw string passthrough of athlete's Intervals.icu notes
 - `avg_temp_unit`, `wind_speed_unit`, `avg_speed_unit`, `max_speed_unit` — per-activity unit labels
+- `terrain_summary` — per-activity terrain analysis (climbs, descents, course character, grade distribution) on outdoor activities; same base schema as routes.json with activity-specific additions, no polyline (raw streams available on demand via pull.py)
+- `terrain_status` — set on outdoor activities when terrain data is unavailable: `"no_gps"`, `"no_elevation"`, or `"failed"` (terminal states; transient fetch errors retry on next sync without writing a status)
+- `weather_summary` — per-activity weather block populated from Intervals' Open-Meteo data when `has_weather` is true; stable keys with explicit `units` block (wind/temp/rain) so values can be in any account-configured unit
+- `weather_status` — `"unavailable"` when Intervals hasn't computed weather for the activity; re-evaluated each sync (never copied forward)
 
 For the full field reference, see [SECTION_11.md](../../SECTION_11.md) (Derived Metrics table).

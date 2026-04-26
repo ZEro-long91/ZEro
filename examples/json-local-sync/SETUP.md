@@ -85,6 +85,7 @@ python3 section11/examples/sync.py --output latest.json
 │   │   ├── sync.py
 │   │   ├── agentic/
 │   │   │   ├── push.py
+│   │   │   ├── pull.py
 │   │   │   └── ...
 │   │   ├── reports/
 │   │   │   ├── PRE_WORKOUT_REPORT_TEMPLATE.md
@@ -407,6 +408,17 @@ python3 section11/examples/agentic/push.py push --name "Sweet Spot 3x15" --date 
 ```
 
 See [examples/agentic/README.md](../agentic/README.md) for all commands, workout syntax, and template mappings.
+
+## Read Side (pull.py)
+
+pull.py fetches raw per-second activity streams (lat/lng, altitude, watts, HR, …) on demand. Used only when the AI needs detail beyond the precomputed `terrain_summary` / `weather_summary` already present on outdoor activities in `latest.json` — for example, locating a specific power spike or wind segment within the GPS track.
+
+```bash
+cd ~/training-data
+python3 section11/examples/agentic/pull.py trace --activity-id i142557875 --types latlng,altitude
+```
+
+Same `.sync_config.json` credentials. Read-only — no `--confirm` gate. Don't reach for pull.py if `latest.json` already answers the question; the streams payload is several MB per ride.
 
 ---
 
