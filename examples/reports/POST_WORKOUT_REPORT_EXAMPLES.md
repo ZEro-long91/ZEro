@@ -85,6 +85,8 @@ TSS: 2
 Feel: 2/5 (Good)
 RPE: 1/10
 
+Outdoor context: rolling route (12.4 m/km), breezy cool conditions; variability likely terrain-driven.
+
 Completed workout: Ride Training Session
 Start time: 10:05:33
 Duration: 2h12m (planned 2h00m)
@@ -142,9 +144,9 @@ Hours: 11h48m
 TSS: 445
 
 Interpretation:
-Main ride overshot planned TSS (95 vs 65) due to terrain variability — VI 1.14 and 23% grey zone
-confirm the outdoor premium — but HR stayed fully in Z1-Z2 and negative decoupling (-4.12%) shows
-aerobic response was clean. Short 5m ride logged separately; no `description` or `chat_notes`
+Main ride overshot planned TSS (95 vs 65) — expected given the rolling terrain, with VI and grey
+zone confirming the outdoor premium — but HR stayed fully in Z1-Z2 and negative decoupling
+(-4.12%) shows aerobic response was clean. Short 5m ride logged separately; no `description` or `chat_notes`
 attached, reported as-is. SkiErg and walk executed as easy secondary sessions. Load tracking
 normally at ACWR 1.04.
 
@@ -307,6 +309,8 @@ Data (last_updated UTC: 2026-02-08T16:30:00)
 
 Long Z2 ride completed at planned duration but DFA a1 drifted negative across the second half — fueling/heat signal worth noting.
 
+Outdoor context: rolling route (8 m/km), calm cool conditions; variability likely terrain-driven.
+
 Completed workout: Ride Long Endurance - Saturday
 Start time: 09:15:00
 Duration: 4h12m (planned 4h00m)
@@ -431,6 +435,8 @@ Data (last_updated UTC: 2026-02-17T10:30:00)
 
 Post-deload threshold session executed to prescription — RPE came in notably low for the IF achieved. Fitness/freshness tell.
 
+Outdoor context: flat route (3 m/km), breezy cold conditions; thermal cost notable.
+
 Completed workout: Ride 4x10min Threshold - Tuesday
 Start time: 08:30:00
 Duration: 1h30m (planned 1h30m)
@@ -472,9 +478,10 @@ Hours: 7h48m
 TSS: 312
 
 Interpretation:
-Threshold work at IF 0.88 with RPE 5 — below the 6–8 band for this intensity. Coming off a
-deload week with positive TSB (+3.2) and improving HRRc trend, this reads as fitness showing
-through rather than a measurement error. Decoupling 2.10% and EF 1.61 (7d mean improving vs
+Threshold work at IF 0.88 with RPE 5 — below the 6–8 band for this intensity, and notable on a
+cold day where RPE typically runs higher rather than lower. Coming off a deload week with positive
+TSB (+3.2) and improving HRRc trend, this reads as fitness showing through rather than a
+measurement error. Decoupling 2.10% and EF 1.61 (7d mean improving vs
 28d) are consistent. Neither athlete nor AI should over-read a single positive session, but
 the pattern is worth naming: if the next two threshold touches hold at similar IF with RPE in
 the low-to-mid range, that's a fitness signal the block is working.

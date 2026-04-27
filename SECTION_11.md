@@ -1,10 +1,20 @@
 # Section 11 — AI Coach Protocol
 
-**Protocol Version:** 11.38  
-**Last Updated:** 2026-04-25
+**Protocol Version:** 11.39  
+**Last Updated:** 2026-04-26
 **License:** [MIT](https://opensource.org/licenses/MIT)
 
 ### Changelog
+
+**v11.39 — Outdoor Context Synthesis Line:**
+- New `Outdoor context:` line at the top of each outdoor activity block in post-workout reports. Single optional line synthesizing terrain + weather and, when earned, a causal clause attributing observed variability or environmental cost
+- Reuses inputs already present from v11.38 (`course_character`, `elevation_per_km`, `max_grade_pct`, `avg_feels_like`, `avg_wind_speed`, `headwind_pct`, `rain`, `variability_index`). No `sync.py` changes — interpretation layer only
+- Causal-clause triggers reuse this section's existing salience thresholds. Four triggers: variability terrain-driven (cycling + VI ≥ 1.05 + non-flat terrain), headwind meaningful (`headwind_pct ≥ 30` AND `avg_wind_speed ≥ 3` — both gates required, low-magnitude wind makes headwind percentage irrelevant), thermal cost notable (`avg_feels_like` outside [5, 25]), wet conditions (`rain > 0`). When no trigger fires, clause is omitted entirely
+- Max two clauses chained with comma. When more than two qualify, judgment selects the most acute on the day — consistent with the section's "anchors not gates, apply judgment" framing
+- Graceful degrade across four states (both summaries / terrain only / weather only / neither). Indoor activities and status-only states omit the line entirely; absence of the line is the correct signal
+- Bands describe the environment as recorded; sport-specific interpretation (heat tiers, cold warm-up rules) remains the responsibility of the Environmental Conditions Protocol, unchanged
+- Three example blocks updated in `POST_WORKOUT_REPORT_EXAMPLES.md` (Examples 2, 6, 8) demonstrating three patterns: variability-terrain-driven, variability-terrain-driven with separate fueling narrative, and thermal cost on flat terrain. Example 2 interpretation deduped — "due to terrain variability" dropped now that the synthesis line attributes it
+- No sync.py change required
 
 **v11.38 — Completed-Activity Terrain & Weather:**
 - `terrain_summary` and `weather_summary` blocks now embedded on outdoor activities in `recent_activities[]` (types: Ride, MountainBikeRide, GravelRide, EBikeRide, Run, TrailRun, NordicSki, Walk, Hike). Indoor activities have no field (type is the indoor signal).
@@ -1619,6 +1629,43 @@ These are anchors for surfacing context, not gates. Apply judgment to the specif
 
 4. **`no_elevation` requires explicit acknowledgment.** Treating a no-elevation ride as either flat OR climbed without saying so risks misattributing physiological signals to the wrong cause. Phrasing: "GPS-only ride (no altitude recorded) — terrain effects on this session can't be confirmed." Then interpret remaining signals (power, HR, RPE) on their own terms.
 
+**Outdoor context synthesis line:** A single optional line at the top of each outdoor activity block summarizes terrain and weather and, when earned, attributes observed variability or environmental cost. It primes interpretation before the reader reaches the metrics block; the full `terrain_summary` and `weather_summary` data remain available for any deeper read.
+
+*Inputs.* From `terrain_summary`: `course_character`, `elevation_per_km`, `max_grade_pct`. From `weather_summary`: `avg_feels_like`, `avg_wind_speed`, `headwind_pct`, `rain`. From the activity record: `variability_index`, `type` (gates the cycling-only variability clause).
+
+*Descriptive phrases.* Render whenever the corresponding summary is present. The bands describe environmental conditions as recorded; sport-specific interpretation (heat tiers, cold warm-up rules) remains the responsibility of the Environmental Conditions Protocol.
+
+- Terrain phrase: `"{course_character} route ({elevation_per_km} m/km)"`. Reuse the classification produced by `sync.py` — never reclassify.
+- Wind band (`avg_wind_speed`): calm < 3 / breezy 3–6 / windy 6–9 / very windy ≥ 9.
+- Temp band (`avg_feels_like`): cold < 5 / cool 5–12 / mild 12–18 / warm 18–25 / hot > 25.
+- Weather phrase: `"{wind_band} {temp_band} conditions"`. If `rain > 0`, append `", wet"`.
+
+*Causal clause (only when earned, otherwise omitted).* Triggers reuse this section's existing salience thresholds:
+
+| Trigger | Clause |
+|---|---|
+| Cycling activity AND `variability_index ≥ 1.05` AND (`course_character ∈ {rolling, hilly, mountain}` OR `max_grade_pct ≥ 8`) | "variability likely terrain-driven" |
+| `headwind_pct ≥ 30` AND `avg_wind_speed ≥ 3` | "headwind a meaningful factor" |
+| `avg_feels_like < 5` OR `avg_feels_like > 25` | "thermal cost notable" |
+| `rain > 0` | "wet conditions a factor" |
+
+The headwind clause requires both an elevated percentage and a wind magnitude above the calm band — a high headwind percentage at very low wind speed is not a meaningful factor and must not surface a clause. The variability clause is cycling-only (no power → no VI for running, walking, hiking, NordicSki). When no trigger fires, the clause is omitted entirely; calm, mild, flat-or-gentle rides need no attribution and absence of a clause is the correct signal.
+
+If multiple triggers fire, chain at most two with a comma; if more than two would qualify, keep the most acute on the day.
+
+*Graceful degrade.* The line composes only what is available:
+
+| State | Line |
+|---|---|
+| Both summaries present | `"Outdoor context: {terrain phrase}, {weather phrase}[; {clause}]."` |
+| Terrain only | `"Outdoor context: {terrain phrase}[; {clause}]."` (only the variability clause can fire) |
+| Weather only | `"Outdoor context: {weather phrase}[; {clause}]."` |
+| Neither (indoor, or both absent on outdoor) | Omit the line entirely |
+
+`terrain_status` or `weather_status` indicating unavailable data follow the do-not-invent rule defined elsewhere in this section: omit the line rather than fill with hedges.
+
+*Placement.* Top of each outdoor activity block, one line, blank line below before `Completed workout:`. Per-activity, never per-day. Indoor activities have no line — omission is the correct signal.
+
 **Weekly and block review applicability:** Across 7-day or block-level windows, comparing `headwind_pct` exposure, accumulated `total_elevation_m`, and `course_character` distribution adds context to TSS / CTL / TSB patterns. A week with three high-headwind rides and a stale TSB gives a different read than the same TSB with calm conditions. Use sparingly — the goal is correct attribution of fatigue, not exhaustive environmental accounting.
 
 **Ride comparison:** When the rider asks "how did this same loop go last time," activity-level `terrain_summary` and `weather_summary` enable side-by-side comparison without needing the activity to be linked to a `routes.json` event. Compare power-per-meter-elevation, headwind exposure, and feels-like against the prior ride to contextualize today's expectations.
@@ -1641,8 +1688,6 @@ These are anchors for surfacing context, not gates. Apply judgment to the specif
 | Springer Nature (2025) | Power response to wind is non-linear and velocity-dependent; headwind substantially increases power cost at speed | Wind impact scales with speed regime, not gradient directly |
 | Climb classification | UCI/Tour conventional categories — elevation-based thresholds | Industry convention, not a single research finding |
 | Course character heuristic | Section 11 convention — flat/rolling/hilly/mountain boundaries from elevation density (m/km) + climb presence | Engineering decision for route classification |
-
----
 
 ---
 

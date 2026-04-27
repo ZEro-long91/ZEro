@@ -11,6 +11,8 @@ Data (last_updated UTC: [YYYY-MM-DDTHH:MM:SS])
 
 [One-line summary of completed session(s) and key observation.]
 
+Outdoor context: [synthesis line per SECTION_11.md §"Completed-Activity Terrain & Weather" — Outdoor context synthesis line. Omit line entirely for indoor activities, when both `terrain_summary` and `weather_summary` are absent, or when status fields indicate unavailable data]
+
 Completed workout: [ActivityType] [WorkoutName]
 Start time: [HH:MM:SS]
 Duration: [XhYm] (planned [XhYm])
@@ -75,6 +77,7 @@ Round zone percentages to the nearest **whole number** (1%). The JSON data sourc
 
 | Field | When to include | Notes |
 |-------|----------------|-------|
+| Outdoor context | Outdoor activities only; only when at least one of `terrain_summary` or `weather_summary` is present and not in a status-only state | Single-line synthesis of terrain + weather context plus, when earned, a causal clause attributing variability or environmental cost. Generation rules, descriptive bands, causal triggers, and graceful-degrade behavior in SECTION_11.md §"Completed-Activity Terrain & Weather" — Outdoor context synthesis line |
 | Distance | Cycling, running | Omit for SkiErg, strength |
 | Power / Power zones | Activities with power data | Omit if no power meter |
 | IF | Activities with `intensity_factor` present | Intensity Factor (session-level, NP ÷ FTP). Rendered to 2 decimals (divide the stored percentage by 100). Omit line when null. Source for Effort Response band lookup |
