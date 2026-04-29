@@ -14,7 +14,7 @@
       "hash": "ecbafca7a4b2b2e2fc72d24c6f03b025e3dc43bfadfa1c69d990dbf0419d2519"
     },
     "SECTION_11.md": {
-      "hash": "a582b2d2f55c82647e9f91fd8545d7412cde7984030f2b38baeb87136d0b0ff5",
+      "hash": "7012f43558d89aeef32896c13ba766060cad4c66fb6915a87e17e7e69a841b5a",
       "description": "Coaching protocol"
     },
     "SECURITY.md": {
@@ -30,7 +30,7 @@
       "hash": "71bdd470ebdb979cc91eda31efc037a925353b4307ab09e59ce5988d5e3c46d9"
     },
     "examples/README.md": {
-      "hash": "a920e0c7feee903701300b4755dba0b8a93c3eeacf5443ad233587673ec687a2"
+      "hash": "d1ba8274d0d1a2534299b217fc4a8580bbc86cec78ad8770c032199760615a04"
     },
     "examples/agentic/EXTERNAL_APIS.md": {
       "hash": "650773b06e8eaae82d355d32a6a34c6d15e0b37296747461ef7547d33497e0ce"
@@ -111,7 +111,13 @@
       "hash": "9b35bb1209cc7d6285eff4345741b6901dab42f6991aeb0b804fd393c8d67b77"
     },
     "examples/reports/REPORT_HIERARCHY.md": {
-      "hash": "6acd33c11d114c21788a76cfbcb453c4f1c14f9bc1e0754bdb2869108389a1fa"
+      "hash": "09229f6091737553c103f8c4f1202839b40ff4b9290b28abc8410d8bf403e5f8"
+    },
+    "examples/reports/SEASON_REPORT_EXAMPLES.md": {
+      "hash": "6f7cbf97e0ce2258a4f2a894ea2831a40caff8123a9c25cbb51126e5439cb5e4"
+    },
+    "examples/reports/SEASON_REPORT_TEMPLATE.md": {
+      "hash": "0face6dca43b5073bb782453b6a12829e75631755a5e82a13dc7954eb3340a2f"
     },
     "examples/reports/WEEKLY_REPORT_EXAMPLES.md": {
       "hash": "9510f06eb679389c4577cc14ad5c665f5ac2a04681b0740e13a8378d24ce8d53"

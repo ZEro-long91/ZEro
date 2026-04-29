@@ -1,10 +1,20 @@
 # Section 11 — AI Coach Protocol
 
-**Protocol Version:** 11.40  
-**Last Updated:** 2026-04-27
+**Protocol Version:** 11.41  
+**Last Updated:** 2026-04-28
 **License:** [MIT](https://opensource.org/licenses/MIT)
 
 ### Changelog
+
+**v11.41 — Season Report Tier:**
+- New report tier above Block: trailing-12-month annual arc with current-season trajectory and year-over-year metrics comparison. Length norm 55–70 lines, on-demand only (no automatic cadence). Sits at the top of the existing Pre → Post → Weekly → Block hierarchy
+- v1 is descriptive only. Goal audit is intentionally deferred to v2 — no placeholder section, no header
+- Phase narrative is scoped to ≤180d. All phase references draw from `weekly_180d[*].phase_detected` or `derived_metrics.phase_detection`. The YoY section is **metrics-only**: no phase labels for prior years. The `monthly_*y[*].dominant_phase` field uses a simplified rule (CTL trend + qi_pct only) that does not match `_detect_phase_v2`; until aligned, cross-year phase claims under that rule mislead. Parked for v2
+- Capability metrics (durability, EF, HRRc, sustainability) intentionally absent from v1. `weekly_180d` rows do not carry rolled-up capability means; a separate weekly capability rollup is the prerequisite. Parked for v2
+- YoY rule: match by calendar `month` string across the union of `monthly_1y`, `monthly_2y`, `monthly_3y` (these are rolling-trailing arrays, not year-bucketed). If matched month not present, render `n/a — no prior data`. Default is current-vs-last-year only; 2y/3y lines surface only when delta is material (≥15% hours/TSS, ≥3 CTL points, ≥5pp TID)
+- Span: trailing 12 months ending at `metadata.last_updated` (or `history.generated_at` when reading `history.json` directly)
+- No `sync.py` changes. Report consumes existing JSON only. Pairs with `sync.py` v3.109
+- New files: `examples/reports/SEASON_REPORT_TEMPLATE.md`, `examples/reports/SEASON_REPORT_EXAMPLES.md`. Updated: `examples/reports/REPORT_HIERARCHY.md` (table, flow diagram, capability scaling rule, files list)
 
 **v11.40 — Display Unit Semantics:**
 - New "Display Unit Semantics" subsection in the Data Mirror block. Establishes a three-layer signal: (1) `athlete_profile.display_preferences` — six-key map of athlete's Intervals.icu unit choices, (2) per-record `display.*` blocks with display-ready `{value, unit}` pairs converted from canonical metric, (3) per-activity `*_unit` siblings + `weather_summary.units` for fields the API already returns in account units (left as-is for backward compatibility)
@@ -2607,6 +2617,15 @@ See `PRE_WORKOUT_REPORT_TEMPLATE.md` in the examples directory for conditional f
 - Tomorrow preview (when planned session exists)
 
 See `POST_WORKOUT_REPORT_TEMPLATE.md` in the examples directory for field reference and rounding conventions.
+
+**Season Reports (on-demand only) must include:**
+- Annual position (current phase, previous phase, 180d phase trajectory, seasonal-table reference)
+- Current season trajectory (180d): volume, CTL peak/current, ACWR week-bucket counts, TID 180d, hard-day density with first-half vs second-half drift, longest ride / longest week, quality session count
+- Year-over-year comparison (calendar-month matched, metrics-only — no phase claims about prior years)
+- Notable patterns (FTP timeline events, data gaps, A-races completed/upcoming, one deviations line)
+- Interpretation (2-4 sentences)
+
+See `SEASON_REPORT_TEMPLATE.md` in the examples directory for the full structure and the YoY material-threshold logic. Phase narrative is scoped to ≤180d by design — see template Notes for rationale.
 
 **Brevity Rule:** Brief when metrics are normal. Detailed when thresholds are breached or athlete asks "why."
 

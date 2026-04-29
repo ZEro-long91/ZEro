@@ -11,10 +11,10 @@ Working implementations for Section 11 integrations.
 | [json-local-sync](json-local-sync/) | Automated local sync for agentic platforms (no GitHub) | ✅ Ready |
 | [json-on-demand](json-on-demand/) | On-demand sync from phone or browser — no local Python | ✅ Ready |
 | [json-manual](json-manual/) | Manual export from Mac/PC | ✅ Ready |
-| [reports](reports/) | Pre/post workout report templates | ✅ Ready |
+| [reports](reports/) | Pre/post/weekly/block/season report templates | ✅ Ready |
 | [agentic](agentic/) | Write planned workouts to Intervals.icu calendar (code execution required) | ✅ Ready |
 | [workout-library](workout-library/) | Structured workout templates for AI prescription | ✅ Ready |
-| [json-examples](json-examples/) | Example JSON output (v3.86 schema reference) | ✅ Ready |
+| [json-examples](json-examples/) | Example JSON output / current schema reference | ✅ Ready |
 
 ---
 
@@ -59,7 +59,7 @@ Both methods use the same `sync.py` script and produce these files:
 | `ftp_history.json` | FTP tracking for Benchmark Index | Yes |
 | `archive/` | Timestamped snapshots (auto-sync only) | Yes |
 
-See [json-examples/](json-examples/) for example output showing the full v3.86 schema.
+See [json-examples/](json-examples/) for example output showing the full current schema.
 
 ```bash
 # Manual local export
@@ -165,6 +165,9 @@ The [reports/](reports/) folder contains Section 11-compliant templates:
 |----------|----------|
 | `PRE_WORKOUT_REPORT_TEMPLATE.md` | Briefing before a session |
 | `POST_WORKOUT_REPORT_TEMPLATE.md` | Analysis after a session |
+| `WEEKLY_REPORT_TEMPLATE.md` | End-of-week summary |
+| `BLOCK_REPORT_TEMPLATE.md` | End-of-block phase assessment |
+| `SEASON_REPORT_TEMPLATE.md` | On-demand annual-arc trajectory + YoY |
 | `*_EXAMPLES.md` | Anonymized examples showing normal and threshold-breach scenarios |
 
 Use these to standardize AI coaching output across platforms.
