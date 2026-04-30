@@ -1,19 +1,26 @@
 # Section 11 — AI Coach Protocol
 
-**Protocol Version:** 11.41  
-**Last Updated:** 2026-04-28
+**Protocol Version:** 11.42  
+**Last Updated:** 2026-04-29
 **License:** [MIT](https://opensource.org/licenses/MIT)
 
 ### Changelog
 
+**v11.42 — Season Report v2 prerequisites land:**
+- Two items parked in v11.41 now ship via `sync.py` v3.110: weekly capability rollup on `weekly_180d[*]` (durability/EF/HRRc means + qualifying counts) and monthly `dominant_phase` alignment with `_detect_phase_v2` via modal aggregation of overlapping weekly rows
+- Schema tables for `weekly_180d` and `monthly_*y` rows added to the History Data Mirror section
+- `or`-chain → is-None cleanup at four extraction sites (`_calculate_durability` decoupling fallback, `_calculate_hrrc_trend` qualifying filter, weekly capability rollup HRRc dict-extract, activity formatter `raw_hrrc`) — exact-zero values are now treated as authoritative rather than falling through to a sibling key
+- `examples/reports/SEASON_REPORT_TEMPLATE.md` Notes section: phase bullet and capability bullet rewritten to describe shipped v3.110 behavior
+- Pairs with `sync.py` v3.110
+
 **v11.41 — Season Report Tier:**
 - New report tier above Block: trailing-12-month annual arc with current-season trajectory and year-over-year metrics comparison. Length norm 55–70 lines, on-demand only (no automatic cadence). Sits at the top of the existing Pre → Post → Weekly → Block hierarchy
 - v1 is descriptive only. Goal audit is intentionally deferred to v2 — no placeholder section, no header
-- Phase narrative is scoped to ≤180d. All phase references draw from `weekly_180d[*].phase_detected` or `derived_metrics.phase_detection`. The YoY section is **metrics-only**: no phase labels for prior years. The `monthly_*y[*].dominant_phase` field uses a simplified rule (CTL trend + qi_pct only) that does not match `_detect_phase_v2`; until aligned, cross-year phase claims under that rule mislead. Parked for v2
-- Capability metrics (durability, EF, HRRc, sustainability) intentionally absent from v1. `weekly_180d` rows do not carry rolled-up capability means; a separate weekly capability rollup is the prerequisite. Parked for v2
+- Phase narrative is scoped to ≤180d. All phase references draw from `weekly_180d[*].phase_detected` or `derived_metrics.phase_detection`. The YoY section is **metrics-only**: no phase labels for prior years. `monthly_*y[*].dominant_phase` is derived via modal aggregation of `weekly_180d[*].phase_detected` values whose week span overlaps the month; TSS is used only as tie-break — same vocabulary as `_detect_phase_v2`. Null when no overlapping weekly rows exist (month outside the 180d window)
+- Capability metrics (durability, EF, HRRc) are available per week in `weekly_180d[*]` as trajectory fields (v3.110). Each week carries `durability_mean`, `durability_qualifying`, `ef_mean`, `ef_qualifying`, `hrrc_mean`, `hrrc_qualifying`. Gating mirrors `derived_metrics.capability` (VI≤1.05, VI>0, mt≥5400 for durability; cycling types + VI≤1.05 + mt≥1200 for EF; icu_hrr>0 for HRRc). N≥1 emits a mean; qualifying count governs render confidence. Sustainability and DFA a1 remain present-moment only in `derived_metrics.capability`
 - YoY rule: match by calendar `month` string across the union of `monthly_1y`, `monthly_2y`, `monthly_3y` (these are rolling-trailing arrays, not year-bucketed). If matched month not present, render `n/a — no prior data`. Default is current-vs-last-year only; 2y/3y lines surface only when delta is material (≥15% hours/TSS, ≥3 CTL points, ≥5pp TID)
 - Span: trailing 12 months ending at `metadata.last_updated` (or `history.generated_at` when reading `history.json` directly)
-- No `sync.py` changes. Report consumes existing JSON only. Pairs with `sync.py` v3.109
+- No `sync.py` changes needed for Season Report v1. Report consumes existing JSON only. Pairs with `sync.py` v3.110
 - New files: `examples/reports/SEASON_REPORT_TEMPLATE.md`, `examples/reports/SEASON_REPORT_EXAMPLES.md`. Updated: `examples/reports/REPORT_HIERARCHY.md` (table, flow diagram, capability scaling rule, files list)
 
 **v11.40 — Display Unit Semantics:**
@@ -22,7 +29,7 @@
 - Sustainability profile `weight_kg` deliberately stays canonical-only (calculation input for W/kg, never narrated as a weight value)
 - Heat-protocol °C thresholds are canonical scientific units. AI quotes them as °C regardless of athlete preference; no inline °C → °F conversion at narration time. Future sync.py may emit a display-converted threshold block; until then, °C is the reference
 - Resolves the `avg_speed_unit`/`max_speed_unit` always-KPH asymmetry documented earlier — narration now reads from `display.avg_speed`/`display.max_speed` which honor the athlete's distance preference; the original sibling fields remain for backward compatibility
-- Pairs with `sync.py` v3.109. Sites: `athlete_profile.display.height`, `current_status.current_metrics.display.weight`, `recent_activities[].display.{distance, elevation, avg_speed, max_speed}`, `terrain_summary.display.{total_distance, total_elevation, elevation_per_distance}` + `climbs[]/descents[].display.{position, distance, elevation}` (recent_activities and routes.json), `summary.by_activity_type[].display.distance`, `wellness_data[].display.weight`, history.json `daily_90d/weekly_180d[].display.weight`, `monthly_*y[].display.avg_weight` (aggregate naming preserved), `race_calendar.all_races[].display.distance`
+- Pairs with `sync.py` v3.110. Sites: `athlete_profile.display.height`, `current_status.current_metrics.display.weight`, `recent_activities[].display.{distance, elevation, avg_speed, max_speed}`, `terrain_summary.display.{total_distance, total_elevation, elevation_per_distance}` + `climbs[]/descents[].display.{position, distance, elevation}` (recent_activities and routes.json), `summary.by_activity_type[].display.distance`, `wellness_data[].display.weight`, history.json `daily_90d/weekly_180d[].display.weight`, `monthly_*y[].display.avg_weight` (aggregate naming preserved), `race_calendar.all_races[].display.distance`
 - All display sub-objects use a single nested shape (`display.*`) — no `*_display` sibling form. One AI rule, one schema shape across every emission site
 - Pre-workout report Weather line de-metric'd: hardcoded `°C` and `m/s` labels replaced by `weather_summary.units.{temp, wind}` references so imperial athletes see °F and MPH/MPS/KPH per their account
 - Templates updated with directive line + de-metric'd placeholders. Examples remain metric (Daniel's account is metric); imperial coverage relies on per-pref display blocks rather than parallel example sets
@@ -386,12 +393,46 @@ These fields are informational context for AI coaching. They do NOT enter readin
 In addition to the real-time `latest.json` mirror, athletes may provide a `history.json` file containing longitudinal training data with tiered granularity:
 
 - **90-day tier:** Daily resolution (date, hours, TSS, CTL/ATL/TSB, HRV, RHR, zone distribution, weight)
-- **180-day tier:** Weekly aggregates (hours, TSS, CTL/ATL/TSB, zones, hard days, longest ride)
+- **180-day tier:** Weekly aggregates (hours, TSS, CTL/ATL/TSB, zones, hard days, longest ride, phase; capability rollup: `durability_mean`/`_qualifying`, `ef_mean`/`_qualifying`, `hrrc_mean`/`_qualifying`)
 - **1/2/3-year tiers:** Monthly aggregates (hours, TSS, CTL range, zones, phase, data completeness)
 - **FTP timeline:** Every FTP change with date and type (indoor/outdoor)
 - **Data gaps:** Periods with missing or low data, flagged factually without inference
 
 `history.json` is auto-generated by sync.py when missing or stale (>28 days), pulling fresh from the Intervals.icu API.
+
+**weekly_180d row fields (v3.110):**
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `week_start` | string | ISO date of the Monday (or configured week-start day) |
+| `total_hours` | number | Total moving time for the week |
+| `total_tss` | number | Sum of training load across all activities |
+| `ctl_end` / `atl_end` / `tsb_end` | number/null | CTL, ATL, TSB at week end (from wellness) |
+| `z1_z2_pct` / `z3_pct` / `z4_plus_pct` | number/null | Zone distribution (% of total zone time) |
+| `hard_days` | number | Count of days classified as hard |
+| `acwr` | number/null | Acute:chronic workload ratio (null for first 3 weeks) |
+| `phase_detected` | string/null | Phase label from `_detect_phase_v2` backfill (Build/Base/Peak/Taper/Deload/Recovery/Overreached/null) |
+| `durability_mean` | number/null | Mean cardiac decoupling (%) across qualifying sessions. Null when N=0. Gate: VI≤1.05, VI>0, mt≥5400, decoupling not None |
+| `durability_qualifying` | number | Count of sessions meeting the durability gate (always present, 0 if none) |
+| `ef_mean` | number/null | Mean Efficiency Factor across qualifying cycling sessions. Null when N=0. Gate: cycling types, VI≤1.05, VI>0, mt≥1200, EF not None |
+| `ef_qualifying` | number | Count of sessions meeting the EF gate (always present) |
+| `hrrc_mean` | number/null | Mean HRRc (bpm, 60s HR drop) across qualifying sessions. Null when N=0. Gate: icu_hrr not None and >0 |
+| `hrrc_qualifying` | number | Count of sessions meeting the HRRc gate (always present) |
+
+N≥1 emits a mean for all three capability fields. Use `*_qualifying` to calibrate confidence — a single-session mean is a real observation, not an estimate. Alert-layer gates (N≥2/5 for durability, N≥3 for HRRc) remain in `derived_metrics.capability` only.
+
+**monthly_*y row fields (v3.110):**
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `month` | string | `YYYY-MM` |
+| `total_hours` / `total_tss` / `activity_count` | number | Monthly totals |
+| `ctl_peak` / `ctl_low` / `ctl_end` | number/null | CTL range and end-of-month value |
+| `z1_z2_pct` / `z3_pct` / `z4_plus_pct` | number/null | Zone distribution (% of total zone time) |
+| `hard_days_avg_per_week` | number | Hard days per week averaged over the month |
+| `avg_hrv` / `avg_rhr` / `avg_weight_kg` | number/null | Monthly wellness averages |
+| `dominant_phase` | string/null | Modal phase label derived from overlapping `weekly_180d[].phase_detected` rows. Most-frequent label wins; TSS is tie-break only. Null when no weekly rows overlap the month (month outside 180d window). Same vocabulary as `_detect_phase_v2` |
+| `days_with_data` | number | Days in month with at least one activity or wellness record |
 
 #### Interval Data Mirror (intervals.json)
 

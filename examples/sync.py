@@ -4,6 +4,43 @@ Intervals.icu → GitHub/Local JSON Export
 Exports training data for LLM access.
 Supports both automated GitHub sync and manual local export.
 
+Version 3.111 - latest.history.last_generated freshness fix: auto-history
+  generation block (should_generate_history → generate_history → write/publish)
+  moved in main() from after collect_training_data to before it.
+  _get_history_confidence() inside collect_training_data now reads the
+  just-written history.json, so latest.history.last_generated reflects the same
+  generated_at as the on-disk history. Previously, runs that triggered a
+  history rebuild published latest.json with stale last_generated because the
+  freshness read happened during data dict construction, before the rebuild
+  step. Local and GitHub modes share a single guarded block — args.output picks
+  the write target. try/except resilience preserved: failed history regen still
+  permits latest.json publish. Routes/intervals generation unchanged (still
+  runs after collect_training_data, which populates _intervals_data and
+  _routes_data). No schema change.
+
+Version 3.110 - Weekly capability rollup + monthly phase alignment + decoupling 0.0 fix:
+  (1) weekly_180d rows now carry six per-week capability fields: durability_mean /
+  durability_qualifying (VI<=1.05, VI>0, mt>=5400, decoupling not None), ef_mean /
+  ef_qualifying (cycling types, VI<=1.05, VI>0, mt>=1200, EF not None), hrrc_mean /
+  hrrc_qualifying (icu_hrr>0). N>=1 emits a mean; qualifying count signals confidence.
+  Trajectory layer for Season Report v2 — no alert or trend logic at this layer.
+  (2) monthly_*y[].dominant_phase now derives from modal aggregation of already-computed
+  weekly_180d[].phase_detected values rather than the previous standalone CTL-trend +
+  qi_pct inline rule. Overlap test: week_start < next_month AND week_end >= current_month
+  (catches boundary weeks straddling month edges). Most-frequent label wins; TSS is
+  tie-break only. Null when no overlapping weekly rows (month outside 180d window).
+  Vocabulary now matches _detect_phase_v2 output.
+  (3) _calculate_durability: replaced `or`-chain fallback (`get("icu_hr_decoupling") or
+  get("decoupling")`) with explicit is-None check — prevents silent drop of 0.0 values.
+  (4) Same is-None pattern applied to all three HRRc dict-extraction sites
+  (_calculate_hrrc_trend qualifying filter, weekly capability rollup, activity formatter
+  raw_hrrc): explicit `value is None` check before falling through to `hrr`. If API ever
+  returns `{"value": 0, ...}`, 0 is now treated as authoritative (then filtered by the
+  >0 gate) rather than falling through to a sibling key. SEASON_REPORT_TEMPLATE.md Notes
+  section updated: phase-narrative bullet now describes modal-from-_detect_phase_v2
+  derivation and the structural null-for-older-months behavior; capability-absent bullet
+  replaced with per-week trajectory field documentation.
+
 Version 3.109 - Display Unit Semantics: every narrative-bearing field that ships in
   canonical metric (distance_km, elevation_m, weight_kg, height_m, avg_speed/max_speed
   as KPH, position_km, total_distance_km, total_elevation_m, elevation_per_km,
@@ -188,7 +225,7 @@ class IntervalsSync:
     HISTORY_FILE = "history.json"
     UPSTREAM_REPO = "CrankAddict/section-11"
     CHANGELOG_FILE = "changelog.json"
-    VERSION = "3.109"
+    VERSION = "3.111"
     INTERVALS_FILE = "intervals.json"
     ROUTES_FILE = "routes.json"
 
@@ -3802,7 +3839,9 @@ class IntervalsSync:
             qualifying = []
             for act in activities:
                 # Raw API field names (before _format_activities)
-                dec = act.get("icu_hr_decoupling") or act.get("decoupling")
+                dec = act.get("icu_hr_decoupling")
+                if dec is None:
+                    dec = act.get("decoupling")
                 vi = act.get("icu_variability_index")
                 mt = act.get("moving_time", 0) or 0
 
@@ -3985,7 +4024,10 @@ class IntervalsSync:
                     continue
                 # API may return a dict (e.g. {"value": 34}) or a plain number
                 if isinstance(hrrc, dict):
-                    hrrc = hrrc.get("value") or hrrc.get("hrr")
+                    _v = hrrc.get("value")
+                    if _v is None:
+                        _v = hrrc.get("hrr")
+                    hrrc = _v
                 if isinstance(hrrc, (int, float)) and hrrc > 0:
                     qualifying.append(float(hrrc))
             return qualifying
@@ -6604,7 +6646,7 @@ class IntervalsSync:
                 print(f"  Building {label} monthly tier...")
                 monthly_tiers[f"monthly_{label}"] = self._build_monthly_tier(
                     activities_by_date, wellness_by_date, days=days_back,
-                    athlete_units=athlete_units
+                    athlete_units=athlete_units, weekly_180d=weekly_180d
                 )
             else:
                 monthly_tiers[f"monthly_{label}"] = []
@@ -6865,7 +6907,61 @@ class IntervalsSync:
             
             week_primary_sport = max(sport_tss, key=sport_tss.get) if sport_tss else None
             week_primary_sport_tss = round(sport_tss[week_primary_sport], 0) if week_primary_sport else None
-            
+
+            # Weekly capability rollup (v3.110) — trajectory layer for Season Report v2.
+            # Mirrors gating rules from _calculate_durability / _calculate_efficiency_factor /
+            # _calculate_hrrc_trend but operates on the week's activities without the trend
+            # or alert layer. N>=1 is sufficient; qualifying count lets the report calibrate.
+            # Durability: explicit is not None check (avoids silent drop of 0.0 values).
+            _week_acts = [
+                a for d in range(7)
+                for a in activities_by_date.get(
+                    (current + timedelta(days=d)).strftime("%Y-%m-%d"), []
+                )
+                if (current + timedelta(days=d)) <= now
+            ]
+            _CYCLING_EF_TYPES = {"Ride", "VirtualRide", "MountainBikeRide", "GravelRide"}
+
+            # Durability (VI<=1.05, VI>0, mt>=5400, decoupling not None)
+            _dur_vals = []
+            for _a in _week_acts:
+                _dec = _a.get("icu_hr_decoupling")
+                if _dec is None:
+                    _dec = _a.get("decoupling")
+                _vi = _a.get("icu_variability_index")
+                _mt = _a.get("moving_time", 0) or 0
+                if (_dec is not None and _vi is not None
+                        and _vi > 0 and _vi <= 1.05 and _mt >= 5400):
+                    _dur_vals.append(_dec)
+            week_durability_mean = round(statistics.mean(_dur_vals), 2) if _dur_vals else None
+            week_durability_qualifying = len(_dur_vals)
+
+            # EF (cycling only, VI<=1.05, VI>0, mt>=1200, EF not None)
+            _ef_vals = []
+            for _a in _week_acts:
+                _ef = _a.get("icu_efficiency_factor")
+                _vi = _a.get("icu_variability_index")
+                _mt = _a.get("moving_time", 0) or 0
+                if (_ef is not None and _a.get("type", "") in _CYCLING_EF_TYPES
+                        and _vi is not None and _vi > 0 and _vi <= 1.05 and _mt >= 1200):
+                    _ef_vals.append(_ef)
+            week_ef_mean = round(statistics.mean(_ef_vals), 2) if _ef_vals else None
+            week_ef_qualifying = len(_ef_vals)
+
+            # HRRc (icu_hrr not None, >0)
+            _hrrc_vals = []
+            for _a in _week_acts:
+                _hrrc = _a.get("icu_hrr")
+                if isinstance(_hrrc, dict):
+                    _v = _hrrc.get("value")
+                    if _v is None:
+                        _v = _hrrc.get("hrr")
+                    _hrrc = _v
+                if isinstance(_hrrc, (int, float)) and _hrrc > 0:
+                    _hrrc_vals.append(float(_hrrc))
+            week_hrrc_mean = round(statistics.mean(_hrrc_vals), 1) if _hrrc_vals else None
+            week_hrrc_qualifying = len(_hrrc_vals)
+
             rows.append({
                 "week_start": current.strftime("%Y-%m-%d"),
                 "total_hours": round(week_seconds / 3600, 2),
@@ -6900,7 +6996,13 @@ class IntervalsSync:
                 "monotony": week_monotony,
                 "intensity_basis_breakdown": intensity_basis_counts if hard_days > 0 else None,
                 "acwr": None,  # computed in post-pass below
-                "phase_detected": None  # populated by _detect_phase_v2
+                "phase_detected": None,  # populated by _detect_phase_v2
+                "durability_mean": week_durability_mean,
+                "durability_qualifying": week_durability_qualifying,
+                "ef_mean": week_ef_mean,
+                "ef_qualifying": week_ef_qualifying,
+                "hrrc_mean": week_hrrc_mean,
+                "hrrc_qualifying": week_hrrc_qualifying,
             })
             
             current += timedelta(days=7)
@@ -6921,12 +7023,19 @@ class IntervalsSync:
     
     def _build_monthly_tier(self, activities_by_date: Dict, wellness_by_date: Dict,
                             days: int,
-                            athlete_units: Optional[Dict[str, str]] = None) -> List[Dict]:
+                            athlete_units: Optional[Dict[str, str]] = None,
+                            weekly_180d: Optional[List[Dict]] = None) -> List[Dict]:
         """Build monthly aggregate rows for 1/2/3-year tiers.
-        
+
         athlete_units (v3.109): when provided, each row gets a `display` block
         with avg_weight (display.avg_weight) alongside canonical avg_weight_kg.
         Aggregate naming preserved — point-in-time rows expose `display.weight`.
+
+        weekly_180d (v3.110): when provided, dominant_phase is derived via modal
+        aggregation of already-computed phase_detected values from weekly rows
+        whose span overlaps the month (overlap: week_start < next_month AND
+        week_end >= current_month). TSS-weighted tie-break. None when no
+        overlapping weekly rows exist (month outside 180d window).
         """
         rows = []
         now = datetime.now()
@@ -7022,20 +7131,37 @@ class IntervalsSync:
             # Calculate weeks in this month for per-week averages
             weeks_in_period = max(1, total_days_in_month / 7)
             
-            # Determine dominant phase (simplified: based on CTL trend and zone distribution)
-            dominant_phase = "Unknown"
-            if ctl_values and len(ctl_values) >= 2:
-                ctl_trend = ctl_values[-1] - ctl_values[0]
-                qi_pct = (z4_plus_time / total_zone_time * 100) if total_zone_time > 0 else 0
-                
-                if ctl_trend > 3 and qi_pct > 15:
-                    dominant_phase = "Build"
-                elif ctl_trend > 1:
-                    dominant_phase = "Base"
-                elif ctl_trend < -3:
-                    dominant_phase = "Recovery"
-                else:
-                    dominant_phase = "Maintenance"
+            # Determine dominant phase via modal aggregation of weekly_180d phase_detected
+            # values whose week span overlaps this month (v3.110). Overlap test:
+            #   week_start < next_month AND week_end >= current_month
+            # Catches boundary weeks that straddle month edges.
+            # Rule: most-frequent label wins. TSS is tie-break only (not primary weight).
+            # Falls back to None when no overlapping rows exist (month outside 180d window).
+            dominant_phase = None
+            if weekly_180d:
+                phase_counts: Dict[str, int] = {}
+                phase_tss_tb: Dict[str, float] = {}  # TSS tie-break accumulator
+                for wrow in weekly_180d:
+                    phase = wrow.get("phase_detected")
+                    if not phase:
+                        continue
+                    try:
+                        ws = datetime.strptime(wrow["week_start"], "%Y-%m-%d")
+                    except (KeyError, ValueError):
+                        continue
+                    we = ws + timedelta(days=6)
+                    if ws < next_month and we >= current_month:
+                        phase_counts[phase] = phase_counts.get(phase, 0) + 1
+                        phase_tss_tb[phase] = phase_tss_tb.get(phase, 0.0) + (wrow.get("total_tss") or 0.0)
+                if phase_counts:
+                    max_count = max(phase_counts.values())
+                    candidates = [p for p, c in phase_counts.items() if c == max_count]
+                    # Single winner — no tie-break needed
+                    if len(candidates) == 1:
+                        dominant_phase = candidates[0]
+                    else:
+                        # Tie: pick candidate with highest accumulated TSS
+                        dominant_phase = max(candidates, key=lambda p: phase_tss_tb.get(p, 0.0))
             
             rows.append({
                 "month": month_str,
@@ -7449,7 +7575,10 @@ class IntervalsSync:
             
             raw_hrrc = act.get("icu_hrr")
             if isinstance(raw_hrrc, dict):
-                raw_hrrc = raw_hrrc.get("value") or raw_hrrc.get("hrr")
+                _v = raw_hrrc.get("value")
+                if _v is None:
+                    _v = raw_hrrc.get("hrr")
+                raw_hrrc = _v
             
             distance_km = round((act.get("distance") or 0) / 1000, 2)
             elevation_m = act.get("total_elevation_gain")
@@ -9498,6 +9627,23 @@ def main():
     
     print(f"\n🔄 Fetching {args.days} days of data (extended 28 days for ACWR)...")
     
+    # === AUTO HISTORY GENERATION (must precede collect_training_data so latest.json reads fresh history metadata) ===
+    if sync.should_generate_history():
+        try:
+            print("\n📊 Auto-generating history.json...")
+            history = sync.generate_history()
+            if args.output:
+                history_path = sync.data_dir / sync.HISTORY_FILE
+                with open(history_path, 'w') as f:
+                    json.dump(history, f, indent=2, default=str)
+                print(f"   ✅ history.json saved to {history_path}")
+            else:
+                sync.publish_to_github(history, filepath="history.json",
+                                       commit_message=f"Auto-generate history.json - {datetime.now().strftime('%Y-%m-%d')}")
+                print("   ✅ history.json auto-generated and pushed to GitHub")
+        except Exception as e:
+            print(f"   ⚠️ History generation failed (non-critical): {e}")
+    
     data = sync.collect_training_data(days_back=args.days)
     
     # Extract derived metrics for display
@@ -9569,18 +9715,6 @@ def main():
             with open(routes_path, 'w') as f:
                 json.dump(routes_data, f, indent=2, default=str)
             print(f"   🗺️  routes.json saved ({len(routes_data.get('events', []))} event(s))")
-        
-        # === AUTO HISTORY GENERATION (local mode) ===
-        if sync.should_generate_history():
-            try:
-                print("\n📊 Auto-generating history.json...")
-                history = sync.generate_history()
-                history_path = sync.data_dir / sync.HISTORY_FILE
-                with open(history_path, 'w') as f:
-                    json.dump(history, f, indent=2, default=str)
-                print(f"   ✅ history.json saved to {history_path}")
-            except Exception as e:
-                print(f"   ⚠️ History generation failed (non-critical): {e}")
     else:
         raw_url = sync.publish_to_github(data)
         
@@ -9619,17 +9753,6 @@ def main():
                 print(f"   🗺️  routes.json pushed ({len(routes_data.get('events', []))} event(s))")
             except Exception as e:
                 print(f"   ⚠️ routes.json push failed (non-critical): {e}")
-        
-        # === AUTO HISTORY GENERATION (Sundays/Mondays, first two runs after midnight) ===
-        if sync.should_generate_history():
-            try:
-                print("\n📊 Auto-generating history.json...")
-                history = sync.generate_history()
-                sync.publish_to_github(history, filepath="history.json",
-                                       commit_message=f"Auto-generate history.json - {datetime.now().strftime('%Y-%m-%d')}")
-                print("   ✅ history.json auto-generated and pushed to GitHub")
-            except Exception as e:
-                print(f"   ⚠️ History generation failed (non-critical): {e}")
         
         # === UPDATE NOTIFICATIONS ===
         try:
