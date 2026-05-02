@@ -87,6 +87,11 @@ Fitness:
   Monotony: [X.XX] ([note]) (omit if ≤2.3)
   Strain: [XXXX] (omit if no monotony flag)
 
+Weight Trend (omit section entirely if current_status.weight.weight_7d_avg_kg null):
+  7d avg: [display.weight_7d_avg.value] [display.weight_7d_avg.unit]
+  [28d slope (omit line if weight_28d_slope_kg_per_week null):
+    [display.weight_28d_slope_per_week.value] [display.weight_28d_slope_per_week.unit]]
+
 Wellness Trends:
   HRV: [XX]–[XX] ms (avg [XX], prev week [XX]) [↑/↓/→]
   RHR: [XX]–[XX] bpm (avg [XX], prev week [XX]) [↑/↓/→]
@@ -123,6 +128,7 @@ focus areas. Reference load targets and phase progression.]
 | **HR Curve Delta** | Max sustained HR comparison from capability.hr_curve_delta | Rotation index + notable shifts (≥2%). Omit if null. AMBIGUOUS: rising HR may be fitness or fatigue — cross-reference with HRV/RHR/RPE required |
 | **ACWR breakdown** | 7d acute / 28d chronic | Show components so athlete understands the ratio |
 | **Wellness arrows** | Week-over-week comparison | ↑ improving, ↓ declining, → stable |
+| **Weight Trend** | `current_status.weight.{weight_7d_avg_kg, weight_28d_slope_kg_per_week, display.weight_7d_avg, display.weight_28d_slope_per_week}` | Omit entire section when `weight_7d_avg_kg` null (gate: <4 weigh-ins in trailing 7d). 28d slope line omitted independently when `weight_28d_slope_kg_per_week` null (gate: <14 weigh-ins in trailing 28d). Narrate values from `display.*` per Display Unit Semantics — never from canonical `*_kg` fields. Use functional language only — no moral framing. See SECTION_11.md §Body Weight Handling |
 | **Avg Feel** | Activity-level average from `weekly_180d.avg_feel` | 1=Strong to 5=Weak. Count = sessions with feel populated. Omit line if 0 sessions. Lower is better |
 | **Avg RPE** | Activity-level average from `weekly_180d.avg_rpe` | 1–10 Borg scale. Count = sessions with RPE populated. Omit line if 0 sessions |
 | **Section 11 Flags** | Protocol flag triggers | Surface mid-week flags here, don't wait for block report |

@@ -41,6 +41,13 @@ Fitness Progression:
   FTP: [XXX]W → [XXX]W ([change or "unchanged"])
   eFTP: [XXX]W → [XXX]W
 
+Body Weight & W/kg (omit section entirely if current_status.weight absent or wkg_current null):
+  Current weight: [display.weight_latest.value] [display.weight_latest.unit] ([weight_latest_date])
+  W/kg: [X.XX] (based on [tested FTP set [ftp_setting_date] | eFTP])
+  [Block trajectory (omit if wkg_block_delta null):
+    Window: trailing 28d
+    W/kg: [X.XX] → [X.XX] (Δ [+/-X.XX])]
+
 Key Performance Markers:
   Sweetspot power: [XXX]W → [XXX]W (target: [XXX]W — [hit/miss])
   VO2max power: [XXX]W → [XXX]W (target: [XXX]W — [hit/miss])
@@ -149,6 +156,7 @@ Next Block Plan:
 | **Compliance** | Planned vs completed across block | Include reasons for misses — illness, fatigue, life |
 | **Fitness Progression** | Start vs end of block | CTL delta is the headline number |
 | **eFTP** | Intervals.icu estimated FTP | Track alongside formal FTP — catches drift |
+| **Body Weight & W/kg** | `current_status.weight.{wkg_current, wkg_ftp_source, ftp_setting_date, wkg_block_*, display.weight_latest}` | Omit entire section when `weight` block absent or `wkg_current` null. Narrate weight from `display.weight_latest.{value, unit}` per Display Unit Semantics — never from `weight_latest_kg`. Surface FTP source inline ("tested FTP set YYYY-MM-DD" vs "eFTP"). Block trajectory subsection omitted independently when `wkg_block_delta` null — block W/kg headline still ships. v1 trajectory uses trailing 28d as block-window proxy with first-4 / last-4 boundary gates; both endpoints divide current FTP by boundary weight, so delta reflects weight change only. Use functional language only — see SECTION_11.md §Body Weight Handling for the tone constraint and v1 boundary |
 | **Performance Markers** | Best efforts + target comparison | Shows whether stimulus is producing adaptation |
 | **Power Curve Rotation** | rotation_index from capability.power_curve_delta | Sprint-biased (positive) vs endurance-biased (negative) adaptation across the block. Omit if null |
 | **HR Curve Rotation** | rotation_index from capability.hr_curve_delta | Intensity-biased (positive) vs endurance-biased (negative) HR shift. AMBIGUOUS — cross-reference with HRV/RHR. Omit if null |
