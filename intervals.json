@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-19T23:04:07.081995",
+  "generated_at": "2026-06-20T01:30:06.460921",
   "version": "3.109",
   "script_hash": "f54c8dd00126",
   "scan_hours": 72,
@@ -1644,6 +1644,27 @@
           "zone": 2,
           "training_load": 3.258139,
           "decoupling": 51.65325
+        }
+      ]
+    },
+    {
+      "activity_id": "i158754276",
+      "date": "2026-06-19",
+      "type": "Ride",
+      "name": "Night Ride",
+      "interval_summary": null,
+      "intervals": [
+        {
+          "type": "RECOVERY",
+          "duration_secs": 3868,
+          "avg_power": 111,
+          "max_power": 188,
+          "avg_hr": 138,
+          "max_hr": 152,
+          "avg_cadence": 85.697464,
+          "zone": 2,
+          "training_load": 46.363014,
+          "decoupling": -4.101169
         }
       ]
     }
