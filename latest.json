@@ -70,7 +70,7 @@
   },
   "metadata": {
     "athlete_id": "REDACTED",
-    "last_updated": "2026-07-01T04:57:00.863565",
+    "last_updated": "2026-07-01T08:53:14.764379",
     "data_range_days": 7,
     "extended_range_days": 28,
     "version": "3.109"
@@ -266,7 +266,7 @@
       "respiration": null,
       "body_fat_pct": null,
       "abdomen_cm": null,
-      "steps": 1149,
+      "steps": 1990,
       "hydration_volume_l": null,
       "kcal_consumed": null,
       "carbohydrates_g": null,
@@ -607,14 +607,14 @@
           "weeks_available": 4
         },
         "stream_2": {
-          "planned_tss_delta": 1.26,
-          "hard_sessions_planned": 3,
+          "planned_tss_delta": 0.4,
+          "hard_sessions_planned": 1,
           "current_week_hard_days_completed": 1,
-          "current_week_hard_days_total": 4,
+          "current_week_hard_days_total": 2,
           "race_proximity": null,
-          "next_week_load": 1.85,
-          "plan_coverage_current_week": 0.8,
-          "plan_coverage_next_week": 1.2
+          "next_week_load": 0.26,
+          "plan_coverage_current_week": 0.2,
+          "plan_coverage_next_week": 0.2
         },
         "data_quality": "good",
         "stream_agreement": null
@@ -647,7 +647,7 @@
     "p_max": 655,
     "power_model_source": "wellness.sportInfo",
     "vo2max": null,
-    "calculation_timestamp": "2026-07-01T04:57:00.862398",
+    "calculation_timestamp": "2026-07-01T08:53:14.763202",
     "data_quality": {
       "hrv_data_points": 7,
       "rhr_data_points": 7,
@@ -3203,7 +3203,7 @@
       "respiration": null,
       "body_fat_pct": null,
       "abdomen_cm": null,
-      "steps": 1149,
+      "steps": 1990,
       "hydration_volume_l": null,
       "kcal_consumed": null,
       "carbohydrates_g": null,
@@ -3216,96 +3216,17 @@
   ],
   "planned_workouts": [
     {
-      "id": 119527913,
-      "date": "2026-07-01",
-      "name": "3x20 min alternating cadence",
-      "type": "WORKOUT",
-      "sport_type": "Ride",
-      "planned_tss": 43,
-      "duration_hours": 1.17,
-      "duration_formatted": "1h10m",
-      "workout_summary": null,
-      "has_terrain": false,
-      "description": "Warm-up:\n- 10m Z1\n\nWork Intervals:1x\n- 20m 60% 90-105rpm\n- 20m 65% 50-65rpm\n\n- 20m 60% 90-105rpm"
-    },
-    {
-      "id": 119527520,
-      "date": "2026-07-02",
-      "name": "MMP5 95%  4x4",
-      "type": "WORKOUT",
-      "sport_type": "VirtualRide",
-      "planned_tss": 87,
-      "duration_hours": 1.0,
-      "duration_formatted": "1h",
-      "workout_summary": "1m30s @90W | 1m30s @106W | 1m30s @123W | 1m30s @139W | 1m30s @155W | 1m @90W | 2m @176W | 10m @98W | 4\u00d74m @201W / 4m rec | 8m @98W",
-      "has_terrain": false,
-      "description": "\u70ed\u8eab\n- 90s 55%\n- 90s 65%\n- 90s 75%\n- 90s 85%\n- 90s 95%\n- 60s 55%\n- 2m 105-110%\n- 10m 60%\n\n4x\n- 4m 95% mmp 5m\n- 4m 60%\n\n-8m 60%"
-    },
-    {
-      "id": 119527546,
-      "date": "2026-07-03",
-      "name": "Over-Under",
-      "type": "WORKOUT",
-      "sport_type": "Ride",
-      "planned_tss": 50,
-      "duration_hours": 0.69,
-      "duration_formatted": "41m30s",
-      "workout_summary": "1m30s @90W | 1m30s @106W | 1m30s @123W | 1m30s @139W | 1m30s @155W | 1m @90W | 2m @172W | 1m @90W | 1m @188W | 3m @90W | 6\u00d72m @147W / 1m rec | 8m",
-      "has_terrain": false,
-      "indoor": true,
-      "description": "\u70ed\u8eab:\n- 90s 55%\n- 90s 65%\n- 90s 75%\n- 90s 85%\n- 90s 95%\n- 60s 55%\n- 2m 105%\n- 1m 55%\n- 1m 115%\n- 3m 55%\n\n\n 6x\n- 2m 90%\n- 1m 105%\n\n\n\u6062\u590d:\n- Press lap 8m Z1"
-    },
-    {
-      "id": 119527704,
-      "date": "2026-07-05",
-      "name": "\u6709\u6c27\u9608\u503c\u8bad\u7ec3 (Z2 Endurance)",
-      "type": "WORKOUT",
-      "sport_type": "Ride",
-      "planned_tss": 121,
-      "duration_hours": 2.5,
-      "duration_formatted": "2h30m",
-      "workout_summary": "5m | 7\u00d710m @106W / 10m rec | 5m",
-      "has_terrain": false,
-      "description": "\u8bf4\u660e (Instructions): http://xhslink.com/m/2TaO24CeknQ\n\n- 5m Z1\n\n7x\n- 10m 65%\n- 10m 75%\n\n- 5m Z1"
-    },
-    {
-      "id": 119527861,
-      "date": "2026-07-06",
-      "name": "Sweet Spot",
-      "type": "WORKOUT",
-      "sport_type": "VirtualRide",
-      "planned_tss": 103,
-      "duration_hours": 1.5,
-      "duration_formatted": "1h30m",
-      "workout_summary": "4m @106W | 1m @144W | 4m @106W | 1m @150W | 5m @98W | 3\u00d720m @146W / 5m rec",
-      "has_terrain": false,
-      "description": "- 4m 60-70%\n- 1m 88%\n- 4m 60-70%\n- 1m 92%\n- 5m 60%\n\n3x\n- 20m 88-90%\n- 5m 60%"
-    },
-    {
-      "id": 119527882,
-      "date": "2026-07-07",
-      "name": "6x20 min alternating cadence",
-      "type": "WORKOUT",
-      "sport_type": "Ride",
-      "planned_tss": 123,
-      "duration_hours": 2.33,
-      "duration_formatted": "2h20m",
-      "workout_summary": "10m | 3\u00d720m @123W / 20m rec | 10m",
-      "has_terrain": false,
-      "description": "\u4e39\u5154\u5b50\u8bad\u7ec3\u8425\u4e4b: \u4f4e\u8e0f\u9891\u8bad\u7ec3\uff08\u514d\u8d39\uff09 http://xhslink.com/o/5p0pSOyKtmi \n\nWarm-up:\n- 10m Z1\n\nWork Intervals: 3x\n- 20m 75% 90-105rpm\n- 20m 75% 50-65rpm\n\nCooldown:\n- 10m Z1"
-    },
-    {
       "id": 119527875,
-      "date": "2026-07-08",
+      "date": "2026-07-01",
       "name": "Sweet Spot",
       "type": "WORKOUT",
       "sport_type": "VirtualRide",
-      "planned_tss": 103,
-      "duration_hours": 1.5,
-      "duration_formatted": "1h30m",
-      "workout_summary": "4m @106W | 1m @144W | 4m @106W | 1m @150W | 5m @98W | 3\u00d720m @146W / 5m rec",
+      "planned_tss": 97,
+      "duration_hours": 1.26,
+      "duration_formatted": "1h15m30s",
+      "workout_summary": "1m30s @90W | 1m30s @106W | 1m30s @123W | 1m30s @139W | 1m30s @155W | 1m @90W | 2m @164W | 5m @98W | 2\u00d725m @154W / 5m rec",
       "has_terrain": false,
-      "description": "- 4m 60-70%\n- 1m 88%\n- 4m 60-70%\n- 1m 92%\n- 5m 60%\n\n3x\n- 20m 88-90%\n- 5m 60%"
+      "description": "\u70ed\u8eab\n- 90s 55%\n- 90s 65%\n- 90s 75%\n- 90s 85%\n- 90s 95%\n- 60s 55%\n- 2m 100%\n- 5m 60%\n\n2x\n- 25m 150w-158w\n- 5m 60%"
     },
     {
       "id": 119527877,
@@ -3318,40 +3239,15 @@
       "duration_formatted": "1h30s",
       "workout_summary": "1m30s @90W | 1m30s @106W | 1m30s @123W | 1m30s @139W | 1m30s @155W | 1m @90W | 2m @176W | 10m @98W | 4\u00d74m @201W / 4m rec | 8m @98W",
       "has_terrain": false
-    },
-    {
-      "id": 119527896,
-      "date": "2026-07-11",
-      "name": "\u6709\u6c27\u9608\u503c\u8bad\u7ec3 (Z2 Endurance)",
-      "type": "WORKOUT",
-      "sport_type": "Ride",
-      "planned_tss": 121,
-      "duration_hours": 2.5,
-      "duration_formatted": "2h30m",
-      "workout_summary": "5m | 7\u00d710m @106W / 10m rec | 5m",
-      "has_terrain": false
-    },
-    {
-      "id": 119530051,
-      "date": "2026-07-12",
-      "name": "Over-Under",
-      "type": "WORKOUT",
-      "sport_type": "Ride",
-      "planned_tss": 84,
-      "duration_hours": 1.12,
-      "duration_formatted": "1h7m30s",
-      "workout_summary": "1m30s @90W | 1m30s @106W | 1m30s @123W | 1m30s @139W | 1m30s @155W | 1m @90W | 2m @172W | 1m @90W | 1m @188W | 3m @90W | 6\u00d72m @147W / 1m rec | 8m | 6\u00d72m @147W / 1m rec | 8m",
-      "has_terrain": false,
-      "indoor": true
     }
   ],
   "workout_summary_stats": {
-    "attempted": 10,
-    "success": 9,
-    "patternA": 9,
+    "attempted": 2,
+    "success": 2,
+    "patternA": 2,
     "patternB": 0,
     "bail_no_workout_doc": 0,
-    "bail_no_match": 1
+    "bail_no_match": 0
   },
   "weekly_summary": {
     "total_training_hours": 9.81,
