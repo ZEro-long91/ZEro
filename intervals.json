@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-01T23:57:23.834944",
+  "generated_at": "2026-07-02T04:14:50.801411",
   "version": "3.109",
   "script_hash": "f54c8dd00126",
   "scan_hours": 72,
@@ -1695,6 +1695,27 @@
           "zone": 2,
           "training_load": 2.038216,
           "decoupling": -73.51001
+        }
+      ]
+    },
+    {
+      "activity_id": "i161912280",
+      "date": "2026-07-01",
+      "type": "Ride",
+      "name": "\u508d\u665a\u9a91\u884c",
+      "interval_summary": null,
+      "intervals": [
+        {
+          "type": "RECOVERY",
+          "duration_secs": 2681,
+          "avg_power": 94,
+          "max_power": 153,
+          "avg_hr": 135,
+          "max_hr": 150,
+          "avg_cadence": 75.14022,
+          "zone": 2,
+          "training_load": 30.481522,
+          "decoupling": 3.9037879
         }
       ]
     }
