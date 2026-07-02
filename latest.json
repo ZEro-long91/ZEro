@@ -70,7 +70,7 @@
   },
   "metadata": {
     "athlete_id": "REDACTED",
-    "last_updated": "2026-07-02T13:00:56.992896",
+    "last_updated": "2026-07-02T15:31:59.034783",
     "data_range_days": 7,
     "extended_range_days": 28,
     "version": "3.109"
@@ -257,7 +257,7 @@
       "respiration": null,
       "body_fat_pct": null,
       "abdomen_cm": null,
-      "steps": 7362,
+      "steps": 7940,
       "hydration_volume_l": null,
       "kcal_consumed": null,
       "carbohydrates_g": null,
@@ -640,7 +640,7 @@
     "p_max": 655,
     "power_model_source": "wellness.sportInfo",
     "vo2max": null,
-    "calculation_timestamp": "2026-07-02T13:00:56.990889",
+    "calculation_timestamp": "2026-07-02T15:31:59.033599",
     "data_quality": {
       "hrv_data_points": 7,
       "rhr_data_points": 7,
@@ -658,7 +658,7 @@
       "id": "i162061680",
       "date": "2026-07-02T20:06:15",
       "type": "Ride",
-      "name": "1\u00d740 Sweet Spot / TTE",
+      "name": "\u5ba4\u5185\u6e29\u5ea630+\u5fc3\u7387\u76f4\u63a5\u7206\u70b8",
       "duration_hours": 0.77,
       "distance_km": 12.12,
       "tss": 50,
@@ -684,7 +684,7 @@
       "carbs_used": 69,
       "carbs_ingested": null,
       "variability_index": 1.0393701,
-      "decoupling": -5.891238,
+      "decoupling": 6.6575227,
       "efficiency_factor": 0.8301887,
       "hrrc": 20,
       "elevation_m": 0.0,
@@ -706,9 +706,9 @@
           "unit": "km/h"
         }
       },
-      "feel": null,
-      "rpe": null,
-      "effort_response": null,
+      "feel": 4,
+      "rpe": 8,
+      "effort_response": "negative",
       "zone_distribution": {
         "hr_zones": {
           "z1_time": 367,
@@ -3325,7 +3325,7 @@
       "respiration": null,
       "body_fat_pct": null,
       "abdomen_cm": null,
-      "steps": 7362,
+      "steps": 7940,
       "hydration_volume_l": null,
       "kcal_consumed": null,
       "carbohydrates_g": null,
