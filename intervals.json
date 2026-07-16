@@ -1,79 +1,10 @@
 {
-  "generated_at": "2026-07-15T23:15:58.139263",
+  "generated_at": "2026-07-16T00:57:22.857497",
   "version": "3.109",
   "script_hash": "f54c8dd00126",
   "scan_hours": 72,
   "retention_days": 14,
   "activities": [
-    {
-      "activity_id": "i161763227",
-      "date": "2026-07-01",
-      "type": "Ride",
-      "name": "Evening Ride",
-      "interval_summary": [
-        "1x 3m 144w"
-      ],
-      "intervals": [
-        {
-          "type": "RECOVERY",
-          "duration_secs": 273,
-          "avg_power": 104,
-          "max_power": 142,
-          "avg_hr": 131,
-          "max_hr": 143,
-          "avg_cadence": 76.244446,
-          "zone": 2,
-          "training_load": 3.0971148,
-          "decoupling": -9.848708
-        },
-        {
-          "type": "WORK",
-          "label": "180s@144w82rpm",
-          "duration_secs": 180,
-          "avg_power": 144,
-          "max_power": 173,
-          "avg_hr": 150,
-          "max_hr": 158,
-          "avg_cadence": 81.76111,
-          "zone": 3,
-          "training_load": 3.8014946,
-          "decoupling": -6.411501
-        },
-        {
-          "type": "RECOVERY",
-          "duration_secs": 115,
-          "avg_power": 122,
-          "max_power": 184,
-          "avg_hr": 148,
-          "max_hr": 158,
-          "avg_cadence": 78.51305,
-          "zone": 2,
-          "training_load": 2.038216,
-          "decoupling": -73.51001
-        }
-      ]
-    },
-    {
-      "activity_id": "i161912280",
-      "date": "2026-07-01",
-      "type": "Ride",
-      "name": "\u508d\u665a\u9a91\u884c",
-      "interval_summary": null,
-      "intervals": [
-        {
-          "type": "RECOVERY",
-          "duration_secs": 2681,
-          "avg_power": 94,
-          "max_power": 153,
-          "avg_hr": 135,
-          "max_hr": 150,
-          "avg_cadence": 75.14022,
-          "zone": 2,
-          "training_load": 30.481522,
-          "decoupling": 3.9037879
-        }
-      ]
-    },
     {
       "activity_id": "i162061680",
       "date": "2026-07-02",
