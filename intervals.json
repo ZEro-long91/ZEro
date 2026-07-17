@@ -1,58 +1,10 @@
 {
-  "generated_at": "2026-07-16T23:39:58.281497",
+  "generated_at": "2026-07-17T01:13:08.421826",
   "version": "3.109",
   "script_hash": "f54c8dd00126",
   "scan_hours": 72,
   "retention_days": 14,
   "activities": [
-    {
-      "activity_id": "i162061680",
-      "date": "2026-07-02",
-      "type": "Ride",
-      "name": "1\u00d740 Sweet Spot / TTE",
-      "interval_summary": [
-        "1x 24m47s 146w"
-      ],
-      "intervals": [
-        {
-          "type": "RECOVERY",
-          "duration_secs": 1226,
-          "avg_power": 104,
-          "max_power": 211,
-          "avg_hr": 143,
-          "max_hr": 162,
-          "avg_cadence": 91.95503,
-          "zone": 2,
-          "training_load": 14.215352,
-          "decoupling": -6.6976604
-        },
-        {
-          "type": "WORK",
-          "label": "1487s@146w92rpm",
-          "duration_secs": 1487,
-          "avg_power": 146,
-          "max_power": 181,
-          "avg_hr": 171,
-          "max_hr": 180,
-          "avg_cadence": 91.591125,
-          "zone": 3,
-          "training_load": 33.18604,
-          "decoupling": 4.870399
-        },
-        {
-          "type": "RECOVERY",
-          "duration_secs": 64,
-          "avg_power": 68,
-          "max_power": 141,
-          "avg_hr": 163,
-          "max_hr": 176,
-          "avg_cadence": 54.21875,
-          "zone": 1,
-          "training_load": 0.46847114,
-          "decoupling": -39.9725
-        }
-      ]
-    },
     {
       "activity_id": "i162379232",
       "date": "2026-07-03",
