@@ -1,16 +1,14 @@
 {
-  "notification_id": "2026-04-26",
+  "notification_id": "2026-07-08",
   "changes": [
-    "— sync.py v3.104–v3.108 + SECTION_11.md v11.35–v11.39 + push.py v0.4–v0.5 + pull.py v0.1 (2026-04-26) —",
-    "v11.39: Outdoor Context Synthesis Line — post-workout reports now include a concise optional Outdoor context line per outdoor activity, synthesizing terrain + weather and adding causal attribution only when earned.",
-    "v11.38 / v3.107: Completed-Activity Terrain & Weather — terrain_summary and weather_summary now attach to outdoor recent_activities[], with course character, elevation density, grade distribution, weather, wind exposure, and explicit units.",
-    "v3.107: New pull.py read-only helper for agentic/local setups — fetch raw activity streams (trace) on demand for deeper inspection.",
-    "v3.108: Conservative fetch error classification — intervals, streams, and terrain fetchers now distinguish terminal no-data cases from transient API/network errors, so transient failures retry instead of being cached as truth.",
-    "v11.37 / v3.106: has_intervals semantics fixed — has_intervals now requires at least one WORK segment; recovery-only placeholder intervals no longer trigger unnecessary intervals.json loads.",
-    "v11.36 / v3.105: Effort Response Signal — recent_activities[] now includes effort_response from session IF vs logged RPE, and post-workout reports render IF + Effort response when available.",
-    "v11.35 / v3.104: Aggregate Durability reliability gate — durability alerts now require sufficient qualifying-session counts before firing; reliability_limited metadata explains low-N cases.",
-    "push.py v0.4–v0.5: fixed device sync by omitting empty workout_doc, improved credential validation, clearer 403 errors, and centralized requests handling.",
-    "Reports/docs: post-workout formatting consistency pass, distance precision to 2 decimals, full zone distributions after rounding, decoupling display labels removed, examples updated.",
-    "Upgrade: replace sync.py, push.py, pull.py, and pull fresh SECTION_11.md, SKILL.md, docs, and report templates/examples."
+    "— sync.py v3.109→v3.117 + SECTION_11.md v11.40→v11.49 (2026-07-08) —",
+    "DFA a1 threshold detection rebuilt (v11.44–v11.46 / v3.113–v3.115) — LT1/LT2 estimates now report only from a sustained contiguous effort (no more phantom thresholds from scattered data); aerobic-threshold marker corrected to the literature value (HRVT1 at DFA a1 0.75, per Rogers et al.); three self-describing markers — easy-state guard, LT1, LT2 — each with a reason code when withheld; full 14-day calibration window restored; time-in-zone bands renamed to match.",
+    "Readiness alert engine hardened (v11.48–v11.49 / v3.116–v3.117) — 'Tier 1' terminology disambiguated (it had drifted across four meanings) and the full alerts[] schema documented; P0/P1 overload/safety skips now reference only the signals that actually triggered them; P1 persistent-skip gated on alert severity. Reliability/correctness — no change to recommendations on current data.",
+    "Previously unannounced (late April 2026):",
+    "Display-unit blocks (v11.40 / v3.109) — report narrative renders metrics in your preferred units.",
+    "Season Report tier + prerequisites (v11.41–v11.42 / sync.py v3.110) — new season-level report, with weekly capability rollups and monthly phase aggregation feeding it.",
+    "Block W/kg headline + weekly weight-trend (v11.43 / v3.112) — block reports lead with power-to-weight; weekly weight trend surfaced as a signal.",
+    "Freshness fix (v3.111) — latest.json history.last_generated no longer goes stale after an auto-history rebuild.",
+    "Upgrade: after replacing sync.py, run sync twice manually, or wait for two scheduled runs to complete. If history does not regenerate, force it with --generate-history or delete history.json and rerun."
   ]
 }
