@@ -70,7 +70,7 @@
   },
   "metadata": {
     "athlete_id": "REDACTED",
-    "last_updated": "2026-07-27T05:26:42.166752",
+    "last_updated": "2026-07-27T08:56:16.722811",
     "data_range_days": 7,
     "extended_range_days": 28,
     "version": "3.109"
@@ -185,8 +185,8 @@
       "ctl": 64.11,
       "atl": 76.02,
       "tsb": -11.91,
-      "ramp_rate": 3.31,
-      "fitness_source": "From Intervals.icu API (reflects completed workouts)"
+      "ramp_rate": 5.43,
+      "fitness_source": "Decayed from yesterday (today's planned workouts not yet completed)"
     },
     "thresholds": {
       "eftp": 163.0,
@@ -251,7 +251,7 @@
       "respiration": null,
       "body_fat_pct": null,
       "abdomen_cm": null,
-      "steps": 2765,
+      "steps": 3100,
       "hydration_volume_l": null,
       "kcal_consumed": null,
       "carbohydrates_g": null,
@@ -564,19 +564,25 @@
       },
       "dfa_a1_profile": null
     },
-    "consistency_index": null,
+    "consistency_index": 0.0,
     "consistency_details": {
-      "planned_days": 0,
+      "planned_days": 1,
       "completed_days": 4,
       "matched_days": 0,
-      "note": "No planned workouts in period"
+      "planned_dates": [
+        "2026-07-27"
+      ],
+      "completed_dates": [
+        "2026-07-22",
+        "2026-07-23",
+        "2026-07-25",
+        "2026-07-26"
+      ]
     },
     "phase_detection": {
       "phase": "Build",
       "confidence": "medium",
-      "reason_codes": [
-        "NO_PLANNED_WORKOUTS"
-      ],
+      "reason_codes": [],
       "basis": {
         "stream_1": {
           "ctl_slope": null,
@@ -585,13 +591,13 @@
           "weeks_available": 4
         },
         "stream_2": {
-          "planned_tss_delta": null,
-          "hard_sessions_planned": 0,
+          "planned_tss_delta": 0.31,
+          "hard_sessions_planned": 1,
           "current_week_hard_days_completed": 0,
-          "current_week_hard_days_total": 0,
+          "current_week_hard_days_total": 1,
           "race_proximity": null,
           "next_week_load": null,
-          "plan_coverage_current_week": 0.0,
+          "plan_coverage_current_week": 0.4,
           "plan_coverage_next_week": 0.0
         },
         "data_quality": "good",
@@ -603,9 +609,7 @@
       "dossier_agreement": null
     },
     "phase_detected": "Build",
-    "phase_triggers": [
-      "NO_PLANNED_WORKOUTS"
-    ],
+    "phase_triggers": [],
     "seasonal_context": "Peak Race Season",
     "benchmark_indoor": {
       "current_ftp": null,
@@ -627,13 +631,13 @@
     "p_max": 687,
     "power_model_source": "wellness.sportInfo",
     "vo2max": null,
-    "calculation_timestamp": "2026-07-27T05:26:42.165663",
+    "calculation_timestamp": "2026-07-27T08:56:16.721684",
     "data_quality": {
       "hrv_data_points": 7,
       "rhr_data_points": 7,
       "activities_7d": 4,
       "activities_28d": 20,
-      "planned_workouts_7d": 0,
+      "planned_workouts_7d": 1,
       "ftp_history_days": {
         "indoor": 0,
         "outdoor": 115
@@ -3071,7 +3075,7 @@
       "respiration": null,
       "body_fat_pct": null,
       "abdomen_cm": null,
-      "steps": 2765,
+      "steps": 3100,
       "hydration_volume_l": null,
       "kcal_consumed": null,
       "carbohydrates_g": null,
@@ -3082,14 +3086,41 @@
       "readiness": null
     }
   ],
-  "planned_workouts": [],
+  "planned_workouts": [
+    {
+      "id": 125395736,
+      "date": "2026-07-27",
+      "name": "\u6709\u6c272\u5c0f\u65f6",
+      "type": "WORKOUT",
+      "sport_type": "VirtualRide",
+      "planned_tss": 63,
+      "duration_hours": 2.0,
+      "duration_formatted": "2h",
+      "workout_summary": null,
+      "has_terrain": false,
+      "description": "- 20m 50-55%\n- 80m 55-62%\n- 20m 45-55%"
+    },
+    {
+      "id": 125399923,
+      "date": "2026-07-28",
+      "name": "\u9608\u503c",
+      "type": "WORKOUT",
+      "sport_type": "VirtualRide",
+      "planned_tss": 113,
+      "duration_hours": 1.67,
+      "duration_formatted": "1h40m",
+      "workout_summary": "12m @98W | 5m @114W | 3m @139W | 5m @90W | 3\u00d715m @158W / 5m rec | 15m @94W",
+      "has_terrain": false,
+      "description": "- 12m 55-65%\n- 5m 70%\n- 3m 85%\n- 5m 55%\n\n3x\n- 15m 95-98%\n- 5m 55-60%\n\n- 15m 55-60%"
+    }
+  ],
   "workout_summary_stats": {
-    "attempted": 0,
-    "success": 0,
-    "patternA": 0,
+    "attempted": 2,
+    "success": 1,
+    "patternA": 1,
     "patternB": 0,
     "bail_no_workout_doc": 0,
-    "bail_no_match": 0
+    "bail_no_match": 1
   },
   "weekly_summary": {
     "total_training_hours": 7.48,
