@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-30T11:55:29.440471",
+  "generated_at": "2026-07-30T14:20:11.245427",
   "version": "3.109",
   "script_hash": "f54c8dd00126",
   "scan_hours": 72,
@@ -3319,6 +3319,24 @@
           "zone": 2,
           "training_load": 5.3125,
           "decoupling": 10.65498
+        }
+      ]
+    },
+    {
+      "activity_id": "i170782896",
+      "date": "2026-07-30",
+      "type": "VirtualRide",
+      "name": "Night \u865a\u62df\u9a91\u884c",
+      "interval_summary": null,
+      "intervals": [
+        {
+          "type": "RECOVERY",
+          "duration_secs": 94,
+          "avg_power": 107,
+          "max_power": 226,
+          "avg_cadence": 62.912086,
+          "zone": 2,
+          "training_load": 0.949501
         }
       ]
     }
