@@ -70,7 +70,7 @@
   },
   "metadata": {
     "athlete_id": "REDACTED",
-    "last_updated": "2026-08-08T03:51:27.540562",
+    "last_updated": "2026-08-08T05:03:14.094803",
     "data_range_days": 7,
     "extended_range_days": 28,
     "version": "3.109"
@@ -263,7 +263,7 @@
       "respiration": null,
       "body_fat_pct": null,
       "abdomen_cm": null,
-      "steps": 119,
+      "steps": 181,
       "hydration_volume_l": null,
       "kcal_consumed": null,
       "carbohydrates_g": null,
@@ -604,10 +604,10 @@
           "weeks_available": 4
         },
         "stream_2": {
-          "planned_tss_delta": 0.71,
-          "hard_sessions_planned": 0,
+          "planned_tss_delta": 0.75,
+          "hard_sessions_planned": 1,
           "current_week_hard_days_completed": 3,
-          "current_week_hard_days_total": 3,
+          "current_week_hard_days_total": 4,
           "race_proximity": null,
           "next_week_load": null,
           "plan_coverage_current_week": 0.17,
@@ -644,7 +644,7 @@
     "p_max": 687,
     "power_model_source": "wellness.sportInfo",
     "vo2max": null,
-    "calculation_timestamp": "2026-08-08T03:51:27.539371",
+    "calculation_timestamp": "2026-08-08T05:03:14.093875",
     "data_quality": {
       "hrv_data_points": 7,
       "rhr_data_points": 7,
@@ -3020,7 +3020,7 @@
       "respiration": null,
       "body_fat_pct": null,
       "abdomen_cm": null,
-      "steps": 119,
+      "steps": 181,
       "hydration_volume_l": null,
       "kcal_consumed": null,
       "carbohydrates_g": null,
@@ -3033,26 +3033,27 @@
   ],
   "planned_workouts": [
     {
-      "id": 127861199,
+      "id": 127864769,
       "date": "2026-08-08",
-      "name": "\u6e10\u8fdb\u5f0f2\u00d730\u751c\u533a",
+      "name": "SS 2x30 Fixed Watts - FTP Bridge",
       "type": "WORKOUT",
-      "sport_type": "VirtualRide",
-      "planned_tss": 119,
-      "duration_hours": 1.52,
-      "duration_formatted": "1h31m",
-      "workout_summary": null,
+      "sport_type": "Ride",
+      "planned_tss": 125,
+      "duration_hours": 1.6,
+      "duration_formatted": "1h36m",
+      "workout_summary": "6m @92W | 4m @112W | 3\u00d71m @155W / 1m rec | 4m @115W | 30m @155W | 6m @95W | 20m @160W | 10m @165W | 10m @88W",
       "has_terrain": false,
-      "description": "Warmup\n- 10m 85-105w 85-90rpm\n- 5m 115w 90-95rpm\n\nMain Set 1\n- 30m 155w 90-95rpm\n\nRecovery\n- 6m 95w 90rpm\n\nMain Set 2\n- 20m 160w 90-95rpm\n- 10m 165w 90-95rpm\n\nCooldown\n- 10m 95-80w 85-90rpm"
+      "indoor": true,
+      "description": "Warmup\n- 6m 85-100w 85-90rpm\n- 4m 105-120w 90-95rpm\n\n3x\n- 1m 155w 100-105rpm\n- 1m 95w 85-90rpm\n\n- 4m 115w 90-95rpm\nMain Set 1\n- 30m 155w 90-95rpm\n\nRecovery\n- 6m 95w 90rpm\n\nMain Set 2\n- 20m 160w 90-95rpm\n- 10m 165w 90-95rpm\n\nCooldown\n- 10m 95-80w 85-90rpm"
     }
   ],
   "workout_summary_stats": {
     "attempted": 1,
-    "success": 0,
-    "patternA": 0,
+    "success": 1,
+    "patternA": 1,
     "patternB": 0,
     "bail_no_workout_doc": 0,
-    "bail_no_match": 1
+    "bail_no_match": 0
   },
   "weekly_summary": {
     "total_training_hours": 6.9,
