@@ -70,7 +70,7 @@
   },
   "metadata": {
     "athlete_id": "REDACTED",
-    "last_updated": "2026-08-08T09:02:06.439214",
+    "last_updated": "2026-08-08T09:55:34.163506",
     "data_range_days": 7,
     "extended_range_days": 28,
     "version": "3.109"
@@ -263,7 +263,7 @@
       "respiration": null,
       "body_fat_pct": null,
       "abdomen_cm": null,
-      "steps": 181,
+      "steps": 1141,
       "hydration_volume_l": null,
       "kcal_consumed": null,
       "carbohydrates_g": null,
@@ -605,13 +605,13 @@
           "weeks_available": 4
         },
         "stream_2": {
-          "planned_tss_delta": 0.75,
-          "hard_sessions_planned": 1,
+          "planned_tss_delta": 1.28,
+          "hard_sessions_planned": 2,
           "current_week_hard_days_completed": 4,
-          "current_week_hard_days_total": 5,
+          "current_week_hard_days_total": 6,
           "race_proximity": null,
           "next_week_load": null,
-          "plan_coverage_current_week": 0.17,
+          "plan_coverage_current_week": 0.33,
           "plan_coverage_next_week": 0.0
         },
         "data_quality": "good",
@@ -645,7 +645,7 @@
     "p_max": 687,
     "power_model_source": "wellness.sportInfo",
     "vo2max": null,
-    "calculation_timestamp": "2026-08-08T09:02:06.438053",
+    "calculation_timestamp": "2026-08-08T09:55:34.162414",
     "data_quality": {
       "hrv_data_points": 7,
       "rhr_data_points": 7,
@@ -3102,7 +3102,7 @@
       "respiration": null,
       "body_fat_pct": null,
       "abdomen_cm": null,
-      "steps": 181,
+      "steps": 1141,
       "hydration_volume_l": null,
       "kcal_consumed": null,
       "carbohydrates_g": null,
@@ -3127,15 +3127,28 @@
       "has_terrain": false,
       "indoor": true,
       "description": "Warmup\n- 6m 85-100w 85-90rpm\n- 4m 105-120w 90-95rpm\n\n3x\n- 1m 155w 100-105rpm\n- 1m 95w 85-90rpm\n\n- 4m 115w 90-95rpm\nMain Set 1\n- 30m 155w 90-95rpm\n\nRecovery\n- 6m 95w 90rpm\n\nMain Set 2\n- 20m 160w 90-95rpm\n- 10m 165w 90-95rpm\n\nCooldown\n- 10m 95-80w 85-90rpm"
+    },
+    {
+      "id": 127893868,
+      "date": "2026-08-09",
+      "name": "Aerobic Endurance 2h After Threshold",
+      "type": "WORKOUT",
+      "sport_type": "VirtualRide",
+      "planned_tss": 88,
+      "duration_hours": 2.0,
+      "duration_formatted": "2h",
+      "workout_summary": null,
+      "has_terrain": false,
+      "description": "Warmup\n- 15m 85-105w 85-90rpm\n\nEndurance 1\n- 45m 110w 90-95rpm\n\nEndurance 2\n- 45m 115w 90-95rpm\n\nCooldown\n- 15m 100-80w 85-90rpm"
     }
   ],
   "workout_summary_stats": {
-    "attempted": 1,
+    "attempted": 2,
     "success": 1,
     "patternA": 1,
     "patternB": 0,
     "bail_no_workout_doc": 0,
-    "bail_no_match": 0
+    "bail_no_match": 1
   },
   "weekly_summary": {
     "total_training_hours": 8.49,
