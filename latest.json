@@ -70,7 +70,7 @@
   },
   "metadata": {
     "athlete_id": "REDACTED",
-    "last_updated": "2026-08-10T05:45:22.643718",
+    "last_updated": "2026-08-10T07:51:35.041926",
     "data_range_days": 7,
     "extended_range_days": 28,
     "version": "3.109"
@@ -606,13 +606,13 @@
           "weeks_available": 4
         },
         "stream_2": {
-          "planned_tss_delta": 0.2,
-          "hard_sessions_planned": 1,
+          "planned_tss_delta": 0.35,
+          "hard_sessions_planned": 2,
           "current_week_hard_days_completed": 0,
-          "current_week_hard_days_total": 1,
+          "current_week_hard_days_total": 2,
           "race_proximity": null,
           "next_week_load": null,
-          "plan_coverage_current_week": 0.17,
+          "plan_coverage_current_week": 0.33,
           "plan_coverage_next_week": 0.0
         },
         "data_quality": "good",
@@ -646,7 +646,7 @@
     "p_max": 687,
     "power_model_source": "wellness.sportInfo",
     "vo2max": null,
-    "calculation_timestamp": "2026-08-10T05:45:22.642657",
+    "calculation_timestamp": "2026-08-10T07:51:35.040727",
     "data_quality": {
       "hrv_data_points": 7,
       "rhr_data_points": 7,
@@ -3091,12 +3091,25 @@
       "workout_summary": "8m @92W | 5m @115W | 3\u00d720s @120W / 1m40s rec | 4m @115W | 30m @150W | 6m @95W | 30m @155W | 11m @95W",
       "has_terrain": false,
       "description": "Warmup\n- 8m 85-100w 85-90rpm\n- 5m 110-120w 90-95rpm\n\nCadence Activation\n3x\n- 20s 120w 105-110rpm\n- 1m40s 95w 85-90rpm\n\nTransition\n- 4m 115w 90-95rpm\n\nSweet Spot 1\n- 30m 150w 90-95rpm\n\nRecovery\n- 6m 95w 85-90rpm\n\nSweet Spot 2\n- 30m 155w 90-95rpm\n\nCooldown\n- 11m 95w"
+    },
+    {
+      "id": 128339081,
+      "date": "2026-08-12",
+      "name": "vo2",
+      "type": "WORKOUT",
+      "sport_type": "VirtualRide",
+      "planned_tss": 92,
+      "duration_hours": 1.33,
+      "duration_formatted": "1h20m",
+      "workout_summary": "10m @100W | 3\u00d730s @170W / 1m30s rec | 4m @115W | 5\u00d74m @182W / 4m rec | 20m @95W",
+      "has_terrain": false,
+      "description": "Warmup\n- 10m 85-115w\n\nActivation\n3x\n- 30s 170w 100-105rpm\n- 1m30s 95w 85-90rpm\n\n- 4m 115w\n\nVO2max\n5x\n- 4m 180-185w 95-105rpm\n- 4m 90-100w 85-90rpm\n\nCooldown\n- 20m 95w"
     }
   ],
   "workout_summary_stats": {
-    "attempted": 1,
-    "success": 1,
-    "patternA": 1,
+    "attempted": 2,
+    "success": 2,
+    "patternA": 2,
     "patternB": 0,
     "bail_no_workout_doc": 0,
     "bail_no_match": 0
