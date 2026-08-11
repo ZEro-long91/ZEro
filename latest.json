@@ -70,7 +70,7 @@
   },
   "metadata": {
     "athlete_id": "REDACTED",
-    "last_updated": "2026-08-11T10:12:31.807440",
+    "last_updated": "2026-08-11T11:07:34.157210",
     "data_range_days": 7,
     "extended_range_days": 28,
     "version": "3.109"
@@ -263,7 +263,7 @@
       "respiration": null,
       "body_fat_pct": null,
       "abdomen_cm": null,
-      "steps": 2530,
+      "steps": 5947,
       "hydration_volume_l": null,
       "kcal_consumed": null,
       "carbohydrates_g": null,
@@ -606,7 +606,7 @@
           "weeks_available": 4
         },
         "stream_2": {
-          "planned_tss_delta": 0.18,
+          "planned_tss_delta": 0.21,
           "hard_sessions_planned": 1,
           "current_week_hard_days_completed": 1,
           "current_week_hard_days_total": 2,
@@ -646,7 +646,7 @@
     "p_max": 687,
     "power_model_source": "wellness.sportInfo",
     "vo2max": null,
-    "calculation_timestamp": "2026-08-11T10:12:31.806333",
+    "calculation_timestamp": "2026-08-11T11:07:34.156033",
     "data_quality": {
       "hrv_data_points": 7,
       "rhr_data_points": 7,
@@ -3034,7 +3034,7 @@
       "respiration": null,
       "body_fat_pct": null,
       "abdomen_cm": null,
-      "steps": 2530,
+      "steps": 5947,
       "hydration_volume_l": null,
       "kcal_consumed": null,
       "carbohydrates_g": null,
@@ -3047,17 +3047,17 @@
   ],
   "planned_workouts": [
     {
-      "id": 128339081,
+      "id": 128639784,
       "date": "2026-08-12",
-      "name": "vo2",
+      "name": "\u6700\u5927\u6444\u6c27\u91cf",
       "type": "WORKOUT",
       "sport_type": "VirtualRide",
-      "planned_tss": 92,
+      "planned_tss": 106,
       "duration_hours": 1.33,
       "duration_formatted": "1h20m",
-      "workout_summary": "10m @100W | 3\u00d730s @170W / 1m30s rec | 4m @115W | 5\u00d74m @182W / 4m rec | 20m @95W",
+      "workout_summary": "6m @98W | 5m @118W | 3\u00d730s @215W / 1m30s rec | 3m @110W | 5\u00d74m @196W / 4m rec | 10m @115W | 10m @90W",
       "has_terrain": false,
-      "description": "Warmup\n- 10m 85-115w\n\nActivation\n3x\n- 30s 170w 100-105rpm\n- 1m30s 95w 85-90rpm\n\n- 4m 115w\n\nVO2max\n5x\n- 4m 180-185w 95-105rpm\n- 4m 90-100w 85-90rpm\n\nCooldown\n- 20m 95w"
+      "description": "Warmup\n- 6m 90-105w 85-90rpm\n- 5m 110-125w 90-95rpm\n\nActivation 3x\n- 30s 210-220w 100-110rpm\n- 1m30s 95w 85-90rpm\n\n- 3m 110w 90-95rpm\n\nMain Set 5x\n- 4m 193-198w 95-105rpm\n- 4m 90-100w 85-90rpm\n\nCooldown\n- 10m 110-120w 90-95rpm\n- 10m ramp 100-80w 85-90rpm"
     }
   ],
   "workout_summary_stats": {
