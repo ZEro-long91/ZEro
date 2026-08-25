@@ -70,7 +70,7 @@
   },
   "metadata": {
     "athlete_id": "REDACTED",
-    "last_updated": "2026-08-24T23:38:25.551395",
+    "last_updated": "2026-08-25T00:00:00.067719",
     "data_range_days": 7,
     "extended_range_days": 28,
     "version": "3.109"
@@ -124,7 +124,7 @@
       },
       "acwr": {
         "status": "green",
-        "value": 1.12
+        "value": 0.96
       },
       "ri": {
         "status": "green",
@@ -271,20 +271,20 @@
     "rhr_baseline_28d": 52.6,
     "latest_hrv": 52.0,
     "latest_rhr": 54,
-    "acwr": 1.12,
+    "acwr": 0.96,
     "acwr_interpretation": "optimal",
-    "monotony": 1.1,
+    "monotony": 0.84,
     "monotony_interpretation": "normal",
     "primary_sport": "cycling",
-    "primary_sport_monotony": 1.1,
-    "primary_sport_tss_7d": 577.0,
-    "effective_monotony": 1.1,
+    "primary_sport_monotony": 0.84,
+    "primary_sport_tss_7d": 470.0,
+    "effective_monotony": 0.84,
     "multi_sport_detected": false,
-    "strain": 635.0,
-    "stress_tolerance": 5.8,
-    "load_recovery_ratio": 5.3,
-    "tss_7d_total": 577.0,
-    "tss_28d_total": 2059.0,
+    "strain": 395.0,
+    "stress_tolerance": 4.7,
+    "load_recovery_ratio": 4.3,
+    "tss_7d_total": 470.0,
+    "tss_28d_total": 1963.0,
     "zone_distribution_7d": {
       "z1_hours": 1.35,
       "z2_hours": 2.16,
@@ -558,7 +558,7 @@
           "coverage_ratio": 1.0,
           "ftp_used": 164,
           "w_prime_used": 14401,
-          "ftp_staleness_days": 0,
+          "ftp_staleness_days": 1,
           "model_trust_note": "CP/W' model (P=CP+W'/t) is primary for durations \u226420min where W' contribution is meaningful. Coggan duration factors (Allen & Coggan, 3rd ed.) are the established reference for \u226560min. 30min is the crossover zone where both apply. model_divergence_pct = (actual - CP_model) / CP_model \u00d7 100. Positive divergence at short durations may indicate strong anaerobic capacity or stale W' value. Indoor MMP is typically 3-5% lower than outdoor (cooling, motivation) \u2014 source flag indicates which environment produced each anchor."
         }
       },
@@ -636,7 +636,7 @@
     "p_max": 682,
     "power_model_source": "wellness.sportInfo",
     "vo2max": null,
-    "calculation_timestamp": "2026-08-24T23:38:25.550285",
+    "calculation_timestamp": "2026-08-25T00:00:00.066573",
     "data_quality": {
       "hrv_data_points": 7,
       "rhr_data_points": 7,
@@ -1584,7 +1584,7 @@
           "z7_time": 0
         }
       },
-      "has_intervals": true,
+      "has_intervals": false,
       "has_dfa": false,
       "terrain_status": "no_gps",
       "weather_status": "unavailable",
