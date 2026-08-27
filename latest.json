@@ -64,13 +64,13 @@
     "quick_stats": {
       "total_training_hours": 9.0,
       "total_training_formatted": "8h59m",
-      "total_activities": 5,
+      "total_activities": 6,
       "total_tss": 730
     }
   },
   "metadata": {
     "athlete_id": "REDACTED",
-    "last_updated": "2026-08-27T03:29:28.779278",
+    "last_updated": "2026-08-27T14:35:02.983867",
     "data_range_days": 7,
     "extended_range_days": 28,
     "version": "3.109"
@@ -188,7 +188,7 @@
     "period_description": "Last 7 days of training (including today)",
     "note": "Duration calculated from API moving_time field.",
     "total_duration_decimal_hours": 9.0,
-    "total_activities": 5,
+    "total_activities": 6,
     "by_activity_type": {
       "Ride": {
         "duration_decimal_hours": 9.0,
@@ -201,15 +201,27 @@
             "unit": "km"
           }
         }
+      },
+      "Unknown": {
+        "duration_decimal_hours": 0.0,
+        "count": 1,
+        "tss": 0,
+        "distance_km": 0.0,
+        "display": {
+          "distance": {
+            "value": 0.0,
+            "unit": "km"
+          }
+        }
       }
     }
   },
   "current_status": {
     "fitness": {
-      "ctl": 71.21,
-      "atl": 81.22,
-      "tsb": -10.01,
-      "ramp_rate": 5.75,
+      "ctl": 74.5,
+      "atl": 99.85,
+      "tsb": -25.35,
+      "ramp_rate": 9.04,
       "fitness_source": "From Intervals.icu API (reflects completed workouts)"
     },
     "thresholds": {
@@ -275,7 +287,7 @@
       "respiration": null,
       "body_fat_pct": null,
       "abdomen_cm": null,
-      "steps": 34,
+      "steps": 3292,
       "hydration_volume_l": null,
       "kcal_consumed": null,
       "carbohydrates_g": null,
@@ -421,9 +433,9 @@
         },
         "anchors": {
           "5s": {
-            "current_watts": 486,
+            "current_watts": 488,
             "previous_watts": 650,
-            "pct_change": -25.2
+            "pct_change": -24.9
           },
           "60s": {
             "current_watts": 289,
@@ -431,9 +443,9 @@
             "pct_change": -7.7
           },
           "300s": {
-            "current_watts": 202,
+            "current_watts": 203,
             "previous_watts": 202,
-            "pct_change": 0.0
+            "pct_change": 0.5
           },
           "1200s": {
             "current_watts": 165,
@@ -446,7 +458,7 @@
             "pct_change": 9.4
           }
         },
-        "rotation_index": -19.1,
+        "rotation_index": -19.0,
         "note": "Compares MMP at 5 anchor durations (5s neuromuscular, 60s anaerobic, 300s MAP, 1200s threshold, 3600s endurance) across two 28d windows. rotation_index = mean(5s,60s pct_change) - mean(1200s,3600s pct_change). Positive = sprint-biased gains, negative = endurance-biased. 300s excluded from rotation (transitional). Null when either window has fewer than 3 valid anchor durations."
       },
       "hr_curve_delta": {
@@ -495,8 +507,8 @@
         "cycling": {
           "anchors": {
             "300s": {
-              "actual_watts": 202,
-              "actual_wpkg": 3.42,
+              "actual_watts": 203,
+              "actual_wpkg": 3.44,
               "actual_hr": 183,
               "pct_lthr": 105.2,
               "source": "observed_outdoor",
@@ -504,7 +516,7 @@
               "coggan_wpkg": 2.95,
               "cp_model_watts": 212,
               "cp_model_wpkg": 3.59,
-              "model_divergence_pct": -4.7
+              "model_divergence_pct": -4.2
             },
             "600s": {
               "actual_watts": 181,
@@ -651,12 +663,12 @@
     "p_max": 682,
     "power_model_source": "wellness.sportInfo",
     "vo2max": null,
-    "calculation_timestamp": "2026-08-27T03:29:28.778334",
+    "calculation_timestamp": "2026-08-27T14:35:02.982636",
     "data_quality": {
       "hrv_data_points": 7,
       "rhr_data_points": 7,
-      "activities_7d": 5,
-      "activities_28d": 21,
+      "activities_7d": 6,
+      "activities_28d": 22,
       "planned_workouts_7d": 0,
       "ftp_history_days": {
         "indoor": 0,
@@ -665,6 +677,56 @@
     }
   },
   "recent_activities": [
+    {
+      "id": "19923117454",
+      "date": "2026-08-27T19:47:44",
+      "type": "Unknown",
+      "name": "",
+      "duration_hours": 0.0,
+      "distance_km": 0.0,
+      "tss": null,
+      "intensity_factor": null,
+      "avg_power": null,
+      "normalized_power": null,
+      "avg_hr": null,
+      "max_hr": null,
+      "avg_cadence": null,
+      "avg_speed": null,
+      "avg_speed_unit": "KPH",
+      "max_speed": null,
+      "max_speed_unit": "KPH",
+      "avg_pace": null,
+      "avg_temp": null,
+      "avg_temp_unit": "C",
+      "weather": null,
+      "humidity": null,
+      "wind_speed": null,
+      "wind_speed_unit": "KMH",
+      "work_kj": null,
+      "calories": null,
+      "carbs_used": null,
+      "carbs_ingested": null,
+      "variability_index": null,
+      "decoupling": null,
+      "efficiency_factor": null,
+      "hrrc": null,
+      "elevation_m": null,
+      "display": {
+        "distance": {
+          "value": 0.0,
+          "unit": "km"
+        },
+        "elevation": null,
+        "avg_speed": null,
+        "max_speed": null
+      },
+      "feel": null,
+      "rpe": null,
+      "effort_response": null,
+      "zone_distribution": null,
+      "has_intervals": false,
+      "has_dfa": false
+    },
     {
       "id": "i180211480",
       "date": "2026-08-26T19:37:22",
@@ -2941,7 +3003,7 @@
       "respiration": null,
       "body_fat_pct": null,
       "abdomen_cm": null,
-      "steps": 34,
+      "steps": 3292,
       "hydration_volume_l": null,
       "kcal_consumed": null,
       "carbohydrates_g": null,
@@ -2965,7 +3027,7 @@
     "total_training_hours": 9.0,
     "total_training_formatted": "8h59m",
     "total_tss": 730,
-    "activities_count": 5,
+    "activities_count": 6,
     "avg_hrv": 50.6,
     "avg_resting_hr": 54.0
   },
