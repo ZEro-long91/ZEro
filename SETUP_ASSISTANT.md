@@ -86,6 +86,8 @@ Confirm before continuing.
 
 **Optional — DFA a1 features.** Section 11 v11.30+ includes a DFA a1 Protocol that provides empirical aerobic/threshold zone calibration from in-activity HRV. This is an **optional feature** with a hard hardware/software requirement: **Garmin head unit + AlphaHRV Connect IQ data field + chest strap that broadcasts beat-to-beat RR (HRM-Pro Plus, Polar H10) + direct Garmin → Intervals.icu sync**. The athlete can skip this entirely and Section 11 still works fully — DFA a1 just won't appear in their reports. If they're on Wahoo, Suunto, Karoo, Coros, Polar, or any non-Garmin platform, point them at [`examples/dfa_a1/NON_GARMIN.md`](examples/dfa_a1/NON_GARMIN.md) — it documents what's known about their platform and how to help us verify a path. **Do not promise DFA a1 features to non-Garmin athletes** — only Garmin + AlphaHRV is verified end-to-end as of v11.30.
 
+**Apple Watch athletes — HRV needs a third-party app.** Apple Watch's native HRV export is SDNN; Section 11's readiness HRV signal is rMSSD, a different metric that Intervals.icu keeps in a separate field. Apple's value is passed through as coaching context but is never used for readiness. When the Intervals.icu wellness record contains native Apple SDNN but no usable rMSSD, the HRV readiness signal remains `unavailable` until an upstream tool supplies rMSSD, and readiness runs on the remaining signals. Section 11 cannot fix this — rMSSD has to be derived from beat-to-beat data before it reaches Intervals.icu. Community iOS apps do this; point the athlete at the [Intervals.icu forum's External Projects category](https://forum.intervals.icu/c/external-projects/14) rather than naming one. **None is verified or supported by Section 11** — treat the choice as the athlete's own, and don't promise a historically established or stable HRV baseline immediately, since a tool may carry no historical data. Everything else in Section 11 works normally.
+
 ### Step 2: Get Intervals.icu credentials
 
 Walk them through:
@@ -109,9 +111,8 @@ A "repository" (repo) is just a folder on GitHub that holds their files. A "work
 3. Create a **new repository** on GitHub:
    - Go to https://github.com/new
    - Name it something like `my-training-data` or `t1-data` (their choice)
-   - **Easy setup path:** set to **Public** (the data is anonymized by default — no personal info is exposed)
-   - **Privacy-conscious:** set to **Private** — most web chat platforms (ChatGPT, Claude, Gemini, Mistral) now have GitHub connectors that can access private repos directly
-   - **Agent path:** set to **Private**
+   - **Recommended:** set to **Private**. The output is not anonymized — see Privacy & Security in the README: https://github.com/CrankAddict/section-11#privacy--security
+   - **Public fallback:** only when the user's chosen AI platform/model cannot access a private repository and they need URL-based fetch. Tell them plainly that this publishes their date of birth, sex, height, location, activity names, athlete notes, and route coordinates.
    - Check **"Add a README file"**
    - Click **Create repository**
 4. Copy these files from the Section 11 repo into their new repo:
@@ -125,14 +126,7 @@ Tell them they can do this through the GitHub web interface:
 - Copy-paste the file contents
 - For sync.py: same process, just name it `sync.py`
 
-**Alternative — fork (if they know GitHub well):**
-1. Go to https://github.com/CrankAddict/section-11 → click **Fork**
-2. Rename the fork to something like `training-data`
-3. Set visibility (public or private) in repo settings
-4. sync.py is already at `examples/sync.py` — copy it to the repo root
-5. Copy `examples/json-auto-sync/auto-sync.yml` to `.github/workflows/auto-sync.yml`
-
-Only mention the fork option if the user seems experienced with GitHub or asks about it.
+**Do not suggest forking Section 11 as their data repo.** Forks of a public repository are always public and their visibility cannot be changed, so a forked data repo would publish their training data. For the GitHub sync path, create a new private repository instead.
 
 Confirm the files are in place before continuing.
 
@@ -275,25 +269,9 @@ This is where the two paths diverge.
 
 Walk them through setting up a ChatGPT or Claude project. If they use a different platform (Grok, Mistral, Gemini), adapt these instructions — the concept is the same: create a project, paste instructions, upload files.
 
-**Before starting, check if their platform has a GitHub connector:**
+**Before starting, check if their platform has a GitHub connector.** Plans, connect paths, refresh behavior, and permissions vary by platform and change often. They are maintained in one place — the Platform Setup tables in the README: https://github.com/CrankAddict/section-11#platform-setup
 
-Most major AI platforms now have native GitHub connectors. If theirs does, they can use a **private repo** and skip the URL-based fetch entirely — the connector reads their data directly.
-
-**Note:** These connectors are for web chat platforms only and are currently read-only — they cannot trigger GitHub Actions workflows. For that, the user needs an [agentic platform](#agent-path-private-repo--agent-platform).
-
-| Platform | GitHub Connector | Can Trigger Actions | How to Connect |
-|----------|-----------------|---------------------|----------------|
-| ChatGPT | Varies by plan | No (Codex has write access) | Settings → Apps → GitHub |
-| Claude | All plans including Free | No (custom MCP possible†) | Settings → Integrations → GitHub, or "+" in Project Knowledge |
-| Gemini | Varies by account | No (Workspace extension has writes‡) | + → Import code, or Connected Apps |
-| Grok | Grok Business/Enterprise | No (read-only) | Settings → Connected Apps |
-| Mistral | All tiers incl. free | Not yet (writes supported, dispatch TBD) | Side panel → Intelligence → Connectors |
-| Perplexity | Pro, Max, and Enterprise | No | App Connectors |
-
-†Requires setting up a GitHub OAuth App or PAT with a custom MCP server — non-trivial.
-‡Separate Google Workspace extension; requires Google Integrations helper app. Not the same as import-code.
-
-If they have a connector available, walk them through connecting it and skip the fetch URLs in the instructions below. If not (or if they prefer simplicity), the URL-based approach works with a public repo.
+If they have a connector available, walk them through connecting it and skip the fetch URLs in the instructions below. Only if their chosen platform/model cannot access a private repository does the URL-based approach apply — that requires a public repo, so disclose what it exposes (see Privacy & Security in the README: https://github.com/CrankAddict/section-11#privacy--security).
 
 **1. Create a Project:**
 
@@ -366,12 +344,12 @@ Tell them to upload these two files to their project's knowledge/files section:
 | `DOSSIER.md` | The dossier they created in Step 7 (from their data repo) |
 
 **Platform-specific notes:**
-- **ChatGPT Projects:** Upload to "Project Files." If using the GitHub connector (Settings → Apps → GitHub), it can read your private repo directly — no need for public URLs.
+- **ChatGPT Projects:** Upload to "Project Files."
 - **ChatGPT CustomGPT:** Upload to "Knowledge" under Configure. Enable "Web Browsing" in Capabilities.
-- **Claude Projects:** Upload to "Project Knowledge." GitHub connector: click "+" in Project Knowledge → search/paste your repo URL → select files. Or enable "Web search" in settings for URL-based fetch.
-- **Grok:** Upload to "Sources" in Project configuration. GitHub connector available on Grok Business/Enterprise plans via Settings → Connected Apps.
-- **Mistral (Le Chat):** Upload during project creation. GitHub connector: side panel → Intelligence → Connectors → GitHub.
-- **Gemini Gems:** Paste Section 11 content into the instructions field and upload the dossier separately. GitHub connector: click + → Import code → paste repo URL. *(Note: Gemini capabilities vary across Google accounts and Workspace editions — it may not work for everyone. If Gemini can't access your repo, try downloading the section-11 repo as a zip and uploading it directly.)*
+- **Claude Projects:** Upload to "Project Knowledge." Enable "Web search" in settings if using URL-based fetch.
+- **Grok:** Upload to "Sources" in Project configuration.
+- **Mistral (Vibe):** Upload during project creation.
+- **Gemini Gems:** Paste Section 11 content into the instructions field and upload the dossier separately. *(If Gemini can't access your repo, try downloading the section-11 repo as a zip and uploading it directly.)*
 
 ---
 
@@ -434,7 +412,7 @@ The GitHub vs Local question was already answered in Step 0. If they're here, th
 
 **Claude Cowork:**
 1. **Local:** Grant Cowork access to `~/training-data/`
-2. **GitHub:** Use the GitHub MCP connector in Cowork settings for direct repo access
+2. **GitHub:** See the Claude Cowork setup in the README: https://github.com/CrankAddict/section-11#claude-cowork
 
 **ChatGPT Codex:**
 1. **Local (CLI):** Run from `~/training-data/` — Codex CLI has full filesystem access
@@ -452,14 +430,9 @@ For web chat users on the local path, sync.py writes to a cloud-synced folder an
 1. Install Google Drive for Desktop (or OneDrive/Dropbox — whichever their AI platform has a connector for)
 2. Set the data directory inside the synced folder (e.g., `~/Google Drive/My Drive/training-data/`)
 3. The timer's `--output` points to this folder — same setup as above, just a different path
-4. Connect the AI platform's connector to the folder:
-   - **Gemini:** Native Google Drive access — just reference the folder
-   - **Perplexity:** Settings → Connectors → Google Drive (Pro plan required)
-   - **ChatGPT:** Settings → Apps → Google Drive (Workspace accounts only — not personal Gmail)
-   - **Claude:** Google Drive connector reads Google Docs only, not .json files. Use the GitHub connector instead (Settings → Integrations → GitHub)
-   - **Other platforms:** Check their connector/integration settings
+4. Connect the AI platform's cloud connector to the folder — see the Platform Setup tables in the README for current Google Drive support by platform: https://github.com/CrankAddict/section-11#platform-setup
 
-The AI coach now reads fresh data every time they open a chat. See `examples/json-local-sync/SETUP.md` for more details and alternative setups (VPS + rclone, NAS with cloud sync, etc.).
+See `examples/json-local-sync/SETUP.md` for more details and alternative setups (VPS + rclone, NAS with cloud sync, etc.).
 
 **Optional: Enable calendar push**
 

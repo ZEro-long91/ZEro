@@ -2,35 +2,35 @@
   "scope": "All tracked files in the Section 11 repository. --update compares file hashes to detect changes and new files.",
   "files": {
     "CONTRIBUTING.md": {
-      "hash": "4f6594d68a39571fed5b2ee68f0ecc1307e67ae11a824cf23b1ad075c794e3eb"
+      "hash": "e9637f09b42b974311d5b1b526f2a6992be3b85c7b0e3eadff49ac80e2cd8a52"
     },
     "DOSSIER_TEMPLATE.md": {
-      "hash": "aec29508bc85cc9f98a82c2fe8ba9fe98e0c631b069feea923c6cb10fe7d0c3c"
+      "hash": "d4b9d9884567af7cdafacce91a35371920333a13225f2cf18e766e7fd8c20158"
     },
     "LICENSE": {
       "hash": "0683b6ae3ded5701305dae4114d317d4346c175824d8db87a22d18e05a61ff77"
     },
     "README.md": {
-      "hash": "ecbafca7a4b2b2e2fc72d24c6f03b025e3dc43bfadfa1c69d990dbf0419d2519"
+      "hash": "40b078816465a0aad94c3784dec537055465d15267f25ad00f0a032b212f3bd8"
     },
     "SECTION_11.md": {
-      "hash": "f20bfbb5a0e33151dd5a61477b33761126d85018e42120f1a376638fcb815b66",
+      "hash": "554afe9ac0f95a41e2094adf93f9be2080644c27543571dcae751a4c94ef79f1",
       "description": "Coaching protocol"
     },
     "SECURITY.md": {
       "hash": "47a0b437722547662e2215a759678cccaeb91984734337bfe2392185d71976d5"
     },
     "SETUP_ASSISTANT.md": {
-      "hash": "ff4c31c69480178426268d341cdf9ab57075e6eec2d883a459f209ac357e9b48"
+      "hash": "0f252aa5922fae4aaccb5f5e7608ede90f4e8257413b98a0d351d1b8412a52e8"
     },
     "SKILL.md": {
-      "hash": "d8ad34e64dc414ce47d38d98061a89485beb73f257380330caf2a515be5c27b6"
+      "hash": "0ac629b29dacde90eaa3695ae9573ee184c91ffaa53eacfcb99655196884a6dd"
     },
     "changelog.json": {
-      "hash": "8790c0c844cb8f97f5e124f3b3e49d88277415f293bdb754212834e16e67c882"
+      "hash": "6e62ffe6dcd6dde91b177db10870a95daace1530a737ca3ef2770b47d8292f58"
     },
     "examples/README.md": {
-      "hash": "d1ba8274d0d1a2534299b217fc4a8580bbc86cec78ad8770c032199760615a04"
+      "hash": "0e98b41131fff99816de12b51f9d1a48ee7ceafe80ee3881aa30a64c814d376b"
     },
     "examples/agentic/EXTERNAL_APIS.md": {
       "hash": "650773b06e8eaae82d355d32a6a34c6d15e0b37296747461ef7547d33497e0ce"
@@ -57,13 +57,13 @@
       "hash": "464615b19c0ad4121a45655d06206b436948693a3799660c49528778990609d0"
     },
     "examples/json-auto-sync/SETUP.md": {
-      "hash": "63e4e14a4f59daf3f6ed2056a54f912d6d675052a2d3ca168f7e0358e0595932"
+      "hash": "38838039da247c1ca3dd7a871997c5efee313230ddf1f08366596f41dd1b2e38"
     },
     "examples/json-auto-sync/auto-sync.yml": {
       "hash": "2c42026cf15423cb656b55a086b0c9d87cda2297608a47ba2f4b8d59b95b67e6"
     },
     "examples/json-examples/README.md": {
-      "hash": "632f677c0fec6b83877f28f8fe86b1ab6eeed79ba94211908c4dc1ccf2c8c6be"
+      "hash": "12a3c7a57d2257225a6ab0ec41d6cab3525f96fa0f4f64f63db7cafe2cb77fcf"
     },
     "examples/json-examples/ftp_history.json": {
       "hash": "b2f2d569327c7b030c02969efdadd224bcc6d3df4c63857c3f4e614a75cfcb75"
@@ -72,7 +72,7 @@
       "hash": "45366e32462ee036c8bef390cf0b0ff0a7038be4f1144530936af1297dbbb647"
     },
     "examples/json-examples/intervals.json": {
-      "hash": "4996154f11aa077461a095a586ebdd697f924ce72f8171418a690aa3f4190505"
+      "hash": "e11384942f006b3959d61ceb0ecacd0d5d5722622212b0f217543b0308d9bf9c"
     },
     "examples/json-examples/latest.json": {
       "hash": "e08ccc23a92ad0296f53716885f35e989e3bda16d3f7efe1835b06e3f13c7a77"
@@ -81,31 +81,31 @@
       "hash": "0ff2ef8770733a9b059154e7305b57510455e0024f3c60cf57eee7b0d67e97ed"
     },
     "examples/json-local-sync/SETUP.md": {
-      "hash": "c6994fe72fa9fdb9689d7ec47a7df2c3197e2051904935596dd0c8cfe9275a1e"
+      "hash": "20da171fdb552b4dfad2bbf14b96011c26d92a7723123592ea01b1e9a0f2edb0"
     },
     "examples/json-manual/SETUP.md": {
-      "hash": "c2f263e7845671805586b1fdefbf1b0980157121bc982856c255bc542ee187b0"
+      "hash": "8ab268c6b055ed789bc981f4397414c5088a8af71da14e82045f7bb086aaf91a"
     },
     "examples/json-on-demand/SETUP.md": {
-      "hash": "8a4cf6b9f4406ee0c237f23ca26cbc423ecc4d97f0c81f79b0ac79df47a4d102"
+      "hash": "461e2c1e8cd5a4990e5b142ff5254838729fe8eb496b5193c9ae17fb7d84970a"
     },
     "examples/reports/BLOCK_REPORT_EXAMPLES.md": {
-      "hash": "c34c6d7f0276228b21f372f8da6914ae18323848717b558b5c4d614e37ed4c10"
+      "hash": "72c7cb21f5b87f2917f11da6f64fd6344c65292116252d04ad6e9d45dd1f82bd"
     },
     "examples/reports/BLOCK_REPORT_TEMPLATE.md": {
-      "hash": "8500167f107b1114d441e958865365f6a34edc90beffa2e8084e8e84ee434fcf"
+      "hash": "a87eb11235cfb80c23117f90bbb8be620b8b44118daa6269473e4c97843ec753"
     },
     "examples/reports/POST_WORKOUT_REPORT_EXAMPLES.md": {
-      "hash": "ee850370c8f577e9aaa493a7c19dce8fa8aad725a5af14e23cf313cfda9625c6"
+      "hash": "2aa7f62e0edf03cb1dd995c73587445be4eb8fbdf7a7c02cdcc825350debdec4"
     },
     "examples/reports/POST_WORKOUT_REPORT_TEMPLATE.md": {
-      "hash": "3f53b8ebf879739d005e1c21a4cd1eb77852c107e8377da1235d3a59e033b87a"
+      "hash": "309df11a05c1f6b833270cafb6d42628d8967198cea8c56ad788fa7dad915124"
     },
     "examples/reports/PRE_WORKOUT_REPORT_EXAMPLES.md": {
       "hash": "ad9b1ee073d6492235f41fd38a9328a44353fc21ff31d758526990db86e07719"
     },
     "examples/reports/PRE_WORKOUT_REPORT_TEMPLATE.md": {
-      "hash": "7d33445c5b775dcb0726c1b9be24f878658a4913292e616f415d9cdf20306bfc"
+      "hash": "b9f92bd61aa64302185706800ffc5a9b95c4a4ad41dadbe74736fcda742a77f1"
     },
     "examples/reports/README.md": {
       "hash": "9b35bb1209cc7d6285eff4345741b6901dab42f6991aeb0b804fd393c8d67b77"
@@ -126,13 +126,13 @@
       "hash": "b934b16c29d3fafdfe521bebd5fae9b52312d455f2cf193da731ac3d23513c79"
     },
     "examples/sync.py": {
-      "hash": "ab26e5fd38f4cee3bf9aacc0782e6cabb4edeabe9c1463336547d55961c2603d"
+      "hash": "bdb9610cbd7cd6b98e328fd25f12ac5e4ba3c9442d122585984802626d69ab4c"
     },
     "examples/workout-library/README.md": {
       "hash": "f22d96050da8a601aac627ddb44b717f31daa9adc88b1cedf3f56a0b87dec6f4"
     },
     "examples/workout-library/WORKOUT_REFERENCE.md": {
-      "hash": "1649665af7f7060596e3b90a94237fb09da1fc57e82d4f3187a50e42d6ca1b09"
+      "hash": "04fdbef2d26c0a50a0e374a1443158bc7e0be4232bdaf3471ce67125feff72e1"
     }
   }
 }
