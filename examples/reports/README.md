@@ -111,9 +111,9 @@ Generated **end of each 3-5 week block**. Includes:
 ## Brevity Rule
 
 These templates follow Section 11's brevity principle:
-- **Normal metrics:** Brief — 2-3 sentence interpretation + key data
-- **Threshold breach:** Detailed — full analysis with recommendations
-- **Rest day:** Minimal — confirm recovery status, preview next session
+- **Normal metrics:** Brief (2-3 sentence interpretation + key data)
+- **Threshold breach:** Detailed (full analysis with recommendations)
+- **Rest day:** Minimal (confirm recovery status, preview next session)
 - **Athlete asks "why":** Deep dive on specific area
 
 ---
@@ -121,7 +121,7 @@ These templates follow Section 11's brevity principle:
 ## Conditional Fields
 
 Some fields appear only when relevant:
-- **Weather:** Include if athlete location is available via profile or memory
+- **Weather:** Include only when the session location is known: route data for the planned session (`routes.json`), an explicit current athlete statement, or a stored home location (the current official dossier's Home region, `athlete_profile.location` in current JSON, or a configured heartbeat `Location`) when nothing suggests the athlete is elsewhere. Never infer location from memory or earlier chat. If travel is possible, sources disagree, or no source applies, omit weather or ask
 - **Monotony:** Include only if > 2.3; omit entirely when normal
 - **Load/Recovery tolerance note:** Include only when within 0.2 of threshold
 - **Coach notes** (brief contextual tips) are encouraged to humanize recommendations
@@ -131,7 +131,7 @@ Some fields appear only when relevant:
 
 ## Notes
 
-- All examples use anonymized/placeholder data — replace with actual values from your JSON feed
+- All examples use anonymized/placeholder data; replace with actual values from your JSON feed
 - Zone percentages round to nearest whole number (see rounding convention in POST_WORKOUT_REPORT_TEMPLATE.md)
 - Data flows upward between reports: post-workout → weekly → block (see REPORT_HIERARCHY.md)
 - Section 11 flags surface at the weekly level and are summarized with resolution in block reports

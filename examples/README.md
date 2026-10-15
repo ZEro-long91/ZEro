@@ -1,20 +1,21 @@
 # Examples
 
-Working implementations for Section 11 integrations.
+Working implementations and reference documentation for Section 11 integrations.
 
 ## Available Methods
 
 | Folder | Description | Status |
 |--------|-------------|--------|
-| [SETUP_ASSISTANT.md](../SETUP_ASSISTANT.md) | Interactive AI-guided setup — paste into any AI chat | ✅ Ready |
-| [json-auto-sync](json-auto-sync/) | Automated GitHub Actions sync (every 15 min) | ✅ Ready |
-| [json-local-sync](json-local-sync/) | Automated local sync for agentic platforms (no GitHub) | ✅ Ready |
-| [json-on-demand](json-on-demand/) | On-demand sync from phone or browser — no local Python | ✅ Ready |
+| [SETUP_ASSISTANT.md](../SETUP_ASSISTANT.md) | Interactive AI-guided setup: paste into any AI chat | ✅ Ready |
+| [json-auto-sync](json-auto-sync/) | Automated GitHub Actions sync (every 30 min) | ✅ Ready |
+| [json-local-sync](json-local-sync/) | Automated local sync, read via runtime filesystem or cloud connector (no GitHub) | ✅ Ready |
+| [json-on-demand](json-on-demand/) | On-demand sync from phone or browser (no local Python) | ✅ Ready |
 | [json-manual](json-manual/) | Manual export from Mac/PC | ✅ Ready |
 | [reports](reports/) | Pre/post/weekly/block/season report templates | ✅ Ready |
 | [agentic](agentic/) | Write planned workouts to Intervals.icu calendar (code execution required) | ✅ Ready |
+| [agentic/fit-file-and-merger](agentic/fit-file-and-merger/) | Reusable multi-source FIT fusion, identity, verification, recovery and duplicate-cleanup reference | 📖 Reference |
 | [workout-library](workout-library/) | Structured workout templates for AI prescription | ✅ Ready |
-| [json-examples](json-examples/) | Example JSON output / current schema reference | ✅ Ready |
+| [json-examples](json-examples/) | Fictional `.example.json` schema references, never athlete data | ✅ Ready |
 
 ---
 
@@ -34,7 +35,7 @@ Best for: One-off exports, different time ranges, no GitHub needed.
 
 ### Option C: Local Automated Sync
 
-Best for: Agentic platforms (OpenClaw, Claude Code, Cowork, etc.) running on the same machine as your data. Always-fresh data, no GitHub needed, maximum privacy.
+Best for: Agentic platforms (OpenClaw, Claude Code, Cowork, Hermes, etc.) whose runtime can reach your data directory; where it cannot, the AI reads a cloud-synced copy via connector. Always-fresh data, no GitHub needed. See [Privacy & Security](../README.md#privacy--security).
 
 → [json-local-sync/SETUP.md](json-local-sync/SETUP.md)
 
@@ -53,13 +54,14 @@ Both methods use the same `sync.py` script and produce these files:
 | File | Purpose | Auto-created |
 |------|---------|--------------|
 | `latest.json` | Current 7-day training data for AI consumption | Yes |
-| `history.json` | Longitudinal data — daily (90d), weekly (180d), monthly (3y) | Yes |
+| `history.json` | Longitudinal data: daily (90d), weekly (180d), monthly (3y) | Yes |
 | `intervals.json` | Per-interval segment data for recent structured sessions | Yes |
 | `routes.json` | Route/terrain data for events with GPX/TCX attachments | When attachments exist |
+| `saved_workouts.json` | Read-only mirror of the athlete's Intervals.icu saved workouts | Every sync (refreshed on its own 6h throttle) |
 | `ftp_history.json` | FTP tracking for Benchmark Index | Yes |
-| `archive/` | Timestamped snapshots (auto-sync only) | Yes |
+| `archive/` | Daily UTC snapshots of `latest.json`, overwritten by later successful runs that day (GitHub workflow only, scheduled or Sync Now) | Yes |
 
-See [json-examples/](json-examples/) for example output showing the full current schema.
+See [json-examples/](json-examples/) for fictional example output of these files. They end in `.example.json`, are schema references only, and are never athlete data.
 
 ```bash
 # Manual local export
@@ -110,18 +112,18 @@ history.json
 ├── weekly_180d          → Week-by-week (last 180 days)
 └── monthly_1y/2y/3y     → Month-by-month (up to 3 years)
 
-intervals.json (on-demand — load when analyzing activities with has_intervals: true or has_dfa: true)
+intervals.json (on-demand: load when analyzing activities with has_intervals: true or has_dfa: true)
 ├── generated_at         → Timestamp
 ├── schema_version       → intervals.json contract version (integer)
 ├── version              → sync.py version
-├── fetch_state{}        → INTERNAL retry/fetch bookkeeping — not a consumer contract
+├── fetch_state{}        → INTERNAL retry/fetch bookkeeping; not a consumer contract
 └── activities[]         → Per-activity interval segments
     ├── activity_id      → Matches id in latest.json recent_activities
     ├── interval_summary → Group summary (e.g., "4x 9m56s 259w")
     ├── zone_basis       → What `zone` refers to: power | hr | pace (omitted if unresolved)
     └── intervals[]      → WORK + RECOVERY segments with power, HR, cadence, zone, timing
 
-routes.json (on-demand — load when planned events have has_terrain: true)
+routes.json (on-demand: load when planned events have has_terrain: true)
 ├── generated_at         → Timestamp
 ├── sync_version         → sync.py version
 ├── script_hash          → Cache invalidation hash
@@ -131,22 +133,42 @@ routes.json (on-demand — load when planned events have has_terrain: true)
     └── terrain_summary  → Distance, elevation, course character, polyline
         ├── climbs[]     → Cat 4–HC with position, gradient, coords
         └── descents[]   → Recovery windows with position, gradient, coords
+
+saved_workouts.json (on-demand: load when selecting, reusing, or discussing a saved workout)
+├── generated_at         → Timestamp
+├── schema_version       → saved_workouts.json contract version (integer)
+├── version              → sync.py version
+├── script_hash          → Producer identity hash
+├── target_resolution    → "as_stored"; targets exactly as Intervals.icu holds them
+├── refresh{}            → status (ok/stale/unavailable), consistency, last_success_at,
+│                          last_content_change_at, refresh_interval_secs
+├── counts{}             → folders, workouts (null when status is unavailable)
+├── fetch_state{}        → INTERNAL throttle/retry bookkeeping; not a consumer contract
+├── folders[]            → id, type, name, visibility, can_edit, read_only_workouts,
+│                          upstream_num_workouts, num_workouts, workout_ids[]
+└── workouts[]           → Complete saved workout definitions
+    ├── id/name/type/sub_type/indoor/description/tags
+    ├── moving_time, icu_training_load, icu_intensity, target, targets
+    ├── folder_id/folder_name → canonical membership (null when unfiled)
+    └── workout_doc      → Full structure as received; targets may be relative or absolute
 ```
 
-> **Note on terrain data location:** `routes.json` holds **planned-route** terrain (events with GPX/TCX attachments). **Completed-activity** terrain — what was actually ridden — lives embedded on each outdoor activity in `latest.json`'s `recent_activities[]` as `terrain_summary` and `weather_summary`. Same base schema, different time direction. See SECTION_11.md "Completed-Activity Terrain & Weather" for interpretation rules.
+> **Note on the two libraries:** `saved_workouts.json` mirrors the athlete's own saved workouts in Intervals.icu. It is **not** the [Workout Reference Library](workout-library/), which is the normative catalogue of session templates Section 11 designs plans from. Full description: [Saved Workouts Mirror](json-examples/README.md#saved-workouts-mirror).
+
+> **Note on terrain data location:** `routes.json` holds **planned-route** terrain (events with GPX/TCX attachments). **Completed-activity** terrain (what was actually ridden) lives embedded on each outdoor activity in `latest.json`'s `recent_activities[]` as `terrain_summary` and `weather_summary`. Same base schema, different time direction. See SECTION_11.md "Completed-Activity Terrain & Weather" for interpretation rules.
 
 ### Derived Metrics
 
-Pre-calculated values for Section 11 compliance — AI should use these, not calculate its own:
+Pre-calculated values for Section 11 compliance: AI should use these, not calculate its own:
 
 | Metric | Description |
 |--------|-------------|
 | `acwr` | Acute:Chronic Workload Ratio (0.8–1.3 optimal) |
 | `recovery_index` | HRV/RHR composite (>1.0 = good recovery) |
 | `monotony` / `strain` | Training variability (Foster) |
-| `grey_zone_percentage` | Z3 time % — minimize in polarized training |
-| `quality_intensity_percentage` | Z4+ time % — target ~20% |
-| `easy_time_ratio` | Easy time ratio — target ~0.80 |
+| `grey_zone_percentage` | Z3 time %: minimize in polarized training |
+| `quality_intensity_percentage` | Z4+ time %: target ~20% |
+| `easy_time_ratio` | Easy time ratio: target ~0.80 |
 | `consistency_index` | Plan adherence (completed/planned) |
 | `phase_detected` | Auto-detected: Build, Base, Peak, Taper, Deload, Recovery, Overreached, null |
 | `phase_detection` | Full phase detection object: phase, confidence, reason_codes, basis (dual-stream), phase_duration_weeks |

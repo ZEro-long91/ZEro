@@ -11,9 +11,9 @@
       "note": "All categorical wellness fields use a 1-4 positional scale where 1 = best state, 4 = worst state. Labels differ per field but direction is consistent. Fields are null when not reported.",
       "sleep_quality": {
         "1": "GREAT",
-        "2": "OK",
-        "3": "POOR",
-        "4": "WORST"
+        "2": "GOOD",
+        "3": "AVERAGE",
+        "4": "POOR"
       },
       "fatigue": {
         "1": "None",
@@ -1289,8 +1289,8 @@
       "planned_tss": 92,
       "duration_hours": 1.5,
       "duration_formatted": "1h30m",
-      "workout_summary": "10m @155W | 10m @185W | 5\u00d74m @310W / 3m rec | 15m @140W",
-      "description": null
+      "workout_summary": "10m @155W | 10m @185W | 5\u00d7(4m @310W + 3m) | 15m @140W",
+      "description": "- 10m 155w\n- 10m 185w\n\n5x\n- 4m 310w\n- 3m Recovery\n\n- 15m 140w"
     },
     {
       "id": 90100003,
@@ -1313,8 +1313,8 @@
       "planned_tss": 85,
       "duration_hours": 1.5,
       "duration_formatted": "1h30m",
-      "workout_summary": "10m @155W | 3\u00d712m @245W / 5m rec | 15m @140W",
-      "description": null
+      "workout_summary": "10m @155W | 3\u00d7(12m @245W + 5m) | 15m @140W",
+      "description": "- 10m 155w\n\n3x\n- 12m 245w\n- 5m Recovery\n\n- 15m 140w"
     },
     {
       "id": 90100005,
@@ -1337,7 +1337,7 @@
       "planned_tss": 65,
       "duration_hours": 1.75,
       "duration_formatted": "1h45m",
-      "workout_summary": "1h30m @160W | 3\u00d71m @280W / 2m rec | 10m @140W",
+      "workout_summary": "1h30m @160W | 3\u00d7(1m @280W + 2m) | 10m @140W",
       "description": null
     }
   ],
