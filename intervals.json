@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-07T13:53:11.483116",
+  "generated_at": "2026-11-07T18:35:33.783485",
   "version": "3.109",
   "script_hash": "f54c8dd00126",
   "scan_hours": 72,
@@ -3173,6 +3173,73 @@
           "zone": 1,
           "training_load": 0.088553004,
           "decoupling": 86.328995
+        }
+      ]
+    },
+    {
+      "activity_id": "i206996201",
+      "date": "2026-11-07",
+      "type": "Ride",
+      "name": "\u665a\u95f4\u9a91\u884c",
+      "interval_summary": [
+        "1x 2m52s 130w"
+      ],
+      "intervals": [
+        {
+          "type": "RECOVERY",
+          "duration_secs": 6,
+          "avg_power": 62,
+          "max_power": 105,
+          "avg_hr": 89,
+          "max_hr": 89,
+          "avg_cadence": 52.666668,
+          "zone": 1,
+          "decoupling": -38.842976
+        },
+        {
+          "type": "WORK",
+          "label": "172s@130w84rpm",
+          "duration_secs": 172,
+          "avg_power": 130,
+          "max_power": 153,
+          "avg_hr": 131,
+          "max_hr": 141,
+          "avg_cadence": 84.0814,
+          "zone": 3,
+          "training_load": 2.752649,
+          "decoupling": 8.8199625
+        },
+        {
+          "type": "RECOVERY",
+          "duration_secs": 1,
+          "avg_power": 122,
+          "max_power": 122,
+          "avg_hr": 141,
+          "max_hr": 141,
+          "avg_cadence": 86.0,
+          "zone": 2,
+          "training_load": 0.017564233
+        }
+      ]
+    },
+    {
+      "activity_id": "i206992947",
+      "date": "2026-11-07",
+      "type": "Ride",
+      "name": "\u665a\u95f4\u9a91\u884c",
+      "interval_summary": null,
+      "intervals": [
+        {
+          "type": "RECOVERY",
+          "duration_secs": 89,
+          "avg_power": 96,
+          "max_power": 155,
+          "avg_hr": 113,
+          "max_hr": 131,
+          "avg_cadence": 50.65116,
+          "zone": 2,
+          "training_load": 1.0432937,
+          "decoupling": 31.34928
         }
       ]
     }
