@@ -32,7 +32,7 @@ Usage:
 
 Credentials (checked in order):
   1. CLI args: --athlete-id, --api-key
-  2. .sync_config.json (same file sync.py uses)
+  2. .sync_config, then legacy .sync_config.json (same files sync.py uses)
   3. Environment: ATHLETE_ID, INTERVALS_KEY
 
 Output: JSON to stdout for agent parsing.
@@ -85,11 +85,461 @@ class WriteStatusError(Exception):
         self.detail = detail
 
 
+class RequestBudgetRefused(Exception):
+    """No request was sent; preserve prior data and attempt state."""
+
+
+# Shared request controller. Keep this block identical in both standalone scripts.
+class RequestBudget:
+    PROVIDER_DAILY_LIMIT = 8000
+    EXTERNAL_RESERVE = 1000
+    SYNC_DAILY_LIMIT = 7000
+    WINDOW_SECONDS = 900
+    WINDOW_LIMIT = 200
+    RUN_LIMIT = 128
+    SEND_INTERVAL = 0.5
+    CORE_PER_RUN = 4
+    UNKNOWN_RUN_LIMIT = 3
+    STATE_ENV = "SECTION11_STATE_DIR"
+    SCOPE = "local_data_folder_key_athlete"
+
+    @staticmethod
+    def fingerprint(athlete_id, api_key):
+        import hashlib
+        identity = json.dumps([str(athlete_id).strip(), api_key.strip()],
+                              separators=(",", ":")).encode()
+        return hashlib.sha256(identity).hexdigest()[:32]
+
+    @classmethod
+    def state_base(cls, data_dir, environ=None):
+        env = os.environ if environ is None else environ
+        if data_dir is None:
+            raise OSError("data folder unavailable")
+        if env.get(cls.STATE_ENV):
+            return Path(env[cls.STATE_ENV]).expanduser() / "request-budget"
+        return Path(data_dir) / "state" / "request-budget"
+
+    def __init__(self, data_dir, caller, error_type, identity, clock=None, sleep=None, jitter=None):
+        from datetime import timezone as utc_timezone
+        import random
+        self.utc = utc_timezone.utc
+        self.root = None
+        self.data_dir = Path(data_dir).resolve() if data_dir is not None else None
+        # Even an explicit shared base must not coordinate different data folders.
+        import hashlib
+        self.identity = hashlib.sha256(json.dumps(
+            [str(self.data_dir), identity], separators=(",", ":")).encode()).hexdigest()[:32]
+        self.caller, self.error_type = caller, error_type
+        self.clock = clock or time.time
+        self.sleep = sleep or time.sleep
+        self.jitter = jitter or random.random
+        self.count = 0
+        self.core_count = 0
+        self.degraded = False
+        self._last_local_send = None
+        self._local_hold = 0
+        self.stopped = False
+        self.refused = False
+        self.refusals = 0
+        self.started = False
+        self._handle = None
+        self._reserved = False
+        self._write_sent = False
+        try:
+            self.root = self.state_base(self.data_dir).resolve() / self.identity
+        except OSError:
+            self._degrade()
+
+    def _degrade(self):
+        if not self.degraded:
+            import sys
+            print("Warning: private request state unavailable; capacity unknown; "
+                  "at most 3 core reads, no optional reads or writes this run.",
+                  file=sys.stderr)
+        self.degraded = True
+
+    def _load_storage(self):
+        if self.degraded:
+            return
+        try:
+            self._load()
+        except self.error_type:
+            raise
+        except OSError:
+            self._degrade()
+
+    def _save_storage(self):
+        try:
+            self._save()
+        except OSError:
+            self._degrade()
+
+    def _refuse(self, reason):
+        self.refused = True
+        self.refusals += 1
+        raise self.error_type("request budget: " + reason)
+
+    def _atomic(self, path, value):
+        import tempfile
+        fd, name = tempfile.mkstemp(prefix=".state-", dir=path.parent)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as out:
+                json.dump(value, out, separators=(",", ":"), allow_nan=False)
+                out.flush()
+                os.fsync(out.fileno())
+            os.replace(name, path)
+        finally:
+            if os.path.exists(name):
+                os.unlink(name)
+
+    def _lock(self):
+        from contextlib import contextmanager
+
+        @contextmanager
+        def locked():
+            if self.degraded:
+                yield
+                return
+            if self._handle is not None:
+                yield
+                return
+            handle = None
+            try:
+                self.root.mkdir(mode=0o700, parents=True, exist_ok=True)
+                if os.name != "nt":
+                    os.chmod(self.root, 0o700)
+                    os.chmod(self.root.parent, 0o700)
+                    os.chmod(self.root.parent.parent, 0o700)
+                fd = os.open(self.root / "ledger.lock", os.O_RDWR | os.O_CREAT, 0o600)
+                handle = os.fdopen(fd, "a+b")
+                if os.name != "nt":
+                    os.fchmod(handle.fileno(), 0o600)
+                if os.name == "nt":
+                    import msvcrt
+                    handle.seek(0, 2)
+                    if handle.tell() == 0:
+                        handle.write(b"0")
+                        handle.flush()
+                    handle.seek(0)
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+                else:
+                    import fcntl
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except OSError:
+                if handle is not None:
+                    handle.close()
+                self._degrade()
+                yield
+                return
+            self._handle = handle
+            try:
+                yield
+            finally:
+                self._handle = None
+                handle.close()
+        return locked()
+
+    def _day(self, stamp):
+        return datetime.fromtimestamp(stamp, self.utc).strftime("%Y-%m-%d")
+
+    @staticmethod
+    def _number(value):
+        return type(value) in (float, int) and math.isfinite(value) and value >= 0
+
+    def _load(self):
+        now = self.clock()
+        if not self._number(now):
+            self._refuse("invalid clock")
+        anchor_path = self.root / "ledger.anchor"
+        state_path = self.root / "ledger.json"
+        try:
+            anchor = json.loads(anchor_path.read_text())
+            if not self._number(anchor["high_water"]) or not self._number(anchor.get("hold_until", 0)):
+                raise ValueError()
+            high = max(now, anchor["high_water"])
+        except FileNotFoundError:
+            if state_path.exists():
+                self._refuse("missing recovery anchor")
+            high = now
+            anchor = None
+        except (ValueError, KeyError, TypeError):
+            self._refuse("invalid recovery anchor")
+        day = self._day(high)
+        try:
+            state = json.loads(state_path.read_text())
+            def require(valid):
+                if not valid:
+                    raise ValueError("invalid private state")
+            require(state["version"] == 1 and isinstance(state["days"], dict))
+            require(self._number(state["high_water"]) and self._number(state["hold_until"]))
+            require(type(state["backoff"]) is int and 0 <= state["backoff"] <= 5)
+            require(isinstance(state["window"], list))
+            require(all(self._number(t) for t in state["window"]))
+            require(self._number(state["last_send"]))
+            require(isinstance(state["runs"], list) and all(self._number(t) for t in state["runs"]))
+            for key, row in state["days"].items():
+                require(self._day(datetime.strptime(key, "%Y-%m-%d").replace(tzinfo=self.utc).timestamp()) == key)
+                require(isinstance(row, dict))
+                for caller in ("sync", "push"):
+                    require(isinstance(row[caller], dict))
+                    require(all(type(n) is int and n >= 0 for n in row[caller].values()))
+            high = max(high, state["high_water"])
+            day = self._day(high)
+        except (FileNotFoundError, ValueError, KeyError, TypeError):
+            # A durable anchor distinguishes first use from lost/corrupt state.
+            # Exhaust the anchored day; repeated restarts cannot replenish it.
+            state = {"version": 1, "days": {}, "window": [], "runs": [],
+                     "high_water": high, "hold_until": high if anchor else 0,
+                     "last_send": high if anchor else 0, "backoff": 0,
+                     "last_run": {}}
+            if anchor:
+                anchored_day = self._day(anchor["high_water"])
+                state["days"][anchored_day] = {
+                    "sync": {"recovery_unknown": self.SYNC_DAILY_LIMIT},
+                    "push": {"recovery_unknown": self.EXTERNAL_RESERVE}}
+                state["hold_until"] = max(anchor["high_water"] + self.WINDOW_SECONDS,
+                                          anchor.get("hold_until", 0))
+        state["high_water"] = high
+        state["window"] = [t for t in state["window"] if t > high - self.WINDOW_SECONDS]
+        state["days"].setdefault(day, {"sync": {}, "push": {}})
+        # Preserve all daily counts. The only reset is selecting a later UTC day.
+        if not self.started:
+            if self.caller == "sync":
+                state["runs"] = (state["runs"] + [high])[-16:]
+            state["last_run"] = {"caller": self.caller, "count": 0, "core": 0, "at": high}
+            self.started = True
+        self.state, self.now, self.day = state, high, day
+        self._save()
+        if now < high:
+            self._refuse("clock rollback; waiting for the recorded clock")
+
+    def _save(self):
+        # Write anchor first: interruption cannot turn a lost state into first use.
+        self._atomic(self.root / "ledger.anchor", {"high_water": self.state["high_water"],
+                                                 "hold_until": self.state["hold_until"]})
+        self._atomic(self.root / "ledger.json", self.state)
+
+    def _effective_allowances(self):
+        reported = getattr(self, "state", {}).get("provider_limit", self.PROVIDER_DAILY_LIMIT)
+        if type(reported) is not int or reported < 0:
+            reported = self.PROVIDER_DAILY_LIMIT
+        daily = min(self.PROVIDER_DAILY_LIMIT, reported)
+        return daily, min(self.SYNC_DAILY_LIMIT, max(0, daily - self.EXTERNAL_RESERVE))
+
+    def _remaining(self):
+        row = self.state["days"][self.day]
+        sync = sum(row["sync"].values())
+        total = sync + sum(row["push"].values())
+        daily, sync_limit = self._effective_allowances()
+        return min(daily - total, sync_limit - sync) if self.caller == "sync" else daily - total
+
+    def expected_core(self):
+        if hasattr(self, "scheduled_reserve"):
+            return self.scheduled_reserve()
+        runs = self.state["runs"]
+        gaps = [b - a for a, b in zip(runs, runs[1:]) if b > a]
+        # Until spacing is observed, use the existing 30-minute hosted cadence.
+        spacing = max(60, min(gaps[-8:])) if gaps else 1800
+        tomorrow = (datetime.fromtimestamp(self.now, self.utc).replace(
+            hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)).timestamp()
+        future = max(0, math.ceil((tomorrow - self.now) / spacing) - 1)
+        current = max(0, self.CORE_PER_RUN - self.core_count)
+        return future * self.CORE_PER_RUN + current
+
+    def _admit(self, priority, needed=1, method="get"):
+        hold = max(self._local_hold, getattr(self, "state", {}).get("hold_until", 0))
+        if self.stopped or self.clock() < hold:
+            self._refuse("provider hold active")
+        if self.degraded:
+            if priority != "core" or method != "get" or self.count + needed > self.UNKNOWN_RUN_LIMIT:
+                self._refuse("capacity unknown; conservative core-read allowance only")
+            return
+        if self.count + needed > self.RUN_LIMIT:
+            self._refuse("invocation allowance exhausted")
+        if len(self.state["window"]) + needed > self.WINDOW_LIMIT:
+            self._refuse("rolling allowance exhausted")
+        if self._remaining() < needed:
+            self._refuse("daily allowance exhausted")
+        if priority == "optional" and self._remaining() < needed + self.expected_core():
+            self._refuse("remaining allowance reserved for core reads")
+
+    def reserve_write(self):
+        from contextlib import contextmanager
+
+        @contextmanager
+        def reserved():
+            if self._reserved:
+                yield
+                return
+            with self._lock():
+                self._load_storage()
+                if self.degraded:
+                    self._refuse("capacity unknown; cannot reserve a verified write")
+                self._admit("core", 3)
+                self._reserved, self._write_sent = True, False
+                try:
+                    yield
+                finally:
+                    self._reserved = False
+        return reserved()
+
+    def _hold(self, response):
+        from email.utils import parsedate_to_datetime
+        received = self.clock()
+        raw = str(getattr(response, "headers", {}).get("Retry-After", "")).strip()
+        delay = None
+        if raw.isascii() and raw.isdigit():
+            delay = int(raw)
+        elif raw:
+            try:
+                stamp = parsedate_to_datetime(raw)
+                if stamp.tzinfo is not None:
+                    delay = max(0, stamp.timestamp() - received)
+            except (ValueError, TypeError, OverflowError):
+                pass
+        state = getattr(self, "state", {})
+        if delay is None:
+            delay = min(900, 60 * 2 ** state.get("backoff", 0) * (1 + self.jitter() * .25))
+        self._local_hold = max(self._local_hold, received + delay)
+        self.stopped = True
+        if not self.degraded:
+            self.state["backoff"] = min(5, self.state["backoff"] + 1)
+            self.state["high_water"] = max(self.state["high_water"], received)
+            self.state["hold_until"] = max(self.state["hold_until"], self._local_hold)
+            self._save_storage()
+
+    def private_log(self, line):
+        if self.degraded or self.root is None:
+            return
+        try:
+            fd = os.open(self.root / "budget.log", os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+            with os.fdopen(fd, "a", encoding="utf-8") as out:
+                if os.name != "nt":
+                    os.fchmod(out.fileno(), 0o600)
+                out.write(line + "\n")
+        except OSError:
+            self._degrade()
+
+    def _provider_headers(self, response):
+        if self.degraded:
+            return
+        headers = getattr(response, "headers", {})
+        seen = self.state.setdefault("header_days", {}).setdefault(self._day(self.clock()), [])
+        for name in ("X-RateLimit-Limit", "X-RateLimit-Remaining"):
+            raw = headers.get(name)
+            if raw is None:
+                continue
+            safe = "".join(c for c in str(raw)[:256] if " " <= c <= "~")
+            if name not in seen:
+                self.private_log("Provider header " + name + ": " + safe)
+                seen.append(name)
+            if name == "X-RateLimit-Limit":
+                parts = safe.split(",")
+                if len(parts) == 2 and all(p.strip().isascii() and p.strip().isdigit() for p in parts):
+                    self.state["provider_limit"] = min(
+                        self.state.get("provider_limit", self.PROVIDER_DAILY_LIMIT), int(parts[1]))
+        self._save_storage()
+
+    def _dirty_write(self, url):
+        from urllib.parse import urlsplit
+        path = urlsplit(url).path.split("/")
+        if path[3:4] == ["activity"] and len(path) > 4:
+            groups = ["activities", "messages:" + path[4]]
+        elif len(path) > 5 and path[5] == "events":
+            groups = ["calendar", "health_events", "wellness"]
+        else:
+            groups = ["profile", "wellness", "calendar", "aggregate_curves"]
+        dirty = self.state.setdefault("dirty", {})
+        generation = self.state.get("dirty_generation", 0) + 1
+        self.state["dirty_generation"] = generation
+        for group in groups:
+            dirty[group] = generation
+        self._save_storage()
+        if self.degraded:
+            self._refuse("dirty generation could not be persisted")
+
+    def request(self, transport, method, url, endpoint_class, priority="optional", **kwargs):
+        # No automatic redirects: a second send must never escape admission.
+        kwargs["allow_redirects"] = False
+        with self._lock():
+            self._load_storage()
+            needed = 1
+            if self._reserved and not self._write_sent:
+                needed = 3 if method == "get" else 2
+            if method != "get" and not self._reserved:
+                self._refuse("write has no pre-read/write/verification reservation")
+            self._admit(priority, needed, method)
+            last = max(self._last_local_send or 0, getattr(self, "state", {}).get("last_send", 0))
+            delay = max(0, last + self.SEND_INTERVAL - self.clock())
+            if delay:
+                self.sleep(delay)
+                self._load_storage()
+                self._admit(priority, needed, method)
+                if self.clock() < last + self.SEND_INTERVAL:
+                    self._refuse("pacing clock did not advance")
+            if not self.degraded:
+                row = self.state["days"][self.day][self.caller]
+                row[endpoint_class] = row.get(endpoint_class, 0) + 1
+                self.state["window"].append(self.now)
+                self.state["last_send"] = self.now
+                self.state["last_run"] = {"caller": self.caller, "count": self.count + 1,
+                                          "core": self.core_count + int(priority == "core"), "at": self.now}
+                self._save_storage()
+                if self.degraded:
+                    self._admit(priority, needed, method)
+            self.count += 1
+            self.core_count += int(priority == "core")
+            self._last_local_send = self.clock()
+            if method != "get":
+                self._dirty_write(url)
+                self._write_sent = True
+            response = getattr(transport, method)(url, **kwargs)
+            self._provider_headers(response)
+            if response.status_code == 429:
+                self._hold(response)
+            elif not self.degraded and 200 <= response.status_code < 300:
+                self.state["backoff"] = 0
+                self._save_storage()
+            return response
+
+    def summary(self):
+        if self.degraded:
+            return (f"Intervals requests: run={self.count}, today=unknown, allowance_left=unknown, "
+                    f"hold_until={self._local_hold or 'unknown'}, private_state=unavailable, scope={self.SCOPE}")
+        if not self.started:
+            return f"Intervals requests: run=0, today=unknown, allowance_left=unknown, hold_until=unknown, scope={self.SCOPE}"
+        with self._lock():
+            self._load_storage()
+            if self.degraded:
+                return self.summary()
+            total = sum(sum(v.values()) for v in self.state["days"][self.day].values())
+            hold = self.state["hold_until"] if self.state["hold_until"] > self.now else None
+            return (f"Intervals requests: run={self.count}, today={total}, "
+                    f"allowance_left={max(0, self._remaining())}, hold_until={hold}, scope={self.SCOPE}")
+# End shared request controller.
+
+def budgeted_write(operation):
+    """Reserve the whole safety sequence without changing preview commands."""
+    from functools import wraps
+
+    @wraps(operation)
+    def run(self, *args, **kwargs):
+        reserved = False
+        try:
+            with self.request_budget.reserve_write():
+                reserved = True
+                return operation(self, *args, **kwargs)
+        except RequestBudgetRefused as error:
+            outcome = "unknown" if reserved and self.request_budget._write_sent else "not_applied"
+            return {"success": False, "outcome": outcome, "error": str(error)}
+    return run
+
+
 class IntervalsPush:
     """Manage planned workouts on Intervals.icu calendar."""
 
     BASE_URL = "https://intervals.icu/api/v1"
-    VERSION = "0.7"
+    VERSION = "0.8"
 
     # Athlete path ID (v0.7). Intervals.icu uses `i` + digits for current accounts,
     # digits only for early accounts (their Strava athlete ID), and `0` for the
@@ -147,15 +597,15 @@ class IntervalsPush:
     # Valid threshold fields for set-threshold
     THRESHOLD_FIELDS = {"ftp", "indoor_ftp", "lthr", "max_hr", "threshold_pace"}
 
-    def __init__(self, athlete_id: str, api_key: str):
+    def __init__(self, athlete_id: str, api_key: str, data_dir=None):
         if not athlete_id or not api_key:
             raise ValueError("athlete_id and api_key are required")
         # The rejected value is never echoed: a misplaced API key would land in logs.
         if not isinstance(athlete_id, str):
             raise ValueError(
                 f"athlete_id must be a string, got {type(athlete_id).__name__}. "
-                "Quote it in .sync_config.json. "
-                "Check .sync_config.json / ATHLETE_ID / --athlete-id."
+                "Quote it in .sync_config. "
+                "Check .sync_config / ATHLETE_ID / --athlete-id."
             )
         athlete_id = athlete_id.strip()
         api_key = api_key.strip()
@@ -164,10 +614,45 @@ class IntervalsPush:
                 "athlete_id is not a valid Intervals.icu athlete ID. Use it exactly as "
                 "shown in Intervals.icu Settings: `i` followed by digits (e.g. "
                 "`i123456`), or digits only for some early accounts. "
-                "Check .sync_config.json / ATHLETE_ID / --athlete-id."
+                "Check .sync_config / ATHLETE_ID / --athlete-id."
             )
         self.athlete_id = athlete_id
+        self._budget_identity = RequestBudget.fingerprint(athlete_id, api_key)
         self.auth = base64.b64encode(f"API_KEY:{api_key}".encode()).decode()
+        self.data_dir = self.find_data_dir(data_dir)
+
+    _budget_factory = RequestBudget
+
+    @staticmethod
+    def find_data_dir(explicit=None):
+        if explicit is not None:
+            return Path(explicit).expanduser().resolve()
+        source = Path(__file__).resolve()
+        for parent in source.parents:
+            if parent.name == "section11" and (parent.parent / "latest.json").is_file():
+                return parent.parent
+        cwd = Path.cwd()
+        return cwd if (cwd / "latest.json").is_file() else None
+
+    @property
+    def request_budget(self):
+        if not hasattr(self, "_request_budget"):
+            if self.data_dir is None:
+                print("Warning: data folder not found; use --data-dir or run beside latest.json. "
+                      "Request capacity is unknown.", file=sys.stderr)
+            self._request_budget = self._budget_factory(
+                self.data_dir, "push", RequestBudgetRefused, self._budget_identity)
+        return self._request_budget
+
+    def _intervals_request(self, method, url, **kwargs):
+        from urllib.parse import urlsplit
+        if urlsplit(url).hostname != "intervals.icu":
+            raise ValueError("unexpected API origin")
+        endpoint = "verification" if self.request_budget._write_sent else "pre_read"
+        if method != "get":
+            endpoint = "write_" + method
+        return self.request_budget.request(
+            _ensure_requests(), method, url, endpoint, "core", **kwargs)
 
     def _headers(self) -> dict:
         return {
@@ -277,6 +762,8 @@ class IntervalsPush:
             except (Timeout, ConnectionError_) as e:
                 error = e
             else:
+                if response.status_code == 429:
+                    return response
                 if response.status_code not in self.READ_RETRY_STATUSES:
                     return response
                 if response.status_code in (429, 503):
@@ -430,7 +917,7 @@ class IntervalsPush:
         """GET from Intervals.icu API."""
         requests = _ensure_requests()
         response = self._read_with_retry(
-            lambda: requests.get(self._url(endpoint), headers=self._headers(),
+            lambda: self._intervals_request("get", self._url(endpoint), headers=self._headers(),
                                  params=params, timeout=self.READ_TIMEOUT))
         response.raise_for_status()
         return response.json()
@@ -438,7 +925,7 @@ class IntervalsPush:
     def _post(self, endpoint: str, payload) -> any:
         """POST to Intervals.icu API. One attempt, never retried."""
         requests = _ensure_requests()
-        response = requests.post(self._url(endpoint), headers=self._headers(),
+        response = self._intervals_request("post", self._url(endpoint), headers=self._headers(),
                                  json=payload, timeout=self.WRITE_TIMEOUT)
         self._check_write_status(response)
         return response.json()
@@ -446,7 +933,7 @@ class IntervalsPush:
     def _put(self, endpoint: str, payload: dict) -> any:
         """PUT to Intervals.icu API. One attempt, never retried."""
         requests = _ensure_requests()
-        response = requests.put(self._url(endpoint), headers=self._headers(),
+        response = self._intervals_request("put", self._url(endpoint), headers=self._headers(),
                                 json=payload, timeout=self.WRITE_TIMEOUT)
         self._check_write_status(response)
         return response.json()
@@ -454,7 +941,7 @@ class IntervalsPush:
     def _delete(self, endpoint: str) -> bool:
         """DELETE on Intervals.icu API. One attempt, never retried."""
         requests = _ensure_requests()
-        response = requests.delete(self._url(endpoint), headers=self._headers(),
+        response = self._intervals_request("delete", self._url(endpoint), headers=self._headers(),
                                    timeout=self.WRITE_TIMEOUT)
         self._check_write_status(response)
         return True
@@ -496,6 +983,9 @@ class IntervalsPush:
         today = datetime.now().date()
         if workout_date < today:
             return False, f"date {date} is in the past - planned workouts must be today or future"
+
+        if "time" in workout and not self._valid_time(workout["time"]):
+            return False, "time must be HH:MM local (00:00 through 23:59)"
 
         wtype = workout.get("type", "Ride")
         if wtype not in self.VALID_TYPES:
@@ -555,7 +1045,7 @@ class IntervalsPush:
         """Convert a validated workout dict to an Intervals.icu event payload."""
         event = {
             "category": workout.get("category", "WORKOUT"),
-            "start_date_local": f"{workout['date']}T00:00:00",
+            "start_date_local": f"{workout['date']}T{workout.get('time', '00:00')}:00",
             "name": workout["name"],
             "type": workout.get("type", "Ride"),
         }
@@ -621,10 +1111,12 @@ class IntervalsPush:
                 duration = None
         start = evt.get("start_date_local")
         date = start[:10] if isinstance(start, str) else None
+        local_time = start[11:] if isinstance(start, str) and len(start) > 11 and start[10] == "T" else None
         return {
             "id": evt.get("id"),
             "name": evt.get("name"),
             "date": date,
+            "time": local_time,
             "type": evt.get("type"),
             "category": evt.get("category"),
             "duration_minutes": duration,
@@ -637,6 +1129,7 @@ class IntervalsPush:
         """Validate and push a single workout."""
         return self.push_workouts([workout])
 
+    @budgeted_write
     def push_workouts(self, workouts: list) -> dict:
         """
         Validate and push multiple workouts through the bulk upsert endpoint.
@@ -821,6 +1314,7 @@ class IntervalsPush:
             summary.append({
                 "name": w.get("name"),
                 "date": w.get("date"),
+                "time": w.get("time", "00:00"),
                 "type": w.get("type", "Ride"),
                 "duration_minutes": w.get("duration_minutes"),
                 "tss": w.get("tss"),
@@ -902,6 +1396,7 @@ class IntervalsPush:
         except Exception as e:
             return {"state": "error", "error": self._handle_error(e)}
 
+    @budgeted_write
     def update_event(self, event_id: int, updates: dict) -> dict:
         """Partial update of an event, gated by a pre-write read."""
         pre = self._event_presence(event_id)
@@ -945,8 +1440,29 @@ class IntervalsPush:
             "the event does not carry every requested value. It may hold the "
             "pre-write state or a concurrent edit; neither proves the write failed.")
 
-    def preview_move(self, event_id: int, new_date: str) -> dict:
+    @staticmethod
+    def _valid_time(value):
+        return isinstance(value, str) and re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", value) is not None
+
+    @staticmethod
+    def _move_start(event, new_date, new_time):
+        if new_time is not None:
+            return f"{new_date}T{new_time}:00"
+        raw = event.get("start_date_local")
+        if raw in (None, "") or (isinstance(raw, str) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", raw)):
+            return f"{new_date}T00:00:00"
+        try:
+            if not isinstance(raw, str) or "T" not in raw:
+                raise ValueError()
+            datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        except ValueError:
+            raise ValueError("existing start time is invalid; supply --time HH:MM")
+        return new_date + "T" + raw.split("T", 1)[1]
+
+    def preview_move(self, event_id: int, new_date: str, new_time: str = None) -> dict:
         """Preview moving a workout to a new date."""
+        if new_time is not None and not self._valid_time(new_time):
+            return {"success": False, "mode": "preview", "error": "time must be HH:MM local"}
         # Validate new date
         try:
             target_date = datetime.strptime(new_date, "%Y-%m-%d").date()
@@ -964,6 +1480,10 @@ class IntervalsPush:
 
         evt = current["event"]
         old_date = (evt.get("start_date_local") or "")[:10]
+        try:
+            start = self._move_start(evt, new_date, new_time)
+        except ValueError as error:
+            return {"success": False, "mode": "preview", "error": str(error)}
 
         return {
             "success": True,
@@ -972,11 +1492,16 @@ class IntervalsPush:
             "name": evt.get("name"),
             "from_date": old_date,
             "to_date": new_date,
+            "from_time": self._summarize_event(evt).get("time"),
+            "to_time": start.split("T", 1)[1],
             "message": "Preview only - add --confirm to move this workout",
         }
 
-    def move_event(self, event_id: int, new_date: str) -> dict:
+    @budgeted_write
+    def move_event(self, event_id: int, new_date: str, new_time: str = None) -> dict:
         """Move a workout to a new date."""
+        if new_time is not None and not self._valid_time(new_time):
+            return {"success": False, "outcome": "not_applied", "error": "time must be HH:MM local"}
         # Validate
         try:
             target_date = datetime.strptime(new_date, "%Y-%m-%d").date()
@@ -989,9 +1514,17 @@ class IntervalsPush:
             return {"success": False, "outcome": "not_applied",
                     "error": f"date {new_date} is in the past"}
 
-        return self.update_event(event_id, {
-            "start_date_local": f"{new_date}T00:00:00",
-        })
+        pre = self._event_presence(event_id)
+        if pre["state"] == "error":
+            return self._pre_read_failure(pre["error"])
+        if pre["state"] == "absent":
+            return {"success": False, "outcome": "not_applied",
+                    "error": f"event {event_id} does not exist; nothing was written"}
+        try:
+            start = self._move_start(pre["event"], new_date, new_time)
+        except ValueError as error:
+            return {"success": False, "outcome": "not_applied", "error": str(error)}
+        return self._apply_event_update(event_id, {"start_date_local": start})
 
     # ── Delete ─────────────────────────────────────────────────────
 
@@ -1012,6 +1545,7 @@ class IntervalsPush:
             "message": "Preview only - add --confirm to delete this workout",
         }
 
+    @budgeted_write
     def delete_event(self, event_id: int) -> dict:
         """
         Delete a single event.
@@ -1059,7 +1593,7 @@ class IntervalsPush:
         """GET from an absolute Intervals.icu URL."""
         requests = _ensure_requests()
         response = self._read_with_retry(
-            lambda: requests.get(url, headers=self._headers(),
+            lambda: self._intervals_request("get", url, headers=self._headers(),
                                  timeout=self.READ_TIMEOUT))
         response.raise_for_status()
         return response.json()
@@ -1067,7 +1601,7 @@ class IntervalsPush:
     def _post_raw(self, url: str, payload) -> any:
         """POST to an absolute Intervals.icu URL. One attempt, never retried."""
         requests = _ensure_requests()
-        response = requests.post(url, headers=self._headers(), json=payload,
+        response = self._intervals_request("post", url, headers=self._headers(), json=payload,
                                  timeout=self.WRITE_TIMEOUT)
         self._check_write_status(response)
         return response.json()
@@ -1075,7 +1609,7 @@ class IntervalsPush:
     def _put_raw(self, url: str, payload: dict) -> any:
         """PUT to an absolute Intervals.icu URL. One attempt, never retried."""
         requests = _ensure_requests()
-        response = requests.put(url, headers=self._headers(), json=payload,
+        response = self._intervals_request("put", url, headers=self._headers(), json=payload,
                                 timeout=self.WRITE_TIMEOUT)
         self._check_write_status(response)
         return response.json()
@@ -1137,6 +1671,7 @@ class IntervalsPush:
             "message": "Preview only - add --confirm to update thresholds",
         }
 
+    @budgeted_write
     def set_threshold(self, sport: str, updates: dict) -> dict:
         """Update sport-specific thresholds."""
         sport_type = self._resolve_sport_type(sport)
@@ -1236,6 +1771,7 @@ class IntervalsPush:
 
         return result
 
+    @budgeted_write
     def annotate_activity(self, activity_id: str, message: str, chat: bool = False) -> dict:
         """Add a note to a completed activity. Default: description. --chat: messages endpoint."""
         if not message or not message.strip():
@@ -1391,6 +1927,7 @@ class IntervalsPush:
             "note": "Preview only - add --confirm to add this note",
         }
 
+    @budgeted_write
     def annotate_event(self, event_id: int, message: str) -> dict:
         """Add a NOTE: line to a planned workout's description."""
         text = message.strip() if message else ""
@@ -1444,9 +1981,11 @@ def _reject_local(args, error: str):
 def _load_credentials(args) -> Tuple[Optional[str], Optional[str]]:
     """Load credentials from CLI args, config file, or environment."""
     config = {}
-    if os.path.exists(".sync_config.json"):
-        with open(".sync_config.json") as f:
-            config = json.load(f)
+    for name in (".sync_config", ".sync_config.json"):
+        if os.path.exists(name):
+            with open(name) as f:
+                config = json.load(f)
+            break
 
     athlete_id = (
         getattr(args, "athlete_id", None)
@@ -1491,6 +2030,8 @@ def _output(result: dict):
 def _build_workouts_from_args(args) -> list:
     """Build workout list from CLI args or --json file."""
     if args.json:
+        if args.time is not None:
+            _reject_local(args, "--time is for a single workout; JSON uses per-workout time")
         try:
             with open(args.json) as f:
                 data = json.load(f)
@@ -1520,6 +2061,8 @@ def _build_workouts_from_args(args) -> list:
         workout["target"] = args.target
     if args.indoor:
         workout["indoor"] = True
+    if args.time is not None:
+        workout["time"] = args.time
 
     return [workout]
 
@@ -1544,9 +2087,9 @@ def _cmd_list(args, pusher: IntervalsPush):
 def _cmd_move(args, pusher: IntervalsPush):
     """Handle move subcommand."""
     if not args.confirm:
-        _output(pusher.preview_move(args.event_id, args.date))
+        _output(pusher.preview_move(args.event_id, args.date, args.time))
     else:
-        _output(pusher.move_event(args.event_id, args.date))
+        _output(pusher.move_event(args.event_id, args.date, args.time))
 
 
 def _cmd_delete(args, pusher: IntervalsPush):
@@ -1604,12 +2147,65 @@ def _cmd_annotate(args, pusher: IntervalsPush):
             _output(pusher.annotate_event(args.event_id, args.message))
 
 
+def workflow_arguments(inputs, payload_path):
+    """Preserve hosted dispatch inputs as literal argv, with preview by default."""
+    if not isinstance(inputs, dict) or any(not isinstance(v, str) for v in inputs.values()):
+        raise ValueError('workflow inputs must be strings')
+    command = inputs.get('command') or 'push'
+    fields = {
+        'push': (), 'list': ('oldest', 'newest'), 'move': ('event_id', 'date', 'time'),
+        'delete': ('event_id',), 'set-threshold': ('sport', 'ftp', 'indoor_ftp', 'lthr', 'max_hr'),
+        'annotate': ('activity_id', 'event_id', 'message'),
+    }
+    if command not in fields or inputs.get('confirm', 'false') not in ('true', 'false'):
+        raise ValueError('invalid workflow command or confirmation')
+    if inputs.get('chat', 'false') not in ('true', 'false'):
+        raise ValueError('invalid workflow chat flag')
+    if inputs.get('time') and command != 'move':
+        raise ValueError('time input is only valid for move; push uses per-workout JSON time')
+    if inputs.get('time') and not re.fullmatch(r'([01][0-9]|2[0-3]):[0-5][0-9]', inputs['time']):
+        raise ValueError('time must be HH:MM local')
+    argv = [command]
+    if command == 'push':
+        value = inputs.get('workouts', '')
+        if not value or len(value.encode()) > 1024 * 1024:
+            raise ValueError('workouts input is required and must be at most 1 MiB')
+        json.loads(value)
+        with Path(payload_path).open('x', encoding='utf-8') as handle:
+            handle.write(value)
+        argv.extend(['--json', str(payload_path)])
+    for name in fields[command]:
+        value = inputs.get(name, '')
+        if value:
+            argv.append('--' + name.replace('_', '-') + '=' + value)
+    if command == 'annotate' and inputs.get('chat') == 'true':
+        argv.append('--chat')
+    if command != 'list' and inputs.get('confirm') == 'true':
+        argv.append('--confirm')
+    return argv
+
+
 def main():
+    if sys.argv[1:] == ['--workflow']:
+        try:
+            event = json.loads(Path(os.environ['GITHUB_EVENT_PATH']).read_bytes())
+            athlete, key = os.environ.get('ATHLETE_ID', ''), os.environ.get('INTERVALS_KEY', '')
+            if not athlete or not key:
+                raise ValueError('ATHLETE_ID and INTERVALS_KEY secrets are required')
+            for value in (athlete, key, athlete[:5], key[:5]):
+                print('::add-mask::' + value, flush=True)
+            payload_path = Path(os.environ['RUNNER_TEMP']) / 'section11-workouts.json'
+            args = workflow_arguments(event.get('inputs', {}), payload_path)
+            sys.argv = [sys.argv[0], '--athlete-id', athlete, '--api-key', key, *args]
+        except (ValueError, KeyError, OSError) as exc:
+            print(json.dumps({'success': False, 'outcome': 'not_applied', 'error': str(exc)}))
+            raise SystemExit(1)
     parser = argparse.ArgumentParser(
         description="Manage planned workouts on Intervals.icu calendar"
     )
     parser.add_argument("--athlete-id", help="Intervals.icu athlete ID")
     parser.add_argument("--api-key", help="Intervals.icu API key")
+    parser.add_argument("--data-dir", help="Data folder shared with sync.py (contains latest.json)")
 
     subparsers = parser.add_subparsers(dest="command")
 
@@ -1617,6 +2213,7 @@ def main():
     push_parser = subparsers.add_parser("push", help="Add workouts to calendar")
     push_parser.add_argument("--name", help="Workout name (required unless --json)")
     push_parser.add_argument("--date", help="Date YYYY-MM-DD (required unless --json)")
+    push_parser.add_argument("--time", help="Local start HH:MM for a single workout; JSON uses per-workout time")
     push_parser.add_argument("--type", default="Ride", help="Activity type (default: Ride)")
     push_parser.add_argument("--description", default="", help="Workout description")
     push_parser.add_argument("--duration", type=float, help="Planned duration in minutes")
@@ -1637,6 +2234,7 @@ def main():
     move_parser = subparsers.add_parser("move", help="Move a workout to a different date")
     move_parser.add_argument("--event-id", type=int, required=True, help="Event ID to move")
     move_parser.add_argument("--date", required=True, help="New date YYYY-MM-DD")
+    move_parser.add_argument("--time", help="Local start HH:MM; omitted preserves the existing time")
     move_parser.add_argument("--confirm", action="store_true", help="Execute write (default is preview)")
 
     # ── delete ──
@@ -1667,7 +2265,7 @@ def main():
     # --athlete-id/--api-key, before subcommand-specific flags like --json).
     known_commands = {"push", "list", "move", "delete", "set-threshold", "annotate"}
     # Top-level flags that consume a value
-    top_level_value_flags = {"--athlete-id", "--api-key"}
+    top_level_value_flags = {"--athlete-id", "--api-key", "--data-dir"}
 
     argv = sys.argv[1:]
     has_subcommand = False
@@ -1695,11 +2293,11 @@ def main():
         _reject_local(
             args,
             "Missing credentials. Provide via --athlete-id/--api-key, "
-            ".sync_config.json, or env vars ATHLETE_ID/INTERVALS_KEY")
+            ".sync_config (or legacy .sync_config.json), or env vars ATHLETE_ID/INTERVALS_KEY")
 
     pusher = None
     try:
-        pusher = IntervalsPush(athlete_id, api_key)
+        pusher = IntervalsPush(athlete_id, api_key, data_dir=args.data_dir)
     except ValueError as e:
         _reject_local(args, str(e))
 

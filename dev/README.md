@@ -16,18 +16,15 @@ run does not reach.
 
 `--init` installs exactly the files listed in the update manifest, plus the
 manifest itself, after checking each file against the hash the manifest records.
+Date-release installations also include `.section11-release.json`, a verified
+provenance receipt. Local updates retain one rollback ZIP outside `section11/`,
+short-term recovery until the next changing install, not a backup;
+neither `.section11-state/` nor private data belongs in release packages.
 `--update` refreshes the same list. The manifest generator excludes `.github`,
 other hidden paths, this repository-root `dev/` folder, dependency directories and
 cache directories, so none of them reaches an athlete installation. New tests are
-still committed here; they are not shipped through athlete updates.
-
-Installations created by an older `--init` may still hold `section11/.github` and
-`section11/dev`, which `--update` does not refresh. Where `section11/` is not a
-Git checkout, `--update` offers to move them to `section11-legacy-github/` and
-`section11-legacy-dev/` beside `section11/`. It asks only in an interactive
-terminal, moves them only when the word `move` is typed there, and never deletes
-them. A `dev/` folder that stays is left out of
-the orphan cleanup.
+still committed here; they are not shipped through athlete updates. The maintainer
+release tools are described in [RELEASING.md](RELEASING.md), which is not shipped either.
 
 For development or reviews that depend on the tests, the website or GitHub
 workflows, use a current Git checkout or a verified, commit-pinned
@@ -36,6 +33,128 @@ as a complete current repository. This distinction requires no change to athlete
 setup.
 
 ## Running
+
+`test_weather_demand_workflows.py` covers new point/hour demand through a closed refresh gate, unchanged-demand throttling, failure/Retry-After migration, point batching, bounded timeout splitting and cached repeats. It also checks optional repository-variable wiring and the managed push dispatcher's time argument construction with synthetic inputs, including malformed values. No workflow is dispatched.
+
+`test_data_overview.py` exercises companion discovery, relative paths, output placement, local-time/DST labels, 16-point wind directions and compact snapshots after display additions. It loads the exact self-contained Python publication rules from `examples/maintenance/validate_data.py` for offline validation, fallback, deletion and reset/retry restoration tests. No GitHub or Git operation is needed. Athlete setups install the complete managed release and matching owner-controlled wrappers; see [updates](../examples/maintenance/UPDATING.md).
+
+`test_fix_round.py` turns the twelve undecided-behaviour probes into regression
+checks for Local's ten-minute allowance and the legacy hosted daily rule, reruns and failure claims, same-date notices,
+rollback beyond unrelated history, exact prior edited trees, no-op slot retention,
+README setup and bounded
+release discovery. Only the common local transaction schema 3 remains; release
+receipts retain schema 1. Retired installers, launchers and the prototype kit are
+removed. `test_fix_round2.py` turns repeat-audit probes R01-R10 into acceptance
+regressions for complete metadata repair, verified custom guidance, early attempt
+claims, early data failure and unknown-publication
+holds, explicit policy independence, guidance-only rollback retention, failed
+re-check reminders and Local's post-data check-start timing. Scheduler and service operations
+remain synthetic; these tests do not establish live platform acceptance.
+`test_fix_round3.py` converts Q01-Q05 into regressions for hosted pending plans
+before full installation, timer-only reminder resolution, one current rollback
+suppression date and schedule examples with data-job-only allowance arithmetic.
+`test_timer_simple.py` covers standard-only timers, exact cron-marker preservation,
+configured intervals, opt-out and targeted rollback; retired migration tests are removed. It checks related failure, unknown-write,
+explicit, automatic, first-install and rollback paths, plus the approved Python
+prerequisite text. Billing arithmetic uses the guides' stated assumptions only.
+`test_update_round3.py` covers local config/CLI opt-in, post-data invocation,
+ten-minute attempts including failures, verified installation, receiptless adoption, no prompts,
+downgrade refusal, rollback with later custom edits, and handled switch failures.
+Earlier update suites retain adoption, request-budget and trusted validation
+regressions. The direct hosted tests in `test_b2_hosted.py`, `test_b2_workflow.py`
+and `test_b2_integration.py` replace retired PR lifecycle expectations. They cover
+synthetic sealed pins and unsealed refusal, real historical fixtures, literal
+dispatch arguments, exact parent/tree publication, unknown outcomes, daily
+claims for legacy callers, rollback and data/cache isolation. All transport is mocked; actual Actions,
+branch policy, scheduling, publication and production Python parity need owner tests.
+
+`test_local_check_cp5a.py` covers the shared ten-minute Local/Manual allowance,
+post-data timing, failed attempts, one deferral after a backward clock move and
+old-reader compatibility. Warm checks reuse a verified result when release and
+installation inputs match, without ZIP/raw-manifest downloads; installation fetches
+fresh verified bytes. `test_hosted_runtime_cp3.py` and `test_final_workflow_cp4.py`
+cover per-run runtime verification, installed-application fingerprint reuse,
+older half-mode applications, Other, first-adoption downloads and conservative
+ten-minute maintenance deferral without a check-only commit.
+
+**Old hosted workflow only:** v11.105 retains daily maintenance from 04:00 UTC
+and its sealed bootstrap. Those historical fixtures and assertions are intentional.
+
+The demo builder (`dev/demo/build_demo.py`) accepts the current published source
+workflow after checking its fixed gate and exact bytes against the source release
+manifest. It creates owner files only, with fictional data at 05:07 UTC daily;
+the normal runtime verification and application-maintenance allowance remain.
+Build from the matching full release source, which includes `dev/demo/`:
+
+```sh
+python3 -I -B dev/demo/build_demo.py --source /path/to/release-source --output /path/to/new-demo-kit
+```
+
+The output separates `SETUP_DEMO.md` (owner instructions, kept outside the
+repository) from `repo/` (files for the repository root). The repository files are
+`demo/ABOUT_THIS_DEMO.md`, `demo/generate.py`, `DOSSIER.md`, `custom/README.md` and
+`.github/workflows/auto-sync.yml`. The demo explanation is the owner's unchanged
+text. Point the repository description to `demo/ABOUT_THIS_DEMO.md` and set the
+homepage to `https://github.com/CrankAddict/section-11-demo/blob/main/demo/ABOUT_THIS_DEMO.md`.
+
+The kit supplies no root README, LICENSE or .gitignore. The first Sync's normal
+installation creates the standard README from the verified release's template;
+data publication updates its timestamp. Section 11's license is installed at
+`section11/LICENSE`. To replace an existing demo's workflow, copy only
+`repo/.github/workflows/auto-sync.yml` to `.github/workflows/auto-sync.yml`.
+Never replace the root README of a running demo or copy the whole kit over it.
+
+A repeat Sync on the same UTC date shows as a failed run with no data commit when
+`latest.json` is unchanged. Its unchanged-latest guard reports the generic
+"Hosted acquisition or phase verification failed" message. A changed update
+notice can change the exported bytes; use Status or Update for maintenance alone.
+
+`test_demo_kit.py` uses the real source workflow and manifest, never a substituted
+legacy workflow. It checks refusal before output, guarded finalization, step
+conditions, the repository/owner-instruction separation, first-install README
+creation and byte preservation outside the three demo transformations. Run it
+with each workflow release, then review the generated workflow before the owner
+replaces the demo's active file. Offline checks do not prove publication.
+
+Builder compatibility requires the reviewed fixed gate, manifest `files` hashes,
+the two named slow-cache/sync step ranges, and the literal source cron. The
+generated step also depends on `select`, `bootstrap` and `prepare` outputs,
+wrapper API 2, the `finalize-export` phase, both runtime and application identity
+arguments, and the step-deadline interface. Step-range or schedule changes refuse
+the build, as do a changed validation identity/command block or missing deadline
+guard. Changes to phase support, outputs, deadlines or downstream conditions
+require reviewing the builder and its real-workflow tests together.
+
+`test_b1_local.py` covers the common accepted local installer, whole-tree replacement,
+timer adapters under mocked OS commands, persistent opt-out, root-tool recovery,
+ordinary clone recovery, consent and unknown scheduler outcomes. Frozen historical
+executables under `dev/fixtures/b1-legacy/` are offline test inputs, never installed
+or imported by the producer. `test_update_round9a.py` retains release safety and
+notice coverage. Conversion is a structural layout property; a damaged manifest
+with a readable receipt is a repair, while unknown chronology still requires
+explicit acceptance. The permanent legacy entry contract keeps `manifest.json` with its
+path-to-hash `files` map and `examples/sync.py` at their published paths. Every
+listed manifest path must remain fetchable. `changelog.json` is still produced;
+its eventual retirement is a separate owner decision, not part of that permanent
+entry contract.
+
+`test_weather_map_design.py` covers name fitting/wrapping/ellipsis, unchanged full names, distance-dominant labels, ordered pagination and publication, page cleanup/symlinks, size bounds and the embedded antialiased glyph atlas. Synthetic extra bands test pagination without changing the six-point weather sampler. The atlas derives from supplied Lato Regular with geometric arrow fallbacks; its OFL licence is inline in sync.py and in the root third-party notices.
+
+`test_weather_bands.py` checks the single forecast-band producer, exact map consumption, outlook omission, size bounds, coverage and wettest-period semantics, display decimals and report-template consistency. Weather/ETA preservation is also compared against the staged v5 review fixtures outside the suite.
+
+`test_weather_final.py` checks trace-rain rounding, fixed one-decimal labels, equal endpoints, native periods and incomplete-rain handling without value mutation. It exercises the exact 120-hour boundary, all routed statuses beyond it, excluded unrouted counts, the 64-ride cap, near-term off/expired/partial states and stale map exclusion. Paired JSON examples are parsed and checked against the production brief identity, band producer, planned summary, map-page and overview contracts using synthetic weather only.
+
+`test_route_weather_map.py` checks standard-library PNG encoding and determinism,
+wind direction, forecast/outlook rendering, brief binding, off switches, bounded
+file lifecycle and no-network behavior. Run with
+`python3 -m unittest discover dev/tests -p test_route_weather_map.py` or the full
+suite below. Its provider data are synthetic; no live forecast is tested.
+
+`test_terrain_segmentation.py` covers native terrain segmentation boundaries, persistent
+valleys, bounded exit extension, directional symmetry and admission/formatting
+with hand-derived profiles and the offline network guard. Run it alone with
+`python3 -m unittest discover dev/tests -p test_terrain_segmentation.py`, or as
+part of the complete suite below.
 
 From the repository root:
 
@@ -59,6 +178,53 @@ Nothing else to install, no arguments, no configuration.
 Local and manual by design. No CI, no hooks, no coverage tooling, no test
 dependency.
 
+## Offline route ETA evaluation
+
+From a complete source checkout, use the same Python environment as sync.py:
+
+```sh
+python3 -I -B dev/evaluate_route_eta.py /path/to/route_eta_history.json --as-of 2026-10-19 --outdoor-ftp-w 250 --body-weight-kg 75
+```
+
+The date, FTP and weight are synthetic examples. Supply the existing main
+`thresholds.sports.cycling.ftp` and current wellness/profile weight, never eFTP or
+indoor FTP. Optional `--power-zone-upper-pct 55 75 90 105 120 150 999` accepts
+existing outdoor zone percentage upper boundaries. Omitted/invalid main inputs
+report physics unavailable; they are not guessed. Omit `--as-of` for the current UTC date. This reads the
+local record without modifying it or using the network and emits aggregate JSON
+only. No IDs, ride rows, coordinates or credentials are printed. Each fold removes
+the held-out activity ID before fitting both the ETA model and stop ratios; the
+evaluation compares unrounded moving-time bounds with actual moving time. It
+reports coverage, median width in seconds, median width divided by central time,
+median absolute relative error, method counts and excluded/insufficient counts.
+The empirical target is about 70 to 85% coverage with narrow windows; it is not a
+future guarantee. Stops and five-minute rounding are excluded from these scores.
+
+The top-level scores retain the legacy v6 evaluator for comparison.
+`physics_comparison.methods` adds three side-by-side methods on identical rides:
+`pace`, `ftp_zones_physics` (wide 0.7 to 1.4 default window) and
+`ride_power_physics`. Physics evaluation requires existing aggregate power and
+ascent; producer ascent is preferred, recorded ascent remains a labelled proxy.
+No held-out ride's power or time enters its target-power/time-factor fit or its
+residual band. The band uses nested leave-one-out residuals from training only.
+The safeguard needs at least 12 rides, no lower coverage and median widths in
+seconds and relative terms at most 1.10 times pace. It also requires a complete
+record comparison; partial power/ascent coverage cannot switch in-range routes.
+History geometry is an explicit symmetric climb/descent aggregate proxy, not
+observed gradients. These scores cannot validate a GPX profile, new-terrain
+coverage, stop timing or actual forecast performance. Missing power still leaves
+the legacy evaluation available. Fields arrive through normal existing fetches.
+Descending physics now compares flat-target-powered speed with coasting speed,
+under the unchanged 50 km/h cap. The three-method scores include that change.
+They do not include the separate route-geometry consistency factor: the record
+has no historical polylines. That factor compares familiar attached-route
+physics with supported pace, and transfers only a bounded, halved deviation to
+unfamiliar terrain. Agreement is not an additional measured coverage result.
+At least four eligible rides are needed for a fold with three training rides. The window is 180 days;
+future, old, indoor and malformed rows are excluded, duplicate IDs collapse.
+Run on private data locally and share only the aggregate result. No real record
+belongs in the repository. This developer tool is not installed by athlete updates.
+
 ## Conventions
 
 **Standard library only.** `unittest` and `unittest.mock`, nothing else. No test
@@ -81,7 +247,7 @@ directory.
 
 **Shared helpers live in `_harness.py`.** The loader, the `NetworkBlocked` type,
 the verb-seam installer and restorer, and the `RefuseEverything` object-seam
-sentinel are shared by all six modules. There is no single guard installer,
+sentinel are shared by the test modules that use them. There is no single guard installer,
 because the two seams are not the same mechanism: the verb seam swaps named
 attributes on a real module and restores them, while the object seam replaces one
 lazily-bound object with `RefuseEverything` and assigns the saved original back. The leading underscore keeps the file outside
@@ -160,10 +326,11 @@ alternating emitters assign no step role such as `rec`, however the targets
 compare; an expansion oracle turns each summary back into ordered duration and
 target steps and compares them with the synthetic `workout_doc`, so a dropped
 step, a lost target or a reordering fails; the flat detector no longer skips the
-step after a trailing rep. It also pins that the change is rendering only: which
-workouts get a summary, the `×` / `sets` markers, `workout_summary_stats`,
-`hard_sessions_planned` and the near/far tier fields equal constants captured from
-v3.133, and the fictional `latest.example.json` interval summaries equal what the
+step after a trailing rep. Explicit v3.141 cases add ordered flat summaries and
+their telemetry, while repeat availability, compression and hard-session markers
+stay pinned. `hard_sessions_planned` remains equal to constants from v3.133.
+New flat summaries remove the need for a far-tier description preview; missing
+documents still exercise that fallback. The fictional `latest.example.json` interval summaries equal what the
 producer emits. Content the renderer cannot show (a step without a duration, a
 repeat block it cannot compress, the unmatched final child of a nested repeat, a
 target it cannot print as W or bpm: a relative unit, range bounds, an empty or
@@ -208,8 +375,7 @@ GitHub Actions run variables from its environment while it runs and sets them
 explicitly per case, so it gives the same results inside GitHub Actions. It needs
 `time.tzset()` and is skipped where it is unavailable.
 
-`test_init_update_distribution.py` covers what `--init` installs and how `--update`
-treats folders it no longer manages, in `sync.py` v3.138. Every archive is a
+`test_init_update_distribution.py` covers manifest-scoped `--init`. Every archive is a
 synthetic zip built in memory and every install lives in a temporary directory. For
 `--init`: the installed set is exactly the archive manifest's file list plus
 `manifest.json`; `.github`, hidden files, unlisted files and the root `dev/` folder
@@ -220,25 +386,56 @@ device or socket, and a wrong archive root each install nothing and keep the
 bootstrap `sync.py`, while entries declared regular or with no declared type
 install; an existing `section11/` is left alone. For the generator:
 only the repository-root `dev/` is excluded, a nested `dev` folder is still listed,
-and what it lists is what `--init` installs. For `--update` on an older install:
-the move offer for `.github` and an unmanaged `dev/` is made only when standard
-input is a terminal and acts only on the typed word `move`; piped or redirected
-input is never read for it, even when it contains that word, and the
-interactivity check fails closed; Enter, `y`, `yes`, EOF and Ctrl+C keep both; a taken backup name is never
-overwritten; a failed rename keeps the original; modified and added files move
-byte for byte; a Git checkout is not offered and a symlink is left alone; `dev/` is
-not offered while the upstream manifest still lists it; and a `dev/` that stays is
-never listed or deleted by the orphan cleanup, even when that prompt is answered
-yes, while an ordinary orphan still is. The Git-checkout test, the terminal check
-and the symlink test are substituted, and special file types exist only as modes in
-an in-memory zip, so no test creates a `.git` directory, a terminal, a symlink or a
-special file.
+and what it lists is what `--init` installs. Special file types exist only as modes
+in an in-memory zip; no test creates them on disk. Shared update fixtures also
+support the report-transition tests.
+
+## DFA drift producer
+
+`test_dfa_drift.py` exercises the actual rollup, summary, profile and fetch/cache
+paths with synthetic streams only. It covers original-index thirds and remainders,
+the unchanged whole-session gates and TIZ tie-breaking, separate retained and drift
+masks, missing artifacts, finite alpha1 normalization, continuous 1 Hz timing,
+endpoint and sixth coverage, scaled gap boundaries, deterministic failure reasons,
+consumer eligibility, latest-session selection and eligible trailing denominators.
+It also checks stream time retention, schema 2, hash-triggered 14-day backfill,
+activity flags and crossing preservation. HTTP calls are mocked under the shared
+network guard.
+
+The fixtures include long endpoint gaps, a lost synthetic climb response, interval
+work with low supra time, and value-dependent loss that passes the numerical
+screens despite bias. These are regression and limitation tests, not physiological
+validation or evidence that the thresholds generalize to all recordings.
+
+## Completed-session structure
+
+`test_multisport_corrections.py` checks the 60-type identity, everyday denominators, attributed/sub-max curves, typed fallback, request budgets, cycling durability, compact longest sessions and selected-set strain/TID alerts. `test_multisport_load.py` checks combined seven-day monotony, fixed phase sport unions, target-local history, missing-data refusal, excluded activities, scoped plan/name evidence, alert context and additive hard-day coverage. Synthetic controls cover endurance-only report selection while preserving legacy fields and hard-day ladders while preventing old unmarked history from supplying transitions. Coverage is day-level source presence; these offline checks do not prove upstream completeness, historical knowledge or physiological validity.
+
+`test_sync_facts.py` covers coupled weekly 7:28 ACWR (including retained legacy history and the 0.68 to 0.74 example), unchanged live/start-of-day values and Overreached thresholds, paired no_steps/name/duration propagation, and descriptive cycling facts. Synthetic cases exercise four disjoint rolling chunks, metric-gate parity, mixed zone bases, exact end-date CTL, chunk-based biggest week, environment splits, missing/zero data, dated maxima, complete producer output, calendar-season partial-week exclusion, short curves, exact ID/date joins, the one-send cap, identity-compatible compact cache reuse and stale/unavailable fallback; unmarked sport-identity caches cannot restore excluded peaks. Compact cache tests preserve duration winners, counts, names in summaries and original partial-window provenance, and reject malformed rows. The network guard has a direct negative control. `test_sport_fun_facts.py` additionally checks selected-sport observations, partial coverage, duplicate conflicts, structured settings, null-shaped fixtures and report contracts. These tests validate the supplied API response contract offline, not live provider behavior or physiological meaning.
+
+`test_session_structure.py` uses synthetic activity/event/stream data to test exact pairing, resolved power bands versus genuine ramps, recording pauses, per-step coverage, zero versus missing data, current-plan comparison, repeated short-recovery sets and the bounded lag alignment in SECTION_11. Controls cover the exact step-start exclusion, offset ties/bounds/additive shifts, shortened recordings versus clipped lagged measurements, unsupported atoms and output caps. It also tests persisted cache reuse, expiry, revisions, late/changed/deleted plans, stale failures, Retry-After and request counts. Placement tests persist only latest.json and intervals.json between runs, exercise the retention boundary and summary carry-forward through day 28 without refetch, preserve interval/DFA flags and retry state, verify dropped-field absence and exclude Walk/Hike structure while retaining other-sport fallback. A structure-only entry cannot suppress an initial interval/DFA fetch. The network guard has a direct negative control. No private athlete fixture or FIT file is committed.
+
+`test_interval_data.py` checks the adjacent plan-match/compliance/detected block, old/new persisted reads, per-step and per-set evidence, malformed/stale/conflicting/expired cases, scalar/range and sprint/short/long boundaries, rounded-value uncertainty, missing-duration cache refresh, no additional reads, and all producer guidance locations. Unlabelled low-power steps remain visible without expanding the compressed-set aggregate. See [Which interval data to use](../SECTION_11.md#which-interval-data-to-use); these counts never infer roles or essential constraints.
+
+`test_report_intensity.py` retains the v11.94 legacy primary-sport and activity zone_reference regression cases. `test_multisport_intensity.py` checks the additive period-local selector with synthetic 10/50 boundaries, missing/zero values, ties, duplicate IDs, explicit overrides, seasonal/quiet-week guards, non-Monday/clipped weeks, ski grouping, basis/mapping separation, seconds weighting, partial coverage, history independence and old-block unavailability. All inputs are synthetic; no report rendering or live upstream-zone validation is claimed. Revision controls cover validated SS overlay exclusion with legacy power percentage parity, malformed/duplicate overlays, compact selection/raw-second preservation, and identical-value chunk references with independent dates.
+
+`test_short_bouts.py` adds synthetic controls for versioned per-bout and short-step evidence: separate standard completion and duration-based adherence windows, single 30 s steps with long recoveries, 10/20/21/60/61 s boundaries, compressed 90 s and 3 min bouts, pyramids, trailing-transition exclusion above 20 s through 60 s, exact fractional support, zeros versus invalid/missing readings, individual coverage despite passing set coverage, partial/missing final seconds, clipping before the trailing boundary and prescribed shifts, recording gaps, detector boundaries and unsupported nesting. It tests the 10,000-atom boundary, a linear additional sample traversal, version-4/5 and legacy-marker cache rebuild, complete cache hits, stale revocation and detail expiry without older backfill. An independent test-only arithmetic oracle checks the inclusive asymmetric band, rounding boundaries, all-bout count gate, missing constraints and mixed patterns; it is not a new producer compliance API. The producer emits measurements, never main-work roles or a progression verdict. Synthetic report/schema examples and their contract checks establish format consistency, not coach-generated output or physiological validity.
+
+Sprint controls in the same module cover the ≤20 s boundary, duration-scaled W at 5/10/11/15/20 s, rejection of a 20 s best-3 pass whose best 6 s misses, 702/699 W against 700 W, a rejected single-sample spike, unrestricted high power, range lower-bound thresholds, observed-time continuity, missing/invalid samples, retained zeros, fractional rolling windows, clipping/offset and recording gaps. They compare the time-weighted peak with an independent small-grid oracle and verify atomic sprint counts, marker-2/3 cache refresh and unchanged latest summaries. All sprint inputs are synthetic; the rule is not calibrated on recorded sprints.
+
+`test_workout_summary.py` keeps its independent expansion oracle and repeat regression constants, with explicit v3.141 flat-list availability changes. Independently verified outdoor boundaries and physiological validity are not validated by these tests.
+
+`test_weather_corrections.py` covers assumed midnight/date-only departures, configured defaults, DST rejection/resolution, labels, effective departure ordering, overview serialization order, compact outlook clustering and push.py v0.8 local-time validation/preservation. Its mocked HTTP cases exercise one PUT, pre-read and exact-time readback, including an unknown outcome and same-date time-only update. These bounded calendar-time cases do not validate live API or client behavior.
 
 ## Not covered
 
-Everything else. No DFA computation, no report generation, and no `sync.py`
+Everything else. No report generation, and no `sync.py`
 surface outside per-endpoint fetch state, HTTP policy, the `history.json` refresh
-gate, the `--init` and `--update` distribution rules and the `workout_summary` renderer with its report-template field contract. `push.py` write paths are
+gate, the completed-session structure and descriptive-fact paths above, the DFA producer paths above, the `--init` and `--update` distribution rules and the `workout_summary` renderer with its report-template field contract. `push.py` write paths are
 covered for their transport behaviour and outcome classification only, not for
-their validation rules or their calendar semantics. Treat this as focused regression guards, not as
+their broader validation rules or calendar semantics beyond the time cases above. Treat this as focused regression guards, not as
 coverage of the repository.
+
+## Route-map format
+
+PNG is the sole route-weather image format. SVG was omitted to avoid a second renderer and compatibility surface. See [Weather Data Source](../SECTION_11.md#weather-data-source) for the map contract and [third-party notices](../THIRD_PARTY_NOTICES.md) for the embedded font.

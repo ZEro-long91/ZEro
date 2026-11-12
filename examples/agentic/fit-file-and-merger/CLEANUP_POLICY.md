@@ -112,8 +112,9 @@ Two of these deserve emphasis, because they are the ones that look like success:
   The Companion path distinguishes them and defers.
 - **Platform listings lag.** An activity deleted a moment ago can still appear, and a newly
   uploaded one can be missing. On Strava the post-delete check invalidates its cached read
-  before re-querying. On the upload target and the analysis platform there is no post-delete
-  check at all, so a deletion recorded as done is a deletion the client believes it made.
+  before re-querying. On the upload target and the analysis platform, synchronous delete
+  success has no independent readback. An accepted asynchronous analysis-platform delete
+  waits for absence from a later listing.
 
 ## Preview and approval: what is enforced and what is not
 

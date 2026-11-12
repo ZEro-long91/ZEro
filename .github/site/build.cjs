@@ -156,7 +156,7 @@ ${ICON_LINKS.map(([rel, name, attributes]) => `<link rel="${rel}" href="${relati
 <header class="site-header"><a class="wordmark" href="${relative(route, 'index.html')}" aria-label="Section 11 home">SECTION <span>11</span></a>
 <nav aria-label="Main navigation">${nav.map(([url, label, secondary]) => `<a${secondary ? ' class="nav-secondary"' : ''} href="${relative(route, url)}"${url === route ? ' aria-current="page"' : ''}>${label}</a>`).join('')}<a href="${REPOSITORY}">Repository <span aria-hidden="true">↗</span></a></nav></header>
 <main id="main">${content}</main>
-<footer><span>Section 11 <span aria-hidden="true">/</span> by <a href="${REPOSITORY}">CrankAddict</a></span><span>Free and open source <span aria-hidden="true">·</span> <a href="${relative(route, 'LICENSE.txt')}">MIT license</a></span><span>Open protocol. Athlete-controlled data.</span></footer>
+<footer><span>Section 11 <span aria-hidden="true">/</span> by <a href="${REPOSITORY}">CrankAddict</a></span><span>Free and open source <span aria-hidden="true">·</span> <a href="${relative(route, 'LICENSE.txt')}">MIT license</a></span><span>Open protocol. Athlete-controlled data.</span><span><a href="https://forum.intervals.icu/t/section-11-open-protocol-for-ai-endurance-coaching-chatgpt-claude-grok-mistral/120602">Community discussion</a></span></footer>
 </body></html>\n`;
 }
 
@@ -193,10 +193,11 @@ function build(root, output) {
   files.set('index.html', shell('index.html', headTitle(HOME), HOME.description, landing(), icons, homeGraph()));
   for (const page of documents) {
     const article = renderDocument(page, documents, root);
-    const toc = page.headings.filter(h => h.level === (page.section ? 3 : 2));
+    const toc = page.headings.filter(h => h.level === (page.section ? page.headings[0].level + 1 : 2));
     const sourceLink = sourceURL(page.source, page.section ? `#${slug(page.section)}` : '');
     const sidebar = `<aside class="guide-nav"><p class="eyebrow">Setup &amp; examples</p><nav aria-label="Guide navigation">${documents.map(d => `<a href="${relative(page.route, d.route)}"${d.route === page.route ? ' aria-current="page"' : ''}>${escape(d.title)}</a>`).join('')}</nav><a class="source-link" href="${sourceLink}">View Markdown source <span aria-hidden="true">↗</span></a></aside>`;
-    const contents = `<details class="toc"><summary>On this page</summary><nav aria-label="On this page"><ul>${toc.map(h => `<li><a href="#${escape(h.id)}">${escape(h.text)}</a></li>`).join('')}</ul></nav></details>`;
+    const count = toc.length ? ` <span class="count"><span aria-hidden="true">· </span>${toc.length} section${toc.length === 1 ? '' : 's'}</span>` : '';
+    const contents = `<details class="toc"><summary><span class="marker" aria-hidden="true"></span>On this page${count}</summary><nav aria-label="On this page"><ul>${toc.map(h => `<li><a href="#${escape(h.id)}">${escape(h.text)}</a></li>`).join('')}</ul></nav></details>`;
     // Article first in reading and focus order; site.css keeps the guide column on the left on desktop.
     files.set(page.route, shell(page.route, headTitle(page), page.description, `<div class="doc-layout"><div class="doc-content"><p class="eyebrow">${escape(page.title)}</p>${contents}<article class="prose">${article}</article></div>${sidebar}</div>`, icons));
   }

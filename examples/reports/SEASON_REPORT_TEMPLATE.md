@@ -1,142 +1,136 @@
 # Season Report Template
 
-**Structure only: no data. Replace `[placeholders]` with actual values.**
+**Window:** completed configured calendar weeks in history.json.weekly_180d[:-1], at most about 180 days. Exclude the final current partial row from all Season aggregates and fun facts. Use the actual first start and last end in the header; never assume Monday. Current snapshot and longer-history year comparisons are separately labelled.
 
-**Data Freshness:** Take every number from a current read of the source that owns it: training metrics and planned sessions from the source JSON file, stable athlete facts (such as a tested bottle quantity) from the current official dossier, athlete-reported values from the athlete's explicit current statement, and external conditions such as weather from their current source (see SECTION_11.md §Output Format Guidelines). Never take a number from memory or an earlier chat. Do not carry forward values from earlier reports or earlier in the conversation. Re-read before quoting.
-
-**Display Units:** For distance / elevation / weight / height / position / speed, quote `display.*` fields from the source JSON. They're pre-converted to the athlete's Intervals.icu preferences. Use canonical metric (`*_km`, `*_m`, `*_kg`) only for calculations. W/kg, kJ, IF, % are universal physics units, not pref-dependent. See SECTION_11.md §Display Unit Semantics.
-
-**Trigger:** On-demand only. Generated when the athlete asks for a season-scale view. No automatic cadence.
-
-**Span:** Trailing 12 months ending at `metadata.last_updated` (or `history.generated_at` if reading from `history.json` directly).
-
-**YoY Anchor Month:** Use the **last fully completed calendar month** prior to `metadata.last_updated`. If `last_updated` is `2026-04-28`, anchor month is `2026-03`, and the prior-year match is `2025-03`. The current calendar month is excluded from YoY comparison until it completes. Partial-month-vs-full-month would systematically distort every delta. The 3-month rolling band uses anchor + prior 2 completed months on each side.
-
-**Aggregation Rule:** Section 3 (Current Season Trajectory) uses **completed weeks only**: `weekly_180d[:-1]`. The last row is always the in-progress current week with partial hours, partial TSS, partial hard_days, partial ACWR, and `phase_detected: null`. Including it distorts every aggregate. The current-week phase is appended to the trajectory string (Section 2) for narrative completeness via `derived_metrics.phase_detection.phase`, but does not feed any numeric aggregate.
-
----
+Read this template together with [Shared report layout](../../SECTION_11.md#shared-report-layout) in SECTION_11.md before writing the report. That section owns the common layout and content rules; this template owns this report's field order, sources and gates.
 
 ## Template Structure
 
+```text
+**Season report: [first completed week start] to [last completed week end]**
+Data updated: [local latest timestamp]
+History updated: [local history timestamp when different]
+
+Summary: [one short paragraph, 1-2 sentences]
+
+**Position**
+Season: [current seasonal context]
+Phase: [current phase and duration]
+Previous phase: [only when supplied and different]
+
+**Phases**
+[Start-end]: [phase and N weeks, next phase and N weeks, ending at Deload]
+[Start-end]: [next cycle]
+[Start-end]: [no detected phase, own line]
+
+**Volume ([N] completed weeks)**
+Hours: [total] (avg. [X] h/week over [N] completed weeks)
+TSS: [total] (avg. [X]/week over [N] completed weeks)
+Longest [ride/run/swim/row or sport session]: [duration, date; repeat for Season-selected sports]
+[For cycling add the same ride's supported distance and environment here only]
+Longest week: [hours, week of date]
+
+**Fitness**
+CTL peak: [value, week of date]
+CTL now: [value, snapshot date]
+ACWR below 0.8: [weeks]
+ACWR 0.8 through 1.3: [weeks]
+ACWR above 1.3 through 1.5: [weeks]
+ACWR above 1.5: [weeks]
+ACWR known: [K] of [N] weeks
+
+**Intensity ([sport], [basis], [complete coverage])**
+Z1+Z2: [percentage]
+Z3: [percentage]
+Z4+: [percentage]
+[Partial coverage line only when needed]
+
+**TID 28d (now, [sport], [basis], [coverage])**
+TID: [supplied observed classification]
+
+**Hard days ([N] completed weeks, avg/week)**
+Hard days: [avg. per week over N completed weeks]
+First half ([dates]): [avg. hard days/week]
+Second half ([dates]): [avg. hard days/week]
+Weeks with a hard day: [K] of [N]
+
+**[Month year] ([same month prior year] in brackets)**
+Hours: [current] ([prior])
+[Three-month label] monthly avg. hours: [current] ([prior])
+TSS: [current] ([prior])
+[Three-month label] monthly avg. TSS: [current] ([prior])
+CTL peak: [current] ([prior])
+CTL end: [current] ([prior])
+Hard days: [month avg. per week] ([prior])
+Longest [sport session]: [current] ([prior or unavailable; repeat for matched-month selected union])
+HRV: [month avg.] ([prior])
+RHR: [month avg.] ([prior])
+[Material 2y/3y comparison, one fact per line]
+
+**Month intensity ([sport], [basis], [complete coverage on both sides])**
+Z1+Z2: [current] ([prior or unavailable])
+Z3: [current] ([prior or unavailable])
+Z4+: [current] ([prior or unavailable])
+[Each side's partial coverage is labelled separately]
+
+**Notable**
+[Only non-empty supported lines: FTP changes, data gaps, A-races, next A-race, deviation]
+
+**Fun facts ([sport], descriptive)**
+[Groups below, with Peaks and Most work in a day/week]
+
+**Interpretation**
+Load: [1-2 sentences on the completed weeks]
+
+Quality: [1-2 sentences when supported]
+
+Year on year: [1-2 sentences when matched]
+
+Watch: [1-2 sentences on material uncertainty]
+
+Next: [1-2 sentences ending at the next decision]
 ```
-Season Report: [span_start] → [span_end]
-Generated: [snapshot_date]
-Annual position: [seasonal_context] · [phase] · week [N] of phase
 
-Annual Position:
-  Current phase: [phase] (week [N])
-  Previous phase: [previous_phase]
-  Phase trajectory (180d): [run-length encoding, e.g. Recovery×2 → Base×8 → Build×5 → current Build×3]
-  Seasonal expectation: [text reference to SECTION_11.md Benchmark Index seasonal table]
+## Sources and gates
 
-Current Season Trajectory (180d):
-  Volume: [XXX]h total / [XXXXX] TSS total | [XX.X]h/wk avg / [XXX] TSS/wk avg
-  CTL: peak [XX.X] (week of [date]) → current [XX.X]
-  ACWR week-bucket counts: [N] weeks <0.8 / [N] weeks 0.8–1.3 / [N] weeks 1.3–1.5 / [N] weeks >1.5
-  TID 180d: [XX]% Z1+Z2 / [X]% Z3 / [X]% Z4+: [classification: polarized/pyramidal/threshold-heavy/mixed]
-  Hard-day density: avg [X.X]/wk | first half [X.X]/wk → second half [X.X]/wk [↑/↓/→]
-  Longest ride: [X.X]h (week of [date])
-  Longest week: [X.X]h (week of [date])
-  Quality session count: [N] weeks with ≥1 hard day
+Repeat Intensity blocks for every selected sport and actual basis/mapping in the shared sport order. Put complete covered/period weeks and covered/sport sessions in the heading; partial coverage gets a labelled line. Keep separate headings for distinct mappings. Weeks mean rolling chunks in current reports and configured weeks in Season/months; a covered week is not necessarily fully measured. Decode the file-level report_intensity_schema; require matching rule_version in each block, otherwise unavailable. Display keys of selected; sports[sport] supplies totals, active-week and zone columns, while zones[mapping] supplies three raw seconds and session/week counts. Show active-week counts and partial coverage without inferring exact covered dates. Resolve explicit rolling refs using the consuming chunk's dates, and monthly blocks by first occurrence in monthly_1y, monthly_2y, monthly_3y. Distinct mappings of the same basis stay separately labelled. Selected sports without zones get a short zones-unavailable line; pace/GAP is deferred. Missing report_intensity blocks mean unavailable; a present empty block is authoritative. Never use legacy primary/all-sport fields as fallback. Use ready-block tid[sport][mapping] percentages; for compact rows divide each bucket's raw seconds by their sum, never average percentages. Keep observed coverage and unknown activity-fetch completeness explicit.
 
-Year-over-Year Comparison (anchor: last completed month [YYYY-MM]; current vs prior year, calendar-month matched):
-  Anchor month: [YYYY-MM] (last completed)
-  Total hours: [XX.X]h vs [XX.X]h ([+/-X.X], [+/-X]%) | 3mo: [XX.X] vs [XX.X]
-  Total TSS: [XXXX] vs [XXXX] ([+/-X], [+/-X]%) | 3mo: [XXXX] vs [XXXX]
-  CTL peak: [XX.X] vs [XX.X] ([+/-X.X])
-  CTL end: [XX.X] vs [XX.X] ([+/-X.X])
-  Z1+Z2: [XX]% vs [XX]% ([+/-X]pp)
-  Z3: [X]% vs [X]% ([+/-X]pp)
-  Z4+: [X]% vs [X]% ([+/-X]pp)
-  Hard-day density: [X.X]/wk vs [X.X]/wk ([+/-X.X])
-  Longest ride: [X.X]h vs [X.X]h ([+/-X.X])
-  Avg HRV: [XX] ms vs [XX] ms ([+/-X])
-  Avg RHR: [XX] bpm vs [XX] bpm ([+/-X])
-  [If 2y or 3y same-month adds material context: 1 line per material delta]
+- Read latest.json and history.json separately. All Season numbers/facts share the completed-week scope and history freshness. Current phase, CTL and TID explicitly refer to latest. No completed weeks means no fabricated Season view.
+- Position uses derived_metrics.seasonal_context and phase_detection.{phase,previous_phase,phase_duration_weeks}. Omit Previous phase when absent or equal to Phase. Phases use completed weekly phase_detected values, coalescing consecutive equal phases inside each cycle. Each cycle ends at a Deload (include consecutive Deload weeks in that ending); show an unfinished final cycle through its actual end. Every null-phase week gets its own dated line and breaks the cycle. Never bridge gaps or rename a supplied phase to Deload. Example: `26 Apr-30 May: Build 4 weeks, Deload 1`.
+- Volume sums total_hours/total_tss over the same N rows and labels weekly averages. Longest sessions use each Season-selected sport's maximum longest_session_by_sport across weekly_180d[:-1], including locally unselected weeks, decoded using the columns declared in history.longest_session_schema. Keep partial/no_valid_duration status and exact ties by duration descending, date/ID/type ascending; missing or incompatible rows/schema are unavailable. Longest week uses total_hours. Legacy longest_ride_hours is longest activity of any type and is not this source. For cycling, enrich that winner only from compatible history.fun_facts.season.longest_ride with the same activity_id, date and moving_time_s; it supplies that ride's distance_m, environment and name. Keep any partial status. Missing or mismatched detail leaves distance/name unavailable, never borrow another ride's distance. Display the longest ride once here, not again in cycling Fun facts. The matched-month longest comparison remains a separate dated fact.
+- CTL peak is a known completed ctl_end and its week; CTL now is current_status.fitness.ctl with snapshot date.
+- ACWR uses supplied coupled weekly 7:28 ratios, never ATL/CTL or a new calculation. Bins are <0.8, 0.8<=x<=1.3, 1.3<x<=1.5, x>1.5. Unknown ratios are not low-load weeks. Omit zero bins; if both above-1.3 bins are zero and at least one ratio is known, replace them with `ACWR above 1.3: none`. Always show `ACWR known: K of N weeks`; unknown initial weeks stay unknown.
+- Zones use history.json.report_intensity_season, whose start/end and weeks must match weekly_180d[:-1]. Consume the producer's selected map, tid percentages and sports coverage columns. They sum all that sport's observed zone seconds, including nonqualifying weeks; no current-primary filter, mixed basis or new Season classifier. TID 28d (now) uses latest derived_metrics.report_intensity_28d, independently selected and separately dated. Missing new history is unavailable until ordinary refresh. See [Report intensity source](../../SECTION_11.md#report-intensity-source).
+- Hard days use completed-week hard_days. Split the chronological rows into first floor(N/2) and remaining rows; label each half with its actual dates and avg. Omit empty halves; missing days are not zero. Weeks with a hard day counts rows with hard_days>=1.
+- Year comparison anchor is the last fully completed calendar month before metadata.last_updated. Match month keys across monthly_1y/monthly_2y/monthly_3y, never positions. Current values followed by prior values in brackets, one metric per line, no difference or percentage-change lines. A three-month monthly avg requires all three matched months per side and its date label (e.g. Jul-Sep monthly avg.). No invented prior-year phase claims. If no matched month, omit the block and mention the limitation once.
+- Additional 2y/3y rows need material context: hours/TSS >=15%, CTL >=3 points or zone share >=5 percentage points. These are selection gates, not extra difference/% display lines. A missing/zero prior denominator does not create a percentage.
+- Year-comparison intensity and longest sessions use each matched month's report_intensity selection independently and show the union of qualifying sports. Longest values come from that month's longest_session_by_sport under compatible longest_session_schema; pair identical sports only, retain missing/not-selected sides as unavailable, and never sum duplicate monthly tiers. Pair only identical sport, actual basis and mapping_version under compatible file-level rule_version/selection_config, with coverage read from both ready blocks. An absent sport/block or incompatible mapping is unavailable, never zero or a cross-sport match. Preserve a supported zero zone share. Resolve the first report_intensity block for that month in monthly_1y, monthly_2y, monthly_3y; overlapping later rows omit it. An unresolved month is unavailable; never sum tiers. Weekly legacy primary_sport does not select Season intensity.
+- Notable includes only non-empty in-window ftp_timeline, data_gaps, completed A-races, supplied next A-race and a supported deviation pattern. Omit "none" placeholders. Goal auditing stays deferred.
+- Fun facts sources: history.json.fun_facts.season for cycling and sport_fun_facts.season.sports for the other four fact sports, gated by history.report_intensity_season.selected. Require compatible identity/selection markers and start/end/completed_weeks matching chosen weeks as defined in [Descriptive Period Facts](../../SECTION_11.md#descriptive-period-facts); otherwise unavailable. Keep history freshness and partial/stale power coverage. Most work in a week is a completed configured calendar week. Peaks belong here; there is no Best efforts block in Season.
 
-Notable Patterns:
-  FTP timeline (in window): [date, type, value]; [date, type, value]; …
-  Data gaps: [period, N days missing], … (or "None")
-  A-races completed: [date, name], … (or "None in window")
-  Next A-race: [date, name, D-XX] (or "None scheduled")
-  Deviations: [one line max, e.g. "Z3 grey zone in 7 of 26 weeks", or "None notable"]
+## Source and display safeguards
 
-Interpretation:
-[2-4 sentences: current trajectory read in season context, YoY headline, forward note
-referencing seasonal expectation if a clear one applies. No phase claims about
-prior years (see Notes).]
-```
+Read current source JSON in this response and the current official dossier for stable context; never reuse prior report values. Use local dates, a bold dated header and local Data updated. Keep a separate History updated timestamp when relevant. Follow the shared layout for facts, paragraphs, headings and lists. Previous values go in brackets. Every mean says avg and its window, in its heading when shared; retain observation counts under the report-specific coverage rules. Only the 28-day Fitness section uses start -> now lines. Omit missing or zero-only lines and empty sections, preserving a meaningful zero inside an otherwise populated comparison. Explain missing indispensable source blocks once; never invent observations or print placeholders.
 
----
+Use supplied display values and formatted durations. Seconds-only durations may round to whole minutes (30 seconds up); decimal hours may remain decimal h. Eligibility always uses exact values. Readiness, formal compliance and progression gates in SECTION_11 are unchanged. A report marker is not formal adherence evidence.
 
-## Field Definitions
+### Fun facts contract
 
-| Field | Source | Notes |
-|-------|--------|-------|
-| **span_start / span_end** | `metadata.last_updated` (or `history.generated_at`): span = trailing 12 months ending at this date | Span uses calendar months for clean YoY anchoring |
-| **Annual position (header)** | `derived_metrics.seasonal_context` + `derived_metrics.phase_detection.{phase, phase_duration_weeks}` | One-line summary; full breakdown follows in Annual Position section |
-| **Current phase / Previous phase** | `derived_metrics.phase_detection.{phase, previous_phase, phase_duration_weeks}` | Use the structured `phase_detection` object, not the top-level `phase_detected` shortcut |
-| **Phase trajectory (180d)** | Run-length encoding of `weekly_180d[*].phase_detected` | If the most-recent row has `phase_detected: null` (incomplete current week), append current phase from `derived_metrics.phase_detection.phase` rather than dropping the row. Skip duplicate appends |
-| **Seasonal expectation** | Cross-reference to SECTION_11.md Benchmark Index seasonal table, anchored on calendar month | Text reference only; no numeric assertion |
-| **Volume** | Sum `weekly_180d[:-1][*].total_hours` and `total_tss`; derive per-week averages from the same completed-week row set. `summaries.180d` may be used only if verified to exclude the in-progress week | Headline annual-arc metric. `summaries.180d` does not carry `total_*` and its `weeks_tracked` is not guaranteed to exclude the current partial week. Derive directly from the completed weekly rows by default |
-| **CTL peak / current** | `max(weekly_180d[:-1][*].ctl_end)` for completed-week peak, `current_status.fitness.ctl` for current | Peak uses completed weeks (conservative). Current is the live snapshot, separate path |
-| **ACWR week-bucket counts** | Count of `weekly_180d[:-1][*].acwr` in each band: `<0.8`, `0.8–1.3`, `1.3–1.5`, `>1.5` | Distribution view. In-progress week's ACWR is partial. Exclude |
-| **TID 180d** | Aggregate from `weekly_180d[:-1][*].{z1_z2_pct, z3_pct, z4_plus_pct}` weighted by week `total_hours` (time-budget, not load-budget) | Zone distribution is fundamentally a time metric. TSS-weighting would systematically deflate Z1+Z2 share. Classification follows existing Seiler TID conventions |
-| **Hard-day density** | `weekly_180d[:-1][*].hard_days` mean across window, plus first-half vs second-half drift | Drift catches season-long progression or accumulation. Halves split the completed-weeks list |
-| **Longest ride / Longest week** | `max(weekly_180d[:-1][*].longest_ride_hours)` and `max(weekly_180d[:-1][*].total_hours)` | Annotate with the week each occurred. Current week is partial. Exclude formally even though it would lose anyway |
-| **Quality session count** | Count of `weekly_180d[:-1][*]` rows where `hard_days >= 1` | Consistency proxy across completed weeks |
-| **YoY anchor month** | Last fully completed calendar month prior to `metadata.last_updated`. If `last_updated` is `2026-04-28`, anchor is `2026-03` | Excludes in-progress current month from comparison. Partial-month-vs-full-month would systematically distort every delta |
-| **YoY metric lookup** | Match by `month` string across the union of `monthly_1y`, `monthly_2y`, `monthly_3y` | These are rolling-trailing arrays, not year-bucketed. Look up `month == "YYYY-MM"` wherever it lives |
-| **YoY 3mo rolling band** | Mean of matched + prior 2 matched months in each year | Damps single-month noise. Skip the band if any of the three months is missing; do not average over 2-of-3 |
-| **YoY material 2y/3y line** | Render an extra 2y or 3y line only when delta meets material threshold (see Material Threshold below) | Default is current-vs-last-year only |
-| **FTP timeline** | `ftp_timeline[*]` filtered to span | Date, type (test/auto-update), value |
-| **Data gaps** | `data_gaps[*]` within span | Period and `days_missing` |
-| **A-races completed** | `race_calendar.all_races[*]` filtered to span where priority == "A" | Only A-races; B/C surface in Block reports |
-| **Next A-race** | `race_calendar.next_race` if priority == "A" | Date, name, D-XX countdown |
-| **Deviations** | One line max: count-based observation derived from `weekly_180d` flags | Examples: grey-zone week count, deload-shortfall count. If nothing notable, write "None notable" |
-| **Interpretation** | 2-4 sentences synthesizing trajectory + YoY + notable patterns | No phase claims about prior years (see Notes) |
+Place **Fun facts ([sport], descriptive)** blocks immediately before **Interpretation**, in cycling, running, swimming, Nordic skiing, rowing order. Show only those sports selected by this report's own period selection. Read supplied period facts, never reconstruct from weekly compact caches. Missing or incompatible selection/facts are unavailable; an empty selection is authoritative. Observations are not tests, FTP/zone evidence or readiness evidence. Retain partial/stale coverage, date, activity name (ID if absent) and separate history freshness.
 
----
+For cycling, use these blank-line groups, omitting unavailable components:
+1. Max power (1 s), with date/name; Max HR, with date/name.
+2. Distance ridden for each nonzero environment; Climbed for each nonzero environment. The longest ride is already in Volume and never repeats here.
+3. Peaks: one line each for 5 s, 1 min, 5 min, 20 min and 60 min, with date/name. Include only in 7-day and Season fun facts; the 28-day report has its separate Best efforts section.
+4. Time in the saddle.
+5. Work and Carbs used, each with its equivalent in parentheses; break before the equivalent if needed. Most work in a day uses date, kJ and same-day carbs on separately labelled lines. Add Most work in a week only in 28-day and Season, retaining the supplied dates.
 
-## Assessment Labels
+For running, swimming, Nordic skiing and rowing, use three blank-line groups: Max HR with date/name; longest run/swim/Nordic session/row with date/name/duration and available distance, then distance and supported outdoor climbing; Running time / Swimming moving time / Nordic skiing time / Rowing time. Longest sessions belong here only in 7-day/28-day reports; Season keeps them in Volume. No power, work, carbs or equivalents belong to these four sports.
 
-### Phase Trajectory Run-Length Notation
-| Pattern | Format |
-|---------|--------|
-| Run of same phase | `Phase×N` |
-| Phase change | ` → ` separator |
-| Current incomplete week (phase null on last row) | Append `current Phase×M` from `phase_detection.phase` |
-| Final stretch in current phase | `current ` prefix on the trailing run |
+Use Distance ridden / Distance run / Distance swum / Distance skied / Distance rowed, and Climbed. Typical lines fit 40 characters: `Distance ridden: 80 km (outdoor)`, `Distance run: 18 km (outdoor)`, `Distance swum: 2 km (pool/other)`, `Distance skied: 18 km (indoor)`, `Distance rowed: 24 km (indoor)`, `Climbed: 600 m (outdoor)`. Use only supplied settings: indoor, outdoor, open water, pool/other, snow, roller, unknown. Generic Swim is pool/other, never a verified pool; OpenWaterSwim is open water unless supplied as unknown. Settings come solely from the emitted fact environment. Never infer environment from names or pool-length fields. Keep indoor, snow, roller and outdoor distance separate. Label a longest session's distance with its setting too. Any indoor distance, speed or climbing outside the split must also carry (indoor). Unknown is never outdoor. Use metres with explicit m if display conversion is unavailable; omit zero-only climbing.
 
-Example: `Recovery×2 → Base×8 → Build×5 → current Build×3` reads as: 2 weeks Recovery, 8 weeks Base, 5 weeks Build, currently 3 weeks into another Build run.
+Put complete metric coverage in its heading when shared. Show observed partial values with a separately labelled metric coverage line, for example `HR coverage: 2 of 3 sessions` or `Indoor distance: 2 of 3 sessions`. Keep date/name and setting attached to the correct fact; a deliberate fact break is allowed, but never a continuation of a Highlights or session line. Duration/longest and HR counts use coverage against activity_count; distance/ascent counts use their own setting's activity_count. Zero coverage omits the metric; missing is never zero. Duplicate-conflicting metrics remain unavailable. Cycling retains its existing counts and partial/stale power coverage.
 
-### YoY Material Threshold (for surfacing 2y/3y lines)
-| Metric | Material when delta is |
-|--------|------------------------|
-| Hours / TSS | ≥15% |
-| CTL peak / CTL end | ≥3 points |
-| TID component (Z1+Z2 / Z3 / Z4+) | ≥5 percentage points |
-| Other (HRV, RHR, density, longest ride) | Not material on their own; only surface if they reinforce one of the above |
+A clear current official dossier statement of positive grams carbohydrate per bottle is sufficient, whether in prose or the Tested training fuel table. For example, "My training bottle contains 90 g carbohydrate" establishes grams per bottle without needing a table. Never infer grams from bottle volume, a product name or a serving without a per-bottle statement. Ambiguous/conflicting statements do not establish a bottle.
 
-If 2y or 3y data missing for the matched month, skip that comparison silently; do not render `n/a`. The default current-vs-last-year line already reports `n/a — no prior data` when prior year is missing.
-
-### Direction Arrows
-Same conventions as Block report: `↑` improving, `↓` declining, `→` stable, applied to hard-day density first-half vs second-half drift.
-
----
-
-## Notes
-
-- **Phase narrative is scoped to ≤180d.** All phase references in this report draw from `weekly_180d[*].phase_detected` or `derived_metrics.phase_detection`. As of v3.110, `monthly_*y[*].dominant_phase` is derived via modal aggregation of overlapping `weekly_180d[*].phase_detected` values (most-frequent label wins; TSS is tie-break only), same vocabulary as `_detect_phase_v2`. It is **null for any month older than ~6 months** because no weekly rows overlap that window. The YoY section therefore remains **metrics-only**: no phase labels for prior years, by structural necessity rather than rule. Do not synthesize phase labels for older months from CTL/zone shapes; if `dominant_phase` is null, render no phase claim.
-- **Capability trajectory is per-week from v3.110.** Each `weekly_180d` row carries `durability_mean`/`_qualifying`, `ef_mean`/`_qualifying`, `hrrc_mean`/`_qualifying`. Gating mirrors `derived_metrics.capability` (VI ≤ 1.05, ≥ 90min for durability; cycling types + ≥ 20min for EF; HRRc > 0). N≥1 emits a mean. Use `*_qualifying` to calibrate render confidence (a single-session mean is a real observation, not an estimate). Sustainability and DFA a1 remain present-moment only in `derived_metrics.capability`.
-- **Goal audit is fully deferred.** v1 is descriptive only. There is intentionally no goal section, no header, no placeholder. v2 will introduce planned-vs-actual comparison once the data path (race_calendar, dossier-stated season targets) is clean.
-- **YoY arrays are rolling-trailing, not year-bucketed.** `monthly_1y`, `monthly_2y`, `monthly_3y` are deeper rolling windows that may be sparse for newly-onboarded athletes. Always match by calendar `month` string, never by array position. If matched month not present in any tier, render `n/a — no prior data` and move on. Do not infer.
-- **Material threshold surfaces 2y/3y selectively.** Default display is current vs last year only. 2y or 3y lines appear only when the delta meets the threshold and the comparison adds genuine context. Three-year tables every time defeat the report's purpose. Keep it ruthless.
-- **Length norm 55–70 lines.** Longer than Block (45–60) because the annual arc needs trajectory + YoY space. Shorter would force tighter aggregation than the data supports. Hold the line.
-- **Cadence: on-demand only.** Seasons aren't crisp boundaries. No automatic generation, no calendar trigger.
-- **Notable Patterns is small by design.** FTP events, data gaps, A-races, plus one deviations line. Resist expanding: durability-temp artifacts and AAS escalation history are Block-scope or out of scope for v1.
-- **Interpretation stays interpretive.** 2-4 sentences. Trajectory read, YoY headline, forward note. No numeric restatement of what's already in the data sections above.
-
-## Formatting Rule
-
-- **Durations:** Use `_formatted` fields from JSON where they exist on the source object. `weekly_180d[*]` rows currently expose `longest_ride_hours` (decimal, no `_formatted` sibling). Render decimal hours with a trailing `h` (e.g. `4.5h`); do not invent a formatted variant. For `total_training_formatted` and similar fields on other JSON objects, use the formatted form when present.
+Use the athlete's stated bottle; otherwise use the USDA medium-banana fallback: about 27 g carbohydrate and about 105 kcal per medium banana. Carbs equivalent = carbs_used / 27 or carbs_used / grams per bottle. Work equivalent = work_kj / 105 or work_kj / (4 * grams per bottle). Mechanical work of 1 kJ is approximately 1 kcal expended. This equivalence method note belongs only in the template, not in the report. Round counts to one decimal and say about: `Work: 3600 kJ (energy of about 10.0 of your 90 g bottles)`, `Carbs used: 900 g (about 10.0 of your 90 g bottles)`; fallback uses medium bananas. These are fun comparisons, not fueling advice or estimates of carbs eaten.

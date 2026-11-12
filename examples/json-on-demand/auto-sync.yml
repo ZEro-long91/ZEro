@@ -1,0 +1,404 @@
+# Section 11 workflow v11.111
+name: Auto-Sync Intervals.icu Data
+run-name: ${{ github.event_name == 'workflow_dispatch' && inputs.operation == 'Sync timer' && 'Sync timer run' || 'Auto-Sync Intervals.icu Data' }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: 'Operation'
+        type: choice
+        required: false
+        default: Sync
+        options: [Sync, Update, Status, Rollback, 'Sync timer', Other]
+      other_operation:
+        description: 'Used only when Operation is Other'
+        type: string
+        default: ''
+      force_release_download:
+        description: 'Use for the first Sync after adopting this workflow'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: section11-writer
+  cancel-in-progress: false
+  queue: max
+
+jobs:
+  sync:
+    if: ${{ github.event_name != 'schedule' || vars.SECTION11_SYNC_TIMER != 'on' }}
+    runs-on: ubuntu-latest
+    cache-mode: write
+    timeout-minutes: 30
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      SECTION11_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+      SECTION11_AUTO_UPDATE: ${{ vars.SECTION11_AUTO_UPDATE }}
+    steps:
+      - name: Require default branch
+        shell: bash
+        run: test "$GITHUB_REF" = "refs/heads/$SECTION11_DEFAULT_BRANCH"
+      - name: Checkout default branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        timeout-minutes: 3
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        timeout-minutes: 3
+        with:
+          python-version: '3.11'
+      - name: Write step deadline guard
+        shell: bash
+        run: |
+          umask 077
+          set -o noclobber
+          cat > "$RUNNER_TEMP/section11-deadline.py" <<'SECTION11_DEADLINE'
+          """Fixed step guard: run one command; nothing it started outlives the step."""
+          import os
+          import signal
+          import subprocess
+          import sys
+          import time
+
+
+          def clear(child):
+              """SIGKILL the command's process group until no member is left."""
+              end = time.monotonic() + 10
+              while time.monotonic() < end:
+                  child.poll()  # reap the group leader so an empty group is visible
+                  try:
+                      os.killpg(child.pid, signal.SIGKILL)
+                  except ProcessLookupError:
+                      return True
+                  except PermissionError:
+                      pass
+                  time.sleep(0.02)
+              return False
+
+
+          def main():
+              seconds, command = int(sys.argv[1]), sys.argv[2:]
+              stop = []
+              # Cancellation reaches this entry process as SIGINT, then SIGTERM.
+              for number in (signal.SIGINT, signal.SIGTERM):
+                  signal.signal(number, lambda received, frame: stop.append(received))
+              # A new session makes the command and all it starts one process group.
+              child = subprocess.Popen(command, start_new_session=True)
+              deadline = time.monotonic() + seconds
+              while child.poll() is None and not stop and time.monotonic() < deadline:
+                  time.sleep(0.05)
+              status = child.poll()
+              if not clear(child):
+                  print('::error::Step processes could not be stopped.', file=sys.stderr)
+                  return 1
+              if stop:
+                  return 128 + stop[0]
+              if status is None:
+                  print('::error::Step deadline of ' + str(seconds) + ' seconds reached; its processes were stopped.', file=sys.stderr)
+                  return 124
+              return status if status >= 0 else 128 - status
+
+
+          if __name__ == '__main__':
+              sys.exit(main())
+          SECTION11_DEADLINE
+      - name: Select and fetch official runtime
+        id: select
+        timeout-minutes: 3
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          umask 077
+          set -o noclobber
+          mkdir "$RUNNER_TEMP/section11-entry" "$RUNNER_TEMP/section11-gh-config"
+          cd "$RUNNER_TEMP/section11-gh-config"
+          gh_api() {
+            python -I -B "$RUNNER_TEMP/section11-deadline.py" 30 \
+              env -i PATH="$PATH" LANG=C.UTF-8 GH_TOKEN="$GH_TOKEN" GH_CONFIG_DIR="$PWD" GH_PROMPT_DISABLED=1 \
+              gh api --hostname github.com --method GET "repos/CrankAddict/section-11/$1" "${@:2}"
+          }
+          selection="$(gh_api releases/latest --jq '[.tag_name, ("refs/tags/" + .tag_name | @uri)] | @tsv')"
+          IFS=$'\t' read -r tag ref <<< "$selection"
+          commit="$(gh_api "commits/$ref" --jq .sha)"
+          [[ "$commit" =~ ^[0-9a-f]{40}$ ]] || exit 1
+          gh_api "contents/manifest.json?ref=$commit" -H 'Accept: application/vnd.github.raw+json' > "$RUNNER_TEMP/section11-entry/manifest.json"
+          gh_api "contents/examples/maintenance/hosted_runtime.py?ref=$commit" -H 'Accept: application/vnd.github.raw+json' > "$RUNNER_TEMP/section11-entry/hosted_runtime.py"
+          confirmed="$(gh_api "commits/$ref" --jq .sha)"
+          [[ "$confirmed" == "$commit" ]] || exit 1
+          printf 'tag=%s\ncommit=%s\n' "$tag" "$commit" >> "$GITHUB_OUTPUT"
+      - name: Write fixed verification gate
+        shell: bash
+        run: |
+          umask 077
+          set -o noclobber
+          cat > "$RUNNER_TEMP/section11-gate.py" <<'SECTION11_GATE'
+          """Fixed no-network gate. CP4 embeds this exact file; dev/ is not released."""
+          import hashlib
+          import json
+          import os
+          import re
+          import stat
+          import sys
+          import unicodedata
+          
+          ENTRY = 'examples/maintenance/hosted_runtime.py'
+          LIMIT = 1024 * 1024
+          
+          
+          def pairs(items):
+              value = {}
+              for key, item in items:
+                  if key in value:
+                      raise ValueError('duplicate manifest key')
+                  value[key] = item
+              return value
+          
+          
+          def manifest(raw):
+              if len(raw) > LIMIT:
+                  raise ValueError('manifest exceeds gate bound')
+              obj = json.loads(raw.decode('utf-8'), object_pairs_hook=pairs,
+                               parse_constant=lambda _: (_ for _ in ()).throw(ValueError('invalid JSON constant')))
+              files = obj.get('files') if isinstance(obj, dict) else None
+              schema = obj.get('schema_version', 1) if isinstance(obj, dict) else None
+              if type(schema) is not int or schema not in (1, 2) or not isinstance(files, dict) or not 0 < len(files) <= 512:
+                  raise ValueError('unsupported manifest schema or inventory')
+              aliases, leaves = {}, set()
+              for name, item in files.items():
+                  parts = name.split('/')
+                  if (not name or len(name) > 240 or name != name.strip() or '\\' in name or ':' in name
+                          or any(ord(c) < 32 or ord(c) == 127 for c in name)
+                          or any(not p or p.startswith('.') or p.endswith(('.', ' ')) for p in parts)
+                          or parts[0] in {'dev', 'custom', 'section11', 'maps', 'archive', 'node_modules'}
+                          or unicodedata.normalize('NFC', name).casefold() == 'manifest.json'
+                          or name in {'manifest.json', 'DOSSIER.md', 'latest.json', 'history.json', 'intervals.json',
+                                      'routes.json', 'saved_workouts.json', 'ftp_history.json', 'route_eta_history.json'}):
+                      raise ValueError('unsafe manifest path')
+                  for i in range(1, len(parts) + 1):
+                      path = '/'.join(parts[:i])
+                      key = unicodedata.normalize('NFC', path).casefold()
+                      if key in aliases and aliases[key] != path:
+                          raise ValueError('manifest path alias')
+                      aliases[key] = path
+                  if not isinstance(item, dict) or not isinstance(item.get('hash'), str) or not re.fullmatch('[0-9a-f]{64}', item['hash']):
+                      raise ValueError('invalid manifest hash')
+                  leaves.add(name)
+              if any('/'.join(p.split('/')[:i]) in leaves for p in leaves for i in range(1, len(p.split('/')))):
+                  raise ValueError('manifest file/directory collision')
+              if ENTRY not in files:
+                  raise ValueError('manifest lacks hosted runtime entry')
+              return files
+          
+          
+          def read(path):
+              """Read one exact ordinary file through no-follow directory handles."""
+              parts = os.path.abspath(path).split('/')[1:]
+              fd = os.open('/', os.O_RDONLY | os.O_DIRECTORY)
+              try:
+                  for part in parts[:-1]:
+                      child = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+                      os.close(fd)
+                      fd = child
+                  before = os.stat(parts[-1], dir_fd=fd, follow_symlinks=False)
+                  with os.fdopen(os.open(parts[-1], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=fd), 'rb') as handle:
+                      opened = os.fstat(handle.fileno())
+                      if not stat.S_ISREG(opened.st_mode) or opened.st_nlink != 1 or opened != before or opened.st_size > LIMIT:
+                          raise ValueError('unsafe gate input')
+                      data = handle.read(LIMIT + 1)
+                      after = os.fstat(handle.fileno())
+                  current = os.stat(parts[-1], dir_fd=fd, follow_symlinks=False)
+                  identity = lambda s: (s.st_dev, s.st_ino, s.st_size, s.st_mtime_ns, s.st_ctime_ns, s.st_nlink)
+                  if len(data) > LIMIT or identity(opened) != identity(after) or identity(after) != identity(current):
+                      raise ValueError('gate input changed during read')
+                  return data
+              finally:
+                  os.close(fd)
+          
+          
+          def verify(raw, entry):
+              files = manifest(raw)
+              if len(entry) > LIMIT or hashlib.sha256(entry).hexdigest() != files[ENTRY]['hash']:
+                  raise ValueError('hosted runtime hash mismatch')
+              return entry
+          
+          
+          def main():
+              base = os.path.join(os.environ['RUNNER_TEMP'], 'section11-entry')
+              checkout = os.path.abspath(os.environ['GITHUB_WORKSPACE'])
+              if os.path.commonpath((os.path.abspath(base), checkout)) == checkout:
+                  raise ValueError('entry staging is inside checkout')
+              s = os.stat(base, follow_symlinks=False)
+              if not stat.S_ISDIR(s.st_mode) or s.st_uid != os.getuid() or s.st_mode & 0o077:
+                  raise ValueError('entry staging is not private')
+              path = os.path.join(base, 'hosted_runtime.py')
+              raw = read(os.path.join(base, 'manifest.json'))
+              # Later phases bind the manifest before executing any release code. CP4
+              # supplies this digest from the successful token-free bootstrap step output.
+              if len(sys.argv) < 2 or sys.argv[1] != 'bootstrap':
+                  if sys.argv.count('--manifest-sha256') != 1:
+                      raise ValueError('selected manifest digest required')
+                  index = sys.argv.index('--manifest-sha256') + 1
+                  if index == len(sys.argv) or not re.fullmatch('[0-9a-f]{64}', sys.argv[index]) or hashlib.sha256(raw).hexdigest() != sys.argv[index]:
+                      raise ValueError('selected manifest changed before runtime execution')
+              entry = verify(raw, read(path))
+              # Execute the verified bytes themselves, never reopen an executable pathname.
+              exec(compile(entry, path, 'exec'), {'__name__': '__main__', '__file__': path,
+                   'OFFICIAL_MANIFEST': raw, 'VERIFIED_ENTRY': entry})
+          
+          
+          if __name__ == '__main__':
+              main()
+          SECTION11_GATE
+      - name: Verify runtime dependencies
+        id: bootstrap
+        timeout-minutes: 5
+        env:
+          RUNTIME_TAG: ${{ steps.select.outputs.tag }}
+          RUNTIME_COMMIT: ${{ steps.select.outputs.commit }}
+        run: exec python -I -B "$RUNNER_TEMP/section11-deadline.py" 270 python -I -B "$RUNNER_TEMP/section11-gate.py" bootstrap --tag "$RUNTIME_TAG" --commit "$RUNTIME_COMMIT" --wrapper-api 2
+      - name: Install dependencies
+        timeout-minutes: 3
+        run: exec python -I -B "$RUNNER_TEMP/section11-deadline.py" 150 python -I -B -m pip install requests
+      - name: Prepare operation
+        id: prepare
+        timeout-minutes: 5
+        env:
+          RUNTIME_TAG: ${{ steps.select.outputs.tag }}
+          RUNTIME_COMMIT: ${{ steps.select.outputs.commit }}
+          RUNTIME_DIGEST: ${{ steps.bootstrap.outputs.manifest_sha256 }}
+          GITHUB_TOKEN: ${{ github.token }}
+          FORCE_RELEASE_DOWNLOAD: ${{ inputs.force_release_download && 'true' || 'false' }}
+        shell: bash
+        run: |
+          args=(--accept-install)
+          if [[ "$FORCE_RELEASE_DOWNLOAD" == true ]]; then args+=(--force-release-download); fi
+          exec python -I -B "$RUNNER_TEMP/section11-deadline.py" 270 python -I -B "$RUNNER_TEMP/section11-gate.py" prepare --tag "$RUNTIME_TAG" --commit "$RUNTIME_COMMIT" --wrapper-api 2 --manifest-sha256 "$RUNTIME_DIGEST" "${args[@]}"
+      - name: Prepare slow cache staging
+        id: slow_cache_context
+        if: steps.prepare.outputs.run_sync == 'true'
+        continue-on-error: true
+        timeout-minutes: 2
+        env:
+          RUNTIME_TAG: ${{ steps.select.outputs.tag }}
+          RUNTIME_COMMIT: ${{ steps.select.outputs.commit }}
+          RUNTIME_DIGEST: ${{ steps.bootstrap.outputs.manifest_sha256 }}
+          APPLICATION_TAG: ${{ steps.prepare.outputs.application_tag }}
+          APPLICATION_COMMIT: ${{ steps.prepare.outputs.application_commit }}
+          APPLICATION_DIGEST: ${{ steps.prepare.outputs.application_sha256 }}
+        run: exec python -I -B "$RUNNER_TEMP/section11-deadline.py" 90 python -I -B "$RUNNER_TEMP/section11-gate.py" cache-prepare --tag "$RUNTIME_TAG" --commit "$RUNTIME_COMMIT" --wrapper-api 2 --manifest-sha256 "$RUNTIME_DIGEST" --application-tag "$APPLICATION_TAG" --application-commit "$APPLICATION_COMMIT" --application-sha256 "$APPLICATION_DIGEST"
+      - name: Restore slow sources
+        if: steps.slow_cache_context.outputs.enabled == 'true'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        continue-on-error: true
+        timeout-minutes: 2
+        env:
+          SEGMENT_DOWNLOAD_TIMEOUT_MINS: 1
+        with:
+          path: ${{ runner.temp }}/section11-slow-cache/cache.json
+          key: ${{ steps.slow_cache_context.outputs.key }}
+          restore-keys: ${{ steps.slow_cache_context.outputs.prefix }}
+          fail-on-cache-miss: false
+          enableCrossOsArchive: false
+      - name: Run sync
+        id: sync
+        if: steps.prepare.outputs.run_sync == 'true'
+        timeout-minutes: 10
+        env:
+          RUNTIME_TAG: ${{ steps.select.outputs.tag }}
+          RUNTIME_COMMIT: ${{ steps.select.outputs.commit }}
+          RUNTIME_DIGEST: ${{ steps.bootstrap.outputs.manifest_sha256 }}
+          APPLICATION_TAG: ${{ steps.prepare.outputs.application_tag }}
+          APPLICATION_COMMIT: ${{ steps.prepare.outputs.application_commit }}
+          APPLICATION_DIGEST: ${{ steps.prepare.outputs.application_sha256 }}
+          ATHLETE_ID: ${{ secrets.ATHLETE_ID }}
+          INTERVALS_KEY: ${{ secrets.INTERVALS_KEY }}
+          GITHUB_REPO: ${{ github.repository }}
+          WEEK_START: ${{ secrets.WEEK_START }}
+          ZONE_PREFERENCE: ${{ secrets.ZONE_PREFERENCE }}
+          SECTION11_ROUTE_WEATHER: ${{ vars.SECTION11_ROUTE_WEATHER }}
+          SECTION11_ROUTE_WEATHER_DEFAULT_START: ${{ vars.SECTION11_ROUTE_WEATHER_DEFAULT_START }}
+          SECTION11_DAYS: '7'
+        run: exec python -I -B "$RUNNER_TEMP/section11-deadline.py" 570 python -I -B "$RUNNER_TEMP/section11-gate.py" sync --tag "$RUNTIME_TAG" --commit "$RUNTIME_COMMIT" --wrapper-api 2 --manifest-sha256 "$RUNTIME_DIGEST" --application-tag "$APPLICATION_TAG" --application-commit "$APPLICATION_COMMIT" --application-sha256 "$APPLICATION_DIGEST"
+      - name: Verify generated data
+        id: validate
+        if: steps.prepare.outputs.run_sync == 'true'
+        timeout-minutes: 2
+        env:
+          RUNTIME_TAG: ${{ steps.select.outputs.tag }}
+          RUNTIME_COMMIT: ${{ steps.select.outputs.commit }}
+          RUNTIME_DIGEST: ${{ steps.bootstrap.outputs.manifest_sha256 }}
+          APPLICATION_TAG: ${{ steps.prepare.outputs.application_tag }}
+          APPLICATION_COMMIT: ${{ steps.prepare.outputs.application_commit }}
+          APPLICATION_DIGEST: ${{ steps.prepare.outputs.application_sha256 }}
+        run: exec python -I -B "$RUNNER_TEMP/section11-deadline.py" 90 python -I -B "$RUNNER_TEMP/section11-gate.py" validate --tag "$RUNTIME_TAG" --commit "$RUNTIME_COMMIT" --wrapper-api 2 --manifest-sha256 "$RUNTIME_DIGEST" --application-tag "$APPLICATION_TAG" --application-commit "$APPLICATION_COMMIT" --application-sha256 "$APPLICATION_DIGEST"
+      - name: Publish data and update README
+        id: publish
+        if: steps.prepare.outputs.run_sync == 'true'
+        timeout-minutes: 5
+        env:
+          RUNTIME_TAG: ${{ steps.select.outputs.tag }}
+          RUNTIME_COMMIT: ${{ steps.select.outputs.commit }}
+          RUNTIME_DIGEST: ${{ steps.bootstrap.outputs.manifest_sha256 }}
+          APPLICATION_TAG: ${{ steps.prepare.outputs.application_tag }}
+          APPLICATION_COMMIT: ${{ steps.prepare.outputs.application_commit }}
+          APPLICATION_DIGEST: ${{ steps.prepare.outputs.application_sha256 }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: exec python -I -B "$RUNNER_TEMP/section11-deadline.py" 270 python -I -B "$RUNNER_TEMP/section11-gate.py" publish --tag "$RUNTIME_TAG" --commit "$RUNTIME_COMMIT" --wrapper-api 2 --manifest-sha256 "$RUNTIME_DIGEST" --application-tag "$APPLICATION_TAG" --application-commit "$APPLICATION_COMMIT" --application-sha256 "$APPLICATION_DIGEST"
+      - name: Prepare changed slow sources for saving
+        id: slow_cache_save_file
+        if: success() && steps.publish.outputs.published == 'true' && steps.sync.outputs.cache_changed == 'true' && steps.slow_cache_context.outputs.enabled == 'true'
+        continue-on-error: true
+        timeout-minutes: 2
+        env:
+          RUNTIME_TAG: ${{ steps.select.outputs.tag }}
+          RUNTIME_COMMIT: ${{ steps.select.outputs.commit }}
+          RUNTIME_DIGEST: ${{ steps.bootstrap.outputs.manifest_sha256 }}
+          APPLICATION_TAG: ${{ steps.prepare.outputs.application_tag }}
+          APPLICATION_COMMIT: ${{ steps.prepare.outputs.application_commit }}
+          APPLICATION_DIGEST: ${{ steps.prepare.outputs.application_sha256 }}
+        run: exec python -I -B "$RUNNER_TEMP/section11-deadline.py" 90 python -I -B "$RUNNER_TEMP/section11-gate.py" cache-promote --tag "$RUNTIME_TAG" --commit "$RUNTIME_COMMIT" --wrapper-api 2 --manifest-sha256 "$RUNTIME_DIGEST" --application-tag "$APPLICATION_TAG" --application-commit "$APPLICATION_COMMIT" --application-sha256 "$APPLICATION_DIGEST"
+      - name: Save changed slow sources
+        if: success() && steps.publish.outputs.published == 'true' && steps.slow_cache_save_file.outputs.ready == 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        continue-on-error: true
+        timeout-minutes: 2
+        with:
+          path: ${{ runner.temp }}/section11-slow-cache/cache.json
+          key: ${{ steps.slow_cache_context.outputs.key }}
+      - name: Eligible update maintenance
+        if: ${{ !cancelled() && steps.prepare.outputs.maintenance == 'true' }}
+        continue-on-error: true
+        timeout-minutes: 5
+        env:
+          RUNTIME_TAG: ${{ steps.select.outputs.tag }}
+          RUNTIME_COMMIT: ${{ steps.select.outputs.commit }}
+          RUNTIME_DIGEST: ${{ steps.bootstrap.outputs.manifest_sha256 }}
+          APPLICATION_TAG: ${{ steps.prepare.outputs.application_tag }}
+          APPLICATION_COMMIT: ${{ steps.prepare.outputs.application_commit }}
+          APPLICATION_DIGEST: ${{ steps.prepare.outputs.application_sha256 }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: exec python -I -B "$RUNNER_TEMP/section11-deadline.py" 270 python -I -B "$RUNNER_TEMP/section11-gate.py" maintain --tag "$RUNTIME_TAG" --commit "$RUNTIME_COMMIT" --wrapper-api 2 --manifest-sha256 "$RUNTIME_DIGEST" --application-tag "$APPLICATION_TAG" --application-commit "$APPLICATION_COMMIT" --application-sha256 "$APPLICATION_DIGEST"
+      - name: Upload data files for download
+        if: always() && github.event_name == 'workflow_dispatch' && steps.prepare.outputs.operation != 'Sync timer' && steps.validate.outcome == 'success'
+        timeout-minutes: 2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: training-data
+          path: |
+            latest.json
+            history.json
+            intervals.json
+            routes.json
+            saved_workouts.json
+            ftp_history.json
+          retention-days: 7
+          if-no-files-found: ignore

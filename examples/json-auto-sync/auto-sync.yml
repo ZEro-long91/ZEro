@@ -1,144 +1,398 @@
+# Section 11 workflow v11.111
 name: Auto-Sync Intervals.icu Data
+run-name: ${{ github.event_name == 'workflow_dispatch' && inputs.operation == 'Sync timer' && 'Sync timer run' || 'Auto-Sync Intervals.icu Data' }}
 
 on:
   schedule:
-    # Every 30 minutes, at :07 and :37 UTC (away from the busy top of the hour).
-    # GitHub runs schedules best-effort; to request a sync, use Run workflow (Sync Now). It waits if another sync is running or queued.
-    # For Fast mode and hybrid schedules, see examples/json-auto-sync/SETUP.md in Section 11.
+    # Preserve every existing data cron literally here.
     - cron: '7,37 * * * *'
-  workflow_dispatch:  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: 'Operation'
+        type: choice
+        required: false
+        default: Sync
+        options: [Sync, Update, Status, Rollback, 'Sync timer', Other]
+      other_operation:
+        description: 'Used only when Operation is Other'
+        type: string
+        default: ''
+      force_release_download:
+        description: 'Use for the first Sync after adopting this workflow'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
+  actions: read
 
 concurrency:
-  group: section11-data-sync
+  group: section11-writer
   cancel-in-progress: false
   queue: max
 
 jobs:
   sync:
+    if: ${{ github.event_name != 'schedule' || vars.SECTION11_SYNC_TIMER != 'on' }}
     runs-on: ubuntu-latest
-    # A sync normally finishes in under a minute; this stops a stuck run from using up Actions minutes.
-    timeout-minutes: 15
-
+    cache-mode: write
+    timeout-minutes: 30
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      SECTION11_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+      SECTION11_AUTO_UPDATE: ${{ vars.SECTION11_AUTO_UPDATE }}
     steps:
-      - name: Verify default branch
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          RUN_REF: ${{ github.ref }}
-          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-        run: |
-          # Scheduled runs always use the default branch; their event carries no repository details.
-          if [ "$EVENT_NAME" = "schedule" ]; then
-            echo "✅ Scheduled run on the default branch"
-            exit 0
-          fi
-          if [ -z "$DEFAULT_BRANCH" ] || [ "$RUN_REF" != "refs/heads/${DEFAULT_BRANCH}" ]; then
-            echo "❌ ERROR: This workflow only syncs and publishes from the default branch."
-            echo "Start it again and select the default branch under Run workflow."
-            exit 1
-          fi
-          echo "✅ Running on the default branch"
-
-      - name: Checkout repository
+      - name: Require default branch
+        shell: bash
+        run: test "$GITHUB_REF" = "refs/heads/$SECTION11_DEFAULT_BRANCH"
+      - name: Checkout default branch
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        timeout-minutes: 3
         with:
-          # Use the branch as it is when this job starts, not the commit from when the run was queued,
-          # so a run that waited behind another sync builds on that sync's commit.
-          ref: ${{ github.ref }}
-
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 1
+          persist-credentials: false
       - name: Setup Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        timeout-minutes: 3
         with:
           python-version: '3.11'
+      - name: Write step deadline guard
+        shell: bash
+        run: |
+          umask 077
+          set -o noclobber
+          cat > "$RUNNER_TEMP/section11-deadline.py" <<'SECTION11_DEADLINE'
+          """Fixed step guard: run one command; nothing it started outlives the step."""
+          import os
+          import signal
+          import subprocess
+          import sys
+          import time
 
+
+          def clear(child):
+              """SIGKILL the command's process group until no member is left."""
+              end = time.monotonic() + 10
+              while time.monotonic() < end:
+                  child.poll()  # reap the group leader so an empty group is visible
+                  try:
+                      os.killpg(child.pid, signal.SIGKILL)
+                  except ProcessLookupError:
+                      return True
+                  except PermissionError:
+                      pass
+                  time.sleep(0.02)
+              return False
+
+
+          def main():
+              seconds, command = int(sys.argv[1]), sys.argv[2:]
+              stop = []
+              # Cancellation reaches this entry process as SIGINT, then SIGTERM.
+              for number in (signal.SIGINT, signal.SIGTERM):
+                  signal.signal(number, lambda received, frame: stop.append(received))
+              # A new session makes the command and all it starts one process group.
+              child = subprocess.Popen(command, start_new_session=True)
+              deadline = time.monotonic() + seconds
+              while child.poll() is None and not stop and time.monotonic() < deadline:
+                  time.sleep(0.05)
+              status = child.poll()
+              if not clear(child):
+                  print('::error::Step processes could not be stopped.', file=sys.stderr)
+                  return 1
+              if stop:
+                  return 128 + stop[0]
+              if status is None:
+                  print('::error::Step deadline of ' + str(seconds) + ' seconds reached; its processes were stopped.', file=sys.stderr)
+                  return 124
+              return status if status >= 0 else 128 - status
+
+
+          if __name__ == '__main__':
+              sys.exit(main())
+          SECTION11_DEADLINE
+      - name: Select and fetch official runtime
+        id: select
+        timeout-minutes: 3
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          umask 077
+          set -o noclobber
+          mkdir "$RUNNER_TEMP/section11-entry" "$RUNNER_TEMP/section11-gh-config"
+          cd "$RUNNER_TEMP/section11-gh-config"
+          gh_api() {
+            python -I -B "$RUNNER_TEMP/section11-deadline.py" 30 \
+              env -i PATH="$PATH" LANG=C.UTF-8 GH_TOKEN="$GH_TOKEN" GH_CONFIG_DIR="$PWD" GH_PROMPT_DISABLED=1 \
+              gh api --hostname github.com --method GET "repos/CrankAddict/section-11/$1" "${@:2}"
+          }
+          selection="$(gh_api releases/latest --jq '[.tag_name, ("refs/tags/" + .tag_name | @uri)] | @tsv')"
+          IFS=$'\t' read -r tag ref <<< "$selection"
+          commit="$(gh_api "commits/$ref" --jq .sha)"
+          [[ "$commit" =~ ^[0-9a-f]{40}$ ]] || exit 1
+          gh_api "contents/manifest.json?ref=$commit" -H 'Accept: application/vnd.github.raw+json' > "$RUNNER_TEMP/section11-entry/manifest.json"
+          gh_api "contents/examples/maintenance/hosted_runtime.py?ref=$commit" -H 'Accept: application/vnd.github.raw+json' > "$RUNNER_TEMP/section11-entry/hosted_runtime.py"
+          confirmed="$(gh_api "commits/$ref" --jq .sha)"
+          [[ "$confirmed" == "$commit" ]] || exit 1
+          printf 'tag=%s\ncommit=%s\n' "$tag" "$commit" >> "$GITHUB_OUTPUT"
+      - name: Write fixed verification gate
+        shell: bash
+        run: |
+          umask 077
+          set -o noclobber
+          cat > "$RUNNER_TEMP/section11-gate.py" <<'SECTION11_GATE'
+          """Fixed no-network gate. CP4 embeds this exact file; dev/ is not released."""
+          import hashlib
+          import json
+          import os
+          import re
+          import stat
+          import sys
+          import unicodedata
+          
+          ENTRY = 'examples/maintenance/hosted_runtime.py'
+          LIMIT = 1024 * 1024
+          
+          
+          def pairs(items):
+              value = {}
+              for key, item in items:
+                  if key in value:
+                      raise ValueError('duplicate manifest key')
+                  value[key] = item
+              return value
+          
+          
+          def manifest(raw):
+              if len(raw) > LIMIT:
+                  raise ValueError('manifest exceeds gate bound')
+              obj = json.loads(raw.decode('utf-8'), object_pairs_hook=pairs,
+                               parse_constant=lambda _: (_ for _ in ()).throw(ValueError('invalid JSON constant')))
+              files = obj.get('files') if isinstance(obj, dict) else None
+              schema = obj.get('schema_version', 1) if isinstance(obj, dict) else None
+              if type(schema) is not int or schema not in (1, 2) or not isinstance(files, dict) or not 0 < len(files) <= 512:
+                  raise ValueError('unsupported manifest schema or inventory')
+              aliases, leaves = {}, set()
+              for name, item in files.items():
+                  parts = name.split('/')
+                  if (not name or len(name) > 240 or name != name.strip() or '\\' in name or ':' in name
+                          or any(ord(c) < 32 or ord(c) == 127 for c in name)
+                          or any(not p or p.startswith('.') or p.endswith(('.', ' ')) for p in parts)
+                          or parts[0] in {'dev', 'custom', 'section11', 'maps', 'archive', 'node_modules'}
+                          or unicodedata.normalize('NFC', name).casefold() == 'manifest.json'
+                          or name in {'manifest.json', 'DOSSIER.md', 'latest.json', 'history.json', 'intervals.json',
+                                      'routes.json', 'saved_workouts.json', 'ftp_history.json', 'route_eta_history.json'}):
+                      raise ValueError('unsafe manifest path')
+                  for i in range(1, len(parts) + 1):
+                      path = '/'.join(parts[:i])
+                      key = unicodedata.normalize('NFC', path).casefold()
+                      if key in aliases and aliases[key] != path:
+                          raise ValueError('manifest path alias')
+                      aliases[key] = path
+                  if not isinstance(item, dict) or not isinstance(item.get('hash'), str) or not re.fullmatch('[0-9a-f]{64}', item['hash']):
+                      raise ValueError('invalid manifest hash')
+                  leaves.add(name)
+              if any('/'.join(p.split('/')[:i]) in leaves for p in leaves for i in range(1, len(p.split('/')))):
+                  raise ValueError('manifest file/directory collision')
+              if ENTRY not in files:
+                  raise ValueError('manifest lacks hosted runtime entry')
+              return files
+          
+          
+          def read(path):
+              """Read one exact ordinary file through no-follow directory handles."""
+              parts = os.path.abspath(path).split('/')[1:]
+              fd = os.open('/', os.O_RDONLY | os.O_DIRECTORY)
+              try:
+                  for part in parts[:-1]:
+                      child = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+                      os.close(fd)
+                      fd = child
+                  before = os.stat(parts[-1], dir_fd=fd, follow_symlinks=False)
+                  with os.fdopen(os.open(parts[-1], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=fd), 'rb') as handle:
+                      opened = os.fstat(handle.fileno())
+                      if not stat.S_ISREG(opened.st_mode) or opened.st_nlink != 1 or opened != before or opened.st_size > LIMIT:
+                          raise ValueError('unsafe gate input')
+                      data = handle.read(LIMIT + 1)
+                      after = os.fstat(handle.fileno())
+                  current = os.stat(parts[-1], dir_fd=fd, follow_symlinks=False)
+                  identity = lambda s: (s.st_dev, s.st_ino, s.st_size, s.st_mtime_ns, s.st_ctime_ns, s.st_nlink)
+                  if len(data) > LIMIT or identity(opened) != identity(after) or identity(after) != identity(current):
+                      raise ValueError('gate input changed during read')
+                  return data
+              finally:
+                  os.close(fd)
+          
+          
+          def verify(raw, entry):
+              files = manifest(raw)
+              if len(entry) > LIMIT or hashlib.sha256(entry).hexdigest() != files[ENTRY]['hash']:
+                  raise ValueError('hosted runtime hash mismatch')
+              return entry
+          
+          
+          def main():
+              base = os.path.join(os.environ['RUNNER_TEMP'], 'section11-entry')
+              checkout = os.path.abspath(os.environ['GITHUB_WORKSPACE'])
+              if os.path.commonpath((os.path.abspath(base), checkout)) == checkout:
+                  raise ValueError('entry staging is inside checkout')
+              s = os.stat(base, follow_symlinks=False)
+              if not stat.S_ISDIR(s.st_mode) or s.st_uid != os.getuid() or s.st_mode & 0o077:
+                  raise ValueError('entry staging is not private')
+              path = os.path.join(base, 'hosted_runtime.py')
+              raw = read(os.path.join(base, 'manifest.json'))
+              # Later phases bind the manifest before executing any release code. CP4
+              # supplies this digest from the successful token-free bootstrap step output.
+              if len(sys.argv) < 2 or sys.argv[1] != 'bootstrap':
+                  if sys.argv.count('--manifest-sha256') != 1:
+                      raise ValueError('selected manifest digest required')
+                  index = sys.argv.index('--manifest-sha256') + 1
+                  if index == len(sys.argv) or not re.fullmatch('[0-9a-f]{64}', sys.argv[index]) or hashlib.sha256(raw).hexdigest() != sys.argv[index]:
+                      raise ValueError('selected manifest changed before runtime execution')
+              entry = verify(raw, read(path))
+              # Execute the verified bytes themselves, never reopen an executable pathname.
+              exec(compile(entry, path, 'exec'), {'__name__': '__main__', '__file__': path,
+                   'OFFICIAL_MANIFEST': raw, 'VERIFIED_ENTRY': entry})
+          
+          
+          if __name__ == '__main__':
+              main()
+          SECTION11_GATE
+      - name: Verify runtime dependencies
+        id: bootstrap
+        timeout-minutes: 5
+        env:
+          RUNTIME_TAG: ${{ steps.select.outputs.tag }}
+          RUNTIME_COMMIT: ${{ steps.select.outputs.commit }}
+        run: exec python -I -B "$RUNNER_TEMP/section11-deadline.py" 270 python -I -B "$RUNNER_TEMP/section11-gate.py" bootstrap --tag "$RUNTIME_TAG" --commit "$RUNTIME_COMMIT" --wrapper-api 2
       - name: Install dependencies
-        run: |
-          pip install requests
-
-      - name: Verify sync.py exists
-        run: |
-          if [ ! -f sync.py ]; then
-            echo "❌ ERROR: sync.py not found in the repository root!"
-            exit 1
-          fi
-          echo "✅ sync.py found"
-          echo "File size: $(wc -c < sync.py) bytes"
-
-      - name: Verify secrets are set
+        timeout-minutes: 3
+        run: exec python -I -B "$RUNNER_TEMP/section11-deadline.py" 150 python -I -B -m pip install requests
+      - name: Prepare operation
+        id: prepare
+        timeout-minutes: 5
         env:
-          ATHLETE_ID: ${{ secrets.ATHLETE_ID }}
-          INTERVALS_KEY: ${{ secrets.INTERVALS_KEY }}
+          RUNTIME_TAG: ${{ steps.select.outputs.tag }}
+          RUNTIME_COMMIT: ${{ steps.select.outputs.commit }}
+          RUNTIME_DIGEST: ${{ steps.bootstrap.outputs.manifest_sha256 }}
+          GITHUB_TOKEN: ${{ github.token }}
+          FORCE_RELEASE_DOWNLOAD: ${{ inputs.force_release_download && 'true' || 'false' }}
+        shell: bash
         run: |
-          if [ -z "$ATHLETE_ID" ]; then
-            echo "❌ ERROR: ATHLETE_ID secret not set!"
-            exit 1
-          fi
-          if [ -z "$INTERVALS_KEY" ]; then
-            echo "❌ ERROR: INTERVALS_KEY secret not set!"
-            exit 1
-          fi
-          echo "✅ All secrets configured"
-
+          args=(--accept-install)
+          if [[ "$FORCE_RELEASE_DOWNLOAD" == true ]]; then args+=(--force-release-download); fi
+          exec python -I -B "$RUNNER_TEMP/section11-deadline.py" 270 python -I -B "$RUNNER_TEMP/section11-gate.py" prepare --tag "$RUNTIME_TAG" --commit "$RUNTIME_COMMIT" --wrapper-api 2 --manifest-sha256 "$RUNTIME_DIGEST" "${args[@]}"
+      - name: Prepare slow cache staging
+        id: slow_cache_context
+        if: steps.prepare.outputs.run_sync == 'true'
+        continue-on-error: true
+        timeout-minutes: 2
+        env:
+          RUNTIME_TAG: ${{ steps.select.outputs.tag }}
+          RUNTIME_COMMIT: ${{ steps.select.outputs.commit }}
+          RUNTIME_DIGEST: ${{ steps.bootstrap.outputs.manifest_sha256 }}
+          APPLICATION_TAG: ${{ steps.prepare.outputs.application_tag }}
+          APPLICATION_COMMIT: ${{ steps.prepare.outputs.application_commit }}
+          APPLICATION_DIGEST: ${{ steps.prepare.outputs.application_sha256 }}
+        run: exec python -I -B "$RUNNER_TEMP/section11-deadline.py" 90 python -I -B "$RUNNER_TEMP/section11-gate.py" cache-prepare --tag "$RUNTIME_TAG" --commit "$RUNTIME_COMMIT" --wrapper-api 2 --manifest-sha256 "$RUNTIME_DIGEST" --application-tag "$APPLICATION_TAG" --application-commit "$APPLICATION_COMMIT" --application-sha256 "$APPLICATION_DIGEST"
+      - name: Restore slow sources
+        if: steps.slow_cache_context.outputs.enabled == 'true'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        continue-on-error: true
+        timeout-minutes: 2
+        env:
+          SEGMENT_DOWNLOAD_TIMEOUT_MINS: 1
+        with:
+          path: ${{ runner.temp }}/section11-slow-cache/cache.json
+          key: ${{ steps.slow_cache_context.outputs.key }}
+          restore-keys: ${{ steps.slow_cache_context.outputs.prefix }}
+          fail-on-cache-miss: false
+          enableCrossOsArchive: false
       - name: Run sync
+        id: sync
+        if: steps.prepare.outputs.run_sync == 'true'
+        timeout-minutes: 10
         env:
+          RUNTIME_TAG: ${{ steps.select.outputs.tag }}
+          RUNTIME_COMMIT: ${{ steps.select.outputs.commit }}
+          RUNTIME_DIGEST: ${{ steps.bootstrap.outputs.manifest_sha256 }}
+          APPLICATION_TAG: ${{ steps.prepare.outputs.application_tag }}
+          APPLICATION_COMMIT: ${{ steps.prepare.outputs.application_commit }}
+          APPLICATION_DIGEST: ${{ steps.prepare.outputs.application_sha256 }}
           ATHLETE_ID: ${{ secrets.ATHLETE_ID }}
           INTERVALS_KEY: ${{ secrets.INTERVALS_KEY }}
           GITHUB_REPO: ${{ github.repository }}
           WEEK_START: ${{ secrets.WEEK_START }}
           ZONE_PREFERENCE: ${{ secrets.ZONE_PREFERENCE }}
-        run: |
-          # sync.py prints the first five characters of both credentials; hide them in the log.
-          echo "::add-mask::${ATHLETE_ID:0:5}"
-          echo "::add-mask::${INTERVALS_KEY:0:5}"
-          echo "🔍 Debug info:"
-          echo "  Python version: $(python --version)"
-          echo "  Working directory: $(pwd)"
-          echo "  GITHUB_REPO: $GITHUB_REPO"
-          echo ""
-          echo "🚀 Running sync script..."
-          # Single-writer mode: generate files locally and let this workflow commit them.
-          # Avoid sync.py GitHub API publishing here, because the publish step below
-          # commits the checkout copies of the generated files.
-          python sync.py \
-            --athlete-id "$ATHLETE_ID" \
-            --intervals-key "$INTERVALS_KEY" \
-            --days 7 \
-            --output latest.json || {
-              echo "❌ Sync script failed with exit code $?"
-              exit 1
-            }
-
+          SECTION11_ROUTE_WEATHER: ${{ vars.SECTION11_ROUTE_WEATHER }}
+          SECTION11_ROUTE_WEATHER_DEFAULT_START: ${{ vars.SECTION11_ROUTE_WEATHER_DEFAULT_START }}
+          SECTION11_DAYS: '7'
+        run: exec python -I -B "$RUNNER_TEMP/section11-deadline.py" 570 python -I -B "$RUNNER_TEMP/section11-gate.py" sync --tag "$RUNTIME_TAG" --commit "$RUNTIME_COMMIT" --wrapper-api 2 --manifest-sha256 "$RUNTIME_DIGEST" --application-tag "$APPLICATION_TAG" --application-commit "$APPLICATION_COMMIT" --application-sha256 "$APPLICATION_DIGEST"
       - name: Verify generated data
-        run: |
-          if [ ! -f latest.json ]; then
-            echo "❌ latest.json not found"
-            exit 1
-          fi
-          if ! python -m json.tool latest.json > /dev/null; then
-            echo "❌ latest.json is not valid JSON"
-            exit 1
-          fi
-          # A successful sync always rewrites latest.json, so an unchanged tracked copy means nothing was written.
-          if git cat-file -e HEAD:latest.json 2> /dev/null; then
-            git show HEAD:latest.json > "$RUNNER_TEMP/tracked-latest.json"
-            if cmp -s "$RUNNER_TEMP/tracked-latest.json" latest.json; then
-              echo "❌ latest.json was not updated by this sync"
-              exit 1
-            fi
-          fi
-          for f in history.json intervals.json routes.json saved_workouts.json ftp_history.json; do
-            if [ -f "$f" ] && ! python -m json.tool "$f" > /dev/null; then
-              echo "❌ $f is not valid JSON"
-              exit 1
-            fi
-          done
-          echo "✅ Generated data verified"
-          echo "latest.json size: $(wc -c < latest.json) bytes"
-
+        id: validate
+        if: steps.prepare.outputs.run_sync == 'true'
+        timeout-minutes: 2
+        env:
+          RUNTIME_TAG: ${{ steps.select.outputs.tag }}
+          RUNTIME_COMMIT: ${{ steps.select.outputs.commit }}
+          RUNTIME_DIGEST: ${{ steps.bootstrap.outputs.manifest_sha256 }}
+          APPLICATION_TAG: ${{ steps.prepare.outputs.application_tag }}
+          APPLICATION_COMMIT: ${{ steps.prepare.outputs.application_commit }}
+          APPLICATION_DIGEST: ${{ steps.prepare.outputs.application_sha256 }}
+        run: exec python -I -B "$RUNNER_TEMP/section11-deadline.py" 90 python -I -B "$RUNNER_TEMP/section11-gate.py" validate --tag "$RUNTIME_TAG" --commit "$RUNTIME_COMMIT" --wrapper-api 2 --manifest-sha256 "$RUNTIME_DIGEST" --application-tag "$APPLICATION_TAG" --application-commit "$APPLICATION_COMMIT" --application-sha256 "$APPLICATION_DIGEST"
+      - name: Publish data and update README
+        id: publish
+        if: steps.prepare.outputs.run_sync == 'true'
+        timeout-minutes: 5
+        env:
+          RUNTIME_TAG: ${{ steps.select.outputs.tag }}
+          RUNTIME_COMMIT: ${{ steps.select.outputs.commit }}
+          RUNTIME_DIGEST: ${{ steps.bootstrap.outputs.manifest_sha256 }}
+          APPLICATION_TAG: ${{ steps.prepare.outputs.application_tag }}
+          APPLICATION_COMMIT: ${{ steps.prepare.outputs.application_commit }}
+          APPLICATION_DIGEST: ${{ steps.prepare.outputs.application_sha256 }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: exec python -I -B "$RUNNER_TEMP/section11-deadline.py" 270 python -I -B "$RUNNER_TEMP/section11-gate.py" publish --tag "$RUNTIME_TAG" --commit "$RUNTIME_COMMIT" --wrapper-api 2 --manifest-sha256 "$RUNTIME_DIGEST" --application-tag "$APPLICATION_TAG" --application-commit "$APPLICATION_COMMIT" --application-sha256 "$APPLICATION_DIGEST"
+      - name: Prepare changed slow sources for saving
+        id: slow_cache_save_file
+        if: success() && steps.publish.outputs.published == 'true' && steps.sync.outputs.cache_changed == 'true' && steps.slow_cache_context.outputs.enabled == 'true'
+        continue-on-error: true
+        timeout-minutes: 2
+        env:
+          RUNTIME_TAG: ${{ steps.select.outputs.tag }}
+          RUNTIME_COMMIT: ${{ steps.select.outputs.commit }}
+          RUNTIME_DIGEST: ${{ steps.bootstrap.outputs.manifest_sha256 }}
+          APPLICATION_TAG: ${{ steps.prepare.outputs.application_tag }}
+          APPLICATION_COMMIT: ${{ steps.prepare.outputs.application_commit }}
+          APPLICATION_DIGEST: ${{ steps.prepare.outputs.application_sha256 }}
+        run: exec python -I -B "$RUNNER_TEMP/section11-deadline.py" 90 python -I -B "$RUNNER_TEMP/section11-gate.py" cache-promote --tag "$RUNTIME_TAG" --commit "$RUNTIME_COMMIT" --wrapper-api 2 --manifest-sha256 "$RUNTIME_DIGEST" --application-tag "$APPLICATION_TAG" --application-commit "$APPLICATION_COMMIT" --application-sha256 "$APPLICATION_DIGEST"
+      - name: Save changed slow sources
+        if: success() && steps.publish.outputs.published == 'true' && steps.slow_cache_save_file.outputs.ready == 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        continue-on-error: true
+        timeout-minutes: 2
+        with:
+          path: ${{ runner.temp }}/section11-slow-cache/cache.json
+          key: ${{ steps.slow_cache_context.outputs.key }}
+      - name: Eligible update maintenance
+        if: ${{ !cancelled() && steps.prepare.outputs.maintenance == 'true' }}
+        continue-on-error: true
+        timeout-minutes: 5
+        env:
+          RUNTIME_TAG: ${{ steps.select.outputs.tag }}
+          RUNTIME_COMMIT: ${{ steps.select.outputs.commit }}
+          RUNTIME_DIGEST: ${{ steps.bootstrap.outputs.manifest_sha256 }}
+          APPLICATION_TAG: ${{ steps.prepare.outputs.application_tag }}
+          APPLICATION_COMMIT: ${{ steps.prepare.outputs.application_commit }}
+          APPLICATION_DIGEST: ${{ steps.prepare.outputs.application_sha256 }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: exec python -I -B "$RUNNER_TEMP/section11-deadline.py" 270 python -I -B "$RUNNER_TEMP/section11-gate.py" maintain --tag "$RUNTIME_TAG" --commit "$RUNTIME_COMMIT" --wrapper-api 2 --manifest-sha256 "$RUNTIME_DIGEST" --application-tag "$APPLICATION_TAG" --application-commit "$APPLICATION_COMMIT" --application-sha256 "$APPLICATION_DIGEST"
       - name: Upload data files for download
-        if: github.event_name == 'workflow_dispatch'
+        if: always() && github.event_name == 'workflow_dispatch' && steps.prepare.outputs.operation != 'Sync timer' && steps.validate.outcome == 'success'
+        timeout-minutes: 2
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: training-data
@@ -151,167 +405,3 @@ jobs:
             ftp_history.json
           retention-days: 7
           if-no-files-found: ignore
-
-      - name: Publish data and update README
-        env:
-          RUN_BRANCH: ${{ github.ref_name }}
-        run: |
-          GENERATED=(latest.json history.json intervals.json routes.json saved_workouts.json ftp_history.json)
-          NOW=$(date -u +%s)
-          SYNC_TIME=$(date -u -d "@${NOW}" +"%Y-%m-%d %H:%M:%S UTC")
-          ARCHIVE_PATH="archive/$(date -u -d "@${NOW}" +"%Y-%m")/$(date -u -d "@${NOW}" +"%Y-%m-%d").json"
-          CHECKOUT_SHA=$(git rev-parse HEAD)
-
-          # Publish only to the repository's default branch, and only from a run on that branch.
-          if ! REMOTE_HEAD=$(git ls-remote --symref origin HEAD); then
-            echo "❌ ERROR: Could not read the repository's default branch. Nothing was published."
-            exit 1
-          fi
-          TARGET_BRANCH=$(printf '%s\n' "$REMOTE_HEAD" | sed -n 's#^ref: refs/heads/\(.*\)[[:space:]]HEAD$#\1#p')
-          if [ -z "$TARGET_BRANCH" ] || [ "$TARGET_BRANCH" != "$RUN_BRANCH" ]; then
-            echo "❌ ERROR: Could not confirm that this run is on the default branch. Nothing was published."
-            exit 1
-          fi
-
-          # Keep this run's output outside the working tree while the tree is reset.
-          STAGE_DIR="$RUNNER_TEMP/section11-output"
-          rm -rf "$STAGE_DIR"
-          mkdir -p "$STAGE_DIR"
-          SAVED=()
-          for f in "${GENERATED[@]}"; do
-            if [ -f "$f" ]; then
-              cp -p "$f" "$STAGE_DIR/$f"
-              SAVED+=("$f")
-            fi
-          done
-
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-
-          MAX_ATTEMPTS=3
-          ATTEMPT=1
-          PUSHED=()
-          git fetch --quiet --depth=1 origin "refs/heads/${TARGET_BRANCH}"
-          UPSTREAM_SHA=$(git rev-parse FETCH_HEAD)
-          while true; do
-            # Fail closed if generated data changed in the repository after checkout.
-            # Reached only before any push, or after a read-back confirmed no commit from this run is on the branch.
-            CHANGED=$(git diff --name-only "$CHECKOUT_SHA" "$UPSTREAM_SHA" -- "${GENERATED[@]}" "$ARCHIVE_PATH")
-            if [ -n "$CHANGED" ]; then
-              echo "❌ ERROR: Generated data changed in the repository during this run. Nothing was published."
-              echo "Changed files:"
-              printf '%s\n' "$CHANGED" | sed 's/^/  /'
-              echo "The next run syncs again from the updated repository."
-              exit 1
-            fi
-
-            # Rebuild the commit on the latest default branch so other changes are kept.
-            git reset --quiet --hard "$UPSTREAM_SHA"
-            for f in "${SAVED[@]}"; do
-              cp -p "$STAGE_DIR/$f" "$f"
-            done
-
-            # One archive file per UTC day, overwritten by later runs that day.
-            mkdir -p "$(dirname "$ARCHIVE_PATH")"
-            cp latest.json "$ARCHIVE_PATH"
-            echo "✅ Archived to ${ARCHIVE_PATH}"
-
-            if [ -f README.md ]; then
-              if grep -q "Last successful sync:" README.md; then
-                echo "Found existing timestamp line, updating..."
-                sed -i "s/\*\*Last successful sync:\*\*.*/\*\*Last successful sync:\*\* ${SYNC_TIME}/" README.md
-              else
-                echo "No timestamp found, adding new line..."
-                sed -i "/badge.svg)/a\\\n\*\*Last successful sync:\*\* ${SYNC_TIME}\n" README.md
-              fi
-              git add -- README.md
-            fi
-
-            git add -- "${SAVED[@]}" "$ARCHIVE_PATH"
-            if [ -n "$(git ls-files --unmerged)" ]; then
-              echo "❌ ERROR: Unresolved changes in the working tree. Nothing was published."
-              exit 1
-            fi
-            if git diff --cached --quiet; then
-              echo "⏭️  No changes to publish"
-              exit 0
-            fi
-            git commit --quiet -m "Sync training data - ${SYNC_TIME}"
-            LOCAL_SHA=$(git rev-parse HEAD)
-            echo "Pushing commit ${LOCAL_SHA} built on ${UPSTREAM_SHA} (attempt ${ATTEMPT})"
-
-            if git push --quiet origin "HEAD:refs/heads/${TARGET_BRANCH}"; then
-              echo "✅ Data, archive and README published in one commit (attempt ${ATTEMPT})"
-              break
-            fi
-            PUSHED+=("$LOCAL_SHA")
-
-            # The push did not report success, but it may still have landed.
-            # Read the branch back with full ancestry (no --depth) before deciding whether to retry.
-            echo "⚠️ Push did not report success (attempt ${ATTEMPT}). Reading the branch back before any retry..."
-            if ! git fetch --quiet origin "refs/heads/${TARGET_BRANCH}" || ! REMOTE_SHA=$(git rev-parse --verify --quiet FETCH_HEAD); then
-              echo "❌ OUTCOME UNKNOWN: The branch could not be read back after the push."
-              echo "The commit from this run may or may not have landed. No retry was made."
-              echo "Before running the workflow again, look for this run's commit(s) ${PUSHED[*]} anywhere in the history of ${TARGET_BRANCH}, not only as its latest commit. Until you can tell, the outcome is unknown, not failed."
-              exit 2
-            fi
-            APPLIED=""
-            for c in "${PUSHED[@]}"; do
-              if [ "$c" = "$REMOTE_SHA" ]; then
-                APPLIED="exact"
-                break
-              fi
-              RC=0
-              git merge-base --is-ancestor "$c" "$REMOTE_SHA" || RC=$?
-              if [ "$RC" -eq 0 ]; then
-                APPLIED="ancestor"
-                break
-              elif [ "$RC" -ne 1 ]; then
-                echo "❌ OUTCOME UNKNOWN: Could not determine whether this run's commit is on ${TARGET_BRANCH}."
-                echo "The commit from this run may or may not have landed. No retry was made."
-                echo "Before running the workflow again, look for this run's commit(s) ${PUSHED[*]} anywhere in the history of ${TARGET_BRANCH}, not only as its latest commit. Until you can tell, the outcome is unknown, not failed."
-                exit 2
-              fi
-            done
-            if [ "$APPLIED" = "exact" ]; then
-              echo "✅ The push response failed, but commit ${c} was verified as the current head of ${TARGET_BRANCH}."
-              echo "✅ Data, archive and README are published."
-              break
-            fi
-            if [ "$APPLIED" = "ancestor" ]; then
-              echo "✅ The push response failed, but commit ${c} was verified in the history of ${TARGET_BRANCH}, which has since moved on."
-              echo "✅ Data, archive and README are published."
-              break
-            fi
-
-            # Read-back confirmed that no commit from this run is on the branch.
-            if [ "$ATTEMPT" -ge "$MAX_ATTEMPTS" ]; then
-              echo "❌ ERROR: The push was not accepted after ${MAX_ATTEMPTS} attempts."
-              echo "Read-back confirmed that no commit from this run is on ${TARGET_BRANCH}."
-              exit 1
-            fi
-            echo "⚠️ Read-back confirmed the commit is not on ${TARGET_BRANCH}. Retrying with the latest repository state..."
-            sleep $((ATTEMPT * 5))
-            ATTEMPT=$((ATTEMPT + 1))
-            UPSTREAM_SHA="$REMOTE_SHA"
-          done
-
-      - name: Show result
-        env:
-          REPOSITORY: ${{ github.repository }}
-          RUN_BRANCH: ${{ github.ref_name }}
-        run: |
-          echo "✅ Sync completed successfully!"
-          echo "📊 View data: https://raw.githubusercontent.com/${REPOSITORY}/${RUN_BRANCH}/latest.json"
-
-      - name: Notify on failure
-        if: failure()
-        run: |
-          echo "::error::⚠️ Sync failed! Check the logs above for details."
-          echo "Common issues:"
-          echo "  - Manual run started from a branch other than the default branch"
-          echo "  - Check ATHLETE_ID and INTERVALS_KEY secrets"
-          echo "  - Verify Intervals.icu API is accessible"
-          echo "  - Generated data missing, invalid, or not updated by sync.py"
-          echo "  - Generated data changed in the repository during the run (the next run syncs again)"
-          echo "  - Push rejected or not permitted: check workflow permissions"

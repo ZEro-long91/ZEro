@@ -8,7 +8,6 @@ Copy this file to your agent workspace as `HEARTBEAT.md` and fill in the bracket
 
 | Setting | Value |
 |---------|-------|
-| Location | [CITY/AREA, e.g., "Klampenborg"] |
 | Timezone | [TIMEZONE, e.g., "Europe/Copenhagen"] |
 | Notification hours | [START]-[END], e.g., 09:00-22:30 |
 | Notification channel | [CHANNEL, e.g., "telegram"] |
@@ -17,6 +16,13 @@ Copy this file to your agent workspace as `HEARTBEAT.md` and fill in the bracket
 > Weather is configured separately. See [Weather: moved to cron](#weather-moved-to-cron) below.
 
 ### Data Sources
+
+Data folder or connected data repository root: [DATA_SOURCE_ROOT]. Resolve every
+`section11/` path below from that root, regardless of where this template is
+copied. These file paths and heading IDs refer to the installed release, not the
+agent workspace. If a required installed file is unavailable, ask for it.
+
+`interval_data.plan_match` supplies timeline labels; `interval_data.compliance` summarizes gated Section 11 evidence from session_structure; `interval_data.icu_detected` is descriptive only. See Which interval data to use (`section11/SECTION_11.md#which-interval-data-to-use`).
 
 | Source | URL/Path |
 |--------|----------|
@@ -60,13 +66,17 @@ Copy this file to your agent workspace as `HEARTBEAT.md` and fill in the bracket
 
 ## Weather: moved to cron
 
-Weather checks are best handled by separate scheduled jobs (morning + evening), not the heartbeat. Only message the athlete if conditions are rideable. **Silence = not rideable.**
+For planned rides with a route, read sync.py's route weather through `latest.json.data_overview` and the weather report. Neither heartbeat nor cron fetches a separate forecast for those rides.
+
+A separate cron is optional for general/home-location weather when there is no route. Its timing and notification policy are the athlete's choice. An athlete may prefer "silence = not rideable"; that is a notification preference, not a Section 11 rule or a safety assessment.
+
+Use the shared Point-weather location rule (`section11/SECTION_11.md#point-weather-location`): explicit current-chat location first, valid only for that conversation; otherwise `athlete_profile.location` in current `latest.json`, then the current official dossier's Home region only when that profile location is null/empty. Show the place and `(you said)`, `(from Intervals.icu)` or `(from dossier)` in the point-forecast output. Do not store or read a weather location in heartbeat configuration, or carry a chat travel override into a later cron run. If travel is indicated but unresolved, omit weather or ask. Geocode city-level text using `section11/examples/agentic/EXTERNAL_APIS.md#geocoding-for-point-weather`; ambiguity or failure means unavailable, never a guess.
 
 ---
 
 ## Notes
 
-- Weather is best handled by a separate scheduled check, not the heartbeat (see above)
+- Planned-route weather uses sync's brief/maps; an optional general/home-location cron must not duplicate it (see above)
 - Background analysis window should fall between training weeks to avoid mid-week disruption
 - Configure scheduling in your agent platform (cron, heartbeat system, etc.) to run checks within notification hours
 

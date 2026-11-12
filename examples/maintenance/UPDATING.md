@@ -1,0 +1,446 @@
+# Updating Section 11
+
+An update installs the latest official Section 11 release. You can skip releases you missed. Automatic installation is off by default; refreshing your training data does not turn it on.
+
+## Before you update
+
+Your training data, settings, dossier and files in `custom/` are kept. Everything inside `section11/` is replaced, including your edits and extra files: move anything you want to keep to `custom/` first. Unprotected same-name files elsewhere in the data folder can also be removed; read the [removal rules](#local-updates-and-automatic-toggle).
+
+## Update on your computer
+
+Open Terminal (Mac) or PowerShell (Windows) in your existing data folder, using your usual sync Python environment. Run:
+
+```sh
+python3 section11/examples/sync.py --update
+```
+
+On Windows, use `py -3` instead of `python3`. Read the listed changes and timer information, then accept if you agree. Missing script or old setup? Use the [local installation steps](../json-local-sync/SETUP.md#initial-setup).
+
+An AI can help after confirming your data folder and command access to that computer. Copy this prompt:
+
+```text
+Help me update Section 11, one step at a time.
+Read this guide first: https://github.com/CrankAddict/section-11/blob/main/examples/maintenance/UPDATING.md (if you can open my installed section11/ folder, use its copy instead).
+Keep my existing data, settings, sync and update preferences; explain changes and ask before changing anything.
+```
+
+## Update on GitHub
+
+In your data repository, open **Actions > Auto-Sync Intervals.icu Data > Run workflow**. Keep the default branch, choose **Operation: Update**, then click **Run workflow**. **That click is your yes**, with no later approval. Choose **Status** first if you want to see the plan. A chat AI can guide you; you do the clicks unless it has permission and tools to act. If the Operation menu is missing, follow [workflow installation](#github-update-review).
+
+Replacing your GitHub workflow? Follow [these steps](#move-to-the-final-hosted-workflow).
+
+## Automatic updates and undo
+
+Updates are checked after syncing. To install updates without asking each time, follow [local automatic updates](#local-updates-and-automatic-toggle) or [GitHub automatic updates](#automatic-github-updates). The same replacement rules apply.
+
+Undo goes back one installation, not any version you choose. On your computer, run:
+
+```sh
+python3 section11/examples/sync.py --rollback
+```
+
+Rollback restores `.sync_config.json` so older releases can read your current credentials.
+If an unused old config differs, it is kept as `.sync_config.saved-<id>` and the path is printed.
+Never upload these files. A later normal run of the new release renames the config again.
+
+On GitHub, choose **Operation: Rollback**.
+
+Undo needs a usable previous installation. It can refuse after later code edits; see [local recovery](#rollback-and-interruption-recovery) or [GitHub recovery](#utc-timing-rejection-and-rollback).
+
+After an update or rollback, check your files in `custom/`. Replace uploaded Section 11 files or pasted project instructions separately.
+
+[Full technical guide on GitHub](#technical-guide)
+
+# Technical guide
+
+Updates install the latest official release (`YYYY.MM.DD` or `YYYY.MM.DD-N`) directly,
+without downloading missed releases. They verify its pinned commit, manifest and
+managed file hashes, and refuse moved tags and known downgrades. An unknown local
+identity can be repaired by an explicitly accepted installation.
+If no published date release exists yet, nothing is installed; wait for the first
+official release.
+
+Keep managed files unchanged in `section11/`, your own files in `custom/` or outside the data folder, and
+data, config and your dossier at the data root. Updates preserve those personal
+files. Review custom code compatibility and refresh uploaded protocol files or
+pasted project instructions separately after an update or rollback.
+
+Request accounting and cached Intervals.icu responses stay in `<data folder>/state/`,
+beside the live JSON, separate from `section11/`, `custom/` and the updater's
+`.section11-state/`. Release checks contact GitHub only and do not use the
+Intervals.icu allowance or ledger. Updates and rollback preserve private sync
+state; never delete it to force another request.
+
+## Same-day releases
+
+A deliberate second release on a UTC day is named `YYYY.MM.DD-2`, then `-3`,
+and so on. Each release is marked latest. Current Local/Manual installs and
+current hosted workflows accept these names under your usual update settings.
+
+If an older Local/Manual update check reports `invalid date release tag` for a
+same-day release, it installs nothing and keeps the sync or export result.
+The next plain-date release can be picked up under your usual update settings.
+Manual still checks only when you run it.
+
+With the old pinned hosted workflow, an install whose recorded release is
+plain-dated keeps syncing while latest is `-N`. It skips that release and can
+update with the next plain-date release. A new setup from an outdated workflow
+with no installed release cannot start while latest is `-N`; use the current
+workflow file. Replacing an existing workflow is optional and enables same-day
+releases; follow [the move-over steps](#move-to-the-final-hosted-workflow).
+Older root-script workflows that do not read releases are unaffected.
+
+## Local updates and automatic toggle
+
+Run from your data directory with your normal Python environment:
+
+```sh
+python3 section11/examples/sync.py --status
+python3 section11/examples/sync.py --update
+```
+
+`--status` verifies the target and reports installed identity, possibly unknown,
+without installation or policy writes. `--init` and `--update` use the same
+installer for every local starting point. A damaged manifest with a readable
+release receipt remains an ordinary repair and keeps the installation's layout. Obtain the release bootstrap from the
+[local guide](../json-local-sync/SETUP.md#initial-setup) if the managed entry is missing.
+
+First adoption asks once, after this exact warning, without a file list:
+
+> Anything you added or changed inside section11/ will be deleted. Move what you want to keep to custom/ first.
+
+It also lists every removal outside `section11/`, ordinary clone metadata loss,
+the one rollback ZIP and any timer changes. Declining writes nothing. Later
+updates list changed/removed paths and ask once. Both replace all
+of `section11/`, including ordinary extras. Missing custom guidance is created,
+while existing `custom/` files, data, settings, private state and the dossier remain.
+
+Every install/update removes any ordinary file outside `section11/`, in any
+folder, named exactly like a file in the release being installed or a historical
+Section 11 file, except the keep list below. Spelling is case-sensitive:
+`notes/README.md` and `backup/sync.py` are removed; `readme.md` and `License` stay.
+The rule includes unrelated files with those names, not just edited or older copies.
+Historical names include `INSTRUCTIONS.md`, `gitignore.txt`,
+`PRE_WORKOUT_TEMPLATE.md` and `POST_WORKOUT_TEMPLATE.md`.
+Files in root `section11-legacy-github*` / `section11-legacy-dev*` directories
+remain in scope, subject to the same protections. There is no content matching.
+The plan lists every removed name before acceptance, and full mode logs them.
+No additional removal question is asked.
+
+Local and Manual also remove root `README.md` and retain it in the rollback ZIP;
+`--rollback` restores it. The generated `state/README.md` is unaffected. Hosted
+repositories keep a root README, with the installation behavior described below.
+
+Fixed exceptions always win at any depth and in any spelling: `custom/`, `DOSSIER.md`,
+`latest.json`, `history.json`, `intervals.json`, `routes.json`, `saved_workouts.json`,
+`ftp_history.json`, `route_eta_history.json`, `maps/`, `archive/`, `state/`,
+`.section11-state/`, `.sync_config`, `.sync_config.json`, `sync.log`, dot-files and dot-folders
+(including `.git/`, `.github/`, `.gitignore`, `.secrets` and `.venv`), credentials,
+Python environments at any depth and the active interpreter. These protected names
+also remain inside old copied folders. A legacy directory containing a detected Python
+environment is retained in full. Root `latest.json` stays even when the release
+contains a same-named example. Only unprotected parent directories made empty by
+removals are pruned; unrelated files and empty folders remain.
+`Custom/`, `Archive/` and `dossier.md` are protected on every platform.
+The search skips protected folders and never follows symlinks or Windows
+junctions or enters hosted submodules. Unrelated links and submodules stay
+untouched; one whose own name matches a Section 11 filename stops the update
+before deletion. Cloud placeholders are ordinary files and folders for this
+scan. An unreadable folder, incomplete discovery or selected non-regular entry
+also stops the update before deletion.
+
+Both init and update install the standard Section 11 timer at
+`check_interval_minutes`. They rewrite it only when its definition changes, never
+reload an unchanged timer and load it again if it is missing. If its state cannot
+be confirmed, they leave it unchanged and print a note. If you set up your own
+timer before, remove it.
+Other timers are never inspected or changed. Cron reads its table only to preserve
+unrelated lines while managing the exact standard marker. `--no-timer` removes
+only the standard timer and persists `"auto_sync": false`; `--timer` re-enables it.
+See the [timer details](../json-local-sync/SETUP.md#automate-the-refresh).
+
+Automatic release installation is **off by default** (half mode), independently
+of auto sync. Half mode gives a fixed `update_notice` on the next export while a verified update
+or repair plan remains outstanding, including a same-date repair. It clears when
+resolved, suppressed or no longer matched to the installation. A failed re-check
+retains a previously verified reminder while its installation preimage still matches.
+A timer-only reminder clears as soon as the timer is resolved or no longer needed,
+without another release lookup.
+Set `"auto_update": true`
+or pass `--auto-update` for full mode. The name rule above applies without a prompt,
+including for existing full-mode users: keep your own files in `custom/` or outside
+the data folder. `--no-auto-update` suppresses all automatic
+maintenance for that invocation. There is no historical recognition or metadata
+enrollment. Unadopted new code exports with its fixed short notice until accepted.
+The advisory uses official releases, never unpublished main content.
+
+Both modes check with sync runs, after data work even if sync failed or was
+deferred, including missing credentials. The allowance is at most once every
+10 minutes, measured from the check's start after data work. Failed checks count;
+switching between advisory and automatic installation does not reset the allowance.
+If the clock moves back behind the saved attempt time, the next run resets that
+time and defers once for ten minutes. Another backward clock move can defer again.
+Unknown data publication holds maintenance for reconciliation and is never retried.
+The attempt is recorded in `.section11-state/local-check.json` before discovery
+or missing-guidance repair; older releases can still read `auto-update.json`.
+After a successful verification, an unchanged release and unchanged installation
+inputs need only release metadata and tag checks: no ZIP or raw manifest is downloaded.
+A cold check, changed release or changed installation inputs need full verification;
+an installation always fetches fresh verified bytes. Recreated guidance uses those
+verified bytes, never an editable installed copy; existing personal guidance stays
+unchanged. Standalone history runs do not trigger maintenance. Full mode logs
+replacements/removals and replaces the entire verified tree without prompting.
+Known downgrades and moved tags stop. Higher installed version labels hold full
+mode and are disclosed for explicit review. Unknown provenance stays unknown.
+
+Checks share a 40-request allowance, a 60-second admission deadline and at most
+ten seconds per request. Counted redirects have a fixed allowlist; there is no
+automatic retry or historical ZIP search. In-flight requests may outlast the
+admission deadline. A maintenance failure does not change an already successful export.
+
+The old 3.165 updater can clear history/interval/route caches during its raw-main
+first hop. That result has no receipt and is not silently adopted on the next
+timer invocation. One later accepted installer gets the latest verified release,
+even after many intervening releases.
+
+### Rollback and interruption recovery
+
+One verified ZIP retains the complete previous installation in `.section11-state/`,
+including edited/unknown files, empty directories, modes, nested ordinary `.git`,
+root tools, every file removed by the name rule, and standard timer recovery data.
+No readable old source files remain after success. The ZIP is verified against
+the preimages before any loose source is removed. The next installation
+that changes files, metadata or timer policy replaces it; an identical reinstall
+or a custom-guidance-only repair preserves the existing rollback slot.
+This ZIP is short-term recovery until the next changing install, not a backup.
+Restore without network:
+
+```sh
+python3 section11/examples/sync.py --rollback
+```
+
+The existing old-tree limit remains 256 MiB and 10,000 entries. Removed outside
+copies have a separate 256 MiB and 10,000-entry limit; the combined archive also
+allows timer recovery data. An oversized or non-ordinary preimage stops before
+activation and requires owner resolution.
+
+Rollback checks archive integrity independently of the old manifest, extracts
+into journalled staging on the installation's filesystem, verifies bytes and
+modes, then activates the restored files. It needs no release download. It preserves
+later data/dossier/custom and unrelated settings, restores the prior timer policy,
+and refuses later changes to managed code, root entries or standard timer definition.
+Root-only adoption can restore its original root tools. Fresh installation has no
+previous usable producer. The restored release skips the rejected date in automatic
+mode; explicit `--update` installs it and clears that skip.
+
+The journal is written before any staging. The next run removes staging from an
+interrupted pre-activation run and finishes journalled cleanup after a completed
+installation. It never replays an uncertain timer operation. Handled failures
+before timer activation restore the old tree. A killed process during activation,
+power loss, scheduler refusal or uncertain write can leave `transaction.json`.
+Stop the timer and preserve `section11/` and `.section11-state/`; the journal
+blocks another install or sync until owner reconciliation. Do not delete it to
+unblock execution. A pending transaction can retain its staging and verified
+recovery ZIP; the completed slot is named by `previous.json`. The journal records
+the prior `auto_sync` setting without copying your credentials.
+Verify the recorded digests and actual scheduler state before restoring or
+completing activation.
+
+On a Mac, automatic updates from releases 2026.11.03 to 2026.11.10 could stop
+their own timer during activation: `latest.json` stops updating and
+`transaction.json` stays at `timer-activation`. To finish it, set
+`"auto_update": false` in `.sync_config`, download the latest release into an
+empty bootstrap folder as in the [installation steps](../json-local-sync/SETUP.md#initial-setup)
+and run its `sync.py --update` from your data folder. It verifies the interrupted
+installation, loads the unchanged timer again, completes the transaction and
+offers the update. Accept it, then turn `auto_update` back on. If verification
+refuses, keep both folders and ask for help.
+Cron recovery stores table digests and removed sync lines; it reconstructs the
+previous table only from a matching current table, without saving unrelated jobs.
+Restore only the installation and timer, never replace newer data with an old backup.
+An uncertain scheduler write is not retried automatically.
+
+## GitHub installation and updates
+
+### Move to the final hosted workflow
+
+This move is optional for an existing compatible installation and enables same-day releases. Use the current [official release](https://github.com/CrankAddict/section-11/releases/latest). The replacement's **Run workflow** form has **Other** and the checkbox **Use for the first Sync after adopting this workflow**. Do not copy an unreleased workflow from main. New repositories use that release's workflow directly and need no move-over.
+
+1. Save a copy of your current `.github/workflows/auto-sync.yml` before editing it, and let any active run finish.
+2. Download `section11-YYYY.MM.DD-auto-sync.yml` for GitHub sync or `section11-YYYY.MM.DD-on-demand.yml` for On-demand from that release; a same-day release adds `-N` after the date. In your repository's GitHub editor, replace `.github/workflows/auto-sync.yml` with its contents. Put back your own cron line(s) exactly and keep optional workflow settings. On-demand keeps no schedule. Keep all repository variables and secrets, then commit. For old root-tool workout push, also follow [workflow installation](#github-update-review) for the matching push stub.
+3. Open **Actions > Auto-Sync Intervals.icu Data > Run workflow** on the default branch. Choose **Sync**, tick **Use for the first Sync after adopting this workflow**, then run it. Leave that checkbox unticked on later runs. It requests a full verified download of the application already installed; choose **Update** separately to accept a newer application in half mode.
+4. In the log, look for `Section 11 runtime verified`, `Section 11 acquisition full ZIP` and `Confirmed publication:` for the data commit. Check that `latest.json` is current. An automatic-maintenance deferral does not mean the data sync failed.
+
+If you need to go back, restore your saved workflow through GitHub's editor. If the run also changed the installed application, use **Rollback** for a compatible previous installation, or follow [owner recovery](#utc-timing-rejection-and-rollback) to restore matching installation paths. Keep newer training data, settings, dossier and `custom/`; do not revert the whole repository. A broken latest runtime needs a later good official release and may prevent Rollback too.
+
+Your timer setup is unchanged: keep `SECTION11_SYNC_TIMER` and the external timer as they are. The workflow replacement does not reconfigure either.
+
+### GitHub update review
+
+Use **Auto-Sync Intervals.icu Data** on the default branch. Its **Operation**
+defaults to **Sync**, so existing Sync Now links still work. **Update** accepts
+the latest verified replacement, **Status** shows the plan without installing,
+and **Rollback** restores a compatible previous managed installation.
+**Sync timer** is the external timer's sync operation. **Other** uses the adjacent
+**Used only when Operation is Other** text field for operations introduced by
+later official releases. Leave that field empty for the five named operations;
+an unknown operation stops safely before application writes. Update, Status and
+Rollback do not run a data sync.
+
+Already using the v11.105 workflow? You can optionally [move to the final hosted workflow](#move-to-the-final-hosted-workflow) to receive same-day releases.
+
+The owner installs the published sync workflow through GitHub's editor, keeping
+every existing literal cron, optional setting and secret name. Hosted push
+users replace `auto-sync.yml` and `push-workout.yml` with their published stubs
+in the **same owner commit, before the first Sync**. Push dispatch inputs and the
+preview/confirm contract stay the same. No release ZIP upload, PR
+approval setting, validator workflow or new privileged secret is required.
+The [scheduled](../json-auto-sync/SETUP.md) and [On-demand](../json-on-demand/SETUP.md)
+guides supply the appropriate template. On-demand has no schedule.
+
+Immediately before committing the workflow replacement, read:
+
+> Anything you added or changed inside section11/ will be deleted. Move what you want to keep to custom/ first.
+
+That owner action accepts first installation. The first Sync run verifies the
+latest official release, commits its complete `section11/` tree and receipt,
+creates missing `custom/README.md`, and removes the same exact-name Section 11
+copies listed above in that installation commit. Git history retains their
+preimages. It reads back that commit before running the producer. Old root-only
+copies need no historical-content recognition or PR history. An existing
+`section11/` without a usable release identity stops for owner recovery.
+Existing data, settings, secrets, dossier and custom files stay intact.
+
+Every hosted install, update and rollback refreshes root `README.md` from the
+template in the release being installed or restored, with repository values and
+Sync Now. It carries over the current successful-sync timestamp; without one,
+the placeholder remains until a successful Sync. Plans list the replacement;
+old text stays in Git history, and personal notes belong in `custom/`. If that
+release has no README template, the current README is kept and this is reported.
+Syncs between these events change only the "Last successful sync" line.
+
+Effective `contents: write` and read access to the run's Actions metadata are
+required. A protected branch may prohibit direct writes. A denial stops with no
+retry or alternate credential; the owner must provide a policy-compatible route.
+The workflow never changes active workflows or bypasses repository policy.
+The log names retained Section 11 workflows under `.github/workflows/`, including
+`auto-sync.yml`, `push-workout.yml` and `section11-*` workflows, and tells the owner
+to keep compatible stubs, replace old stubs or remove obsolete Section 11 workflows
+in GitHub. The Actions
+token cannot perform that workflow cleanup.
+
+### Workflow compatibility
+
+The final workflow selects the latest stable official runtime on every run and
+verifies it before execution. Its fixed verification gate checks the selected
+manifest and runtime entry; runtime dependencies are then verified against that
+manifest. Matching installed bytes can be reused after verification. This selects
+the code that runs the workflow, not a newer installed application.
+
+The `--wrapper-api` value on its `run:` line is checked against the managed
+entrypoint. [`examples/maintenance/wrapper-api.json`](wrapper-api.json) records
+`auto-sync.yml` 2 and `push-workout.yml` 1. A mismatch stops the updater with
+`owner wrapper update required`.
+
+In half mode, the latest runtime runs the older compatible, authenticated
+application without advancing it. Each Sync verifies the installed application's
+release identity and file hashes. Matching files avoid a full application ZIP;
+the first-adoption checkbox forces that download without selecting Update.
+Producer execution receives no GitHub publication token, and checkout credentials
+are not persisted. Failed selection or verification stops the run before data
+sync. There is no fallback to an older runtime or retry within that run; the next
+run selects again. A later good official release repairs a broken runtime, which
+can otherwise block even Rollback. Rollback remains for a bad application release.
+Future incompatible permissions, secrets, entry/API or platform requirements can
+still require an owner workflow change.
+
+**Old workflow (v11.105 only):** compatible plain-date releases keep its historical
+entry working. Its bootstrap separately pins its trusted verifier and uses
+blob-pinned source reads; an unsealed pin stops before installation, with
+no raw-main fallback. Keep its published sealed template until you move over.
+
+### Automatic GitHub updates
+
+Half mode is the default: Actions reports an available official release, and the
+next data export carries a fixed privacy-safe `update_notice` while a verified
+update or repair plan remains outstanding, including a same-date repair. The
+reminder clears when resolved, suppressed or no longer matched to the installation.
+Both half and full mode save the verified plan before installation; failed
+discovery or installation retains a matching plan and never repeats an uncertain write. Choose
+**Update** once to install it. Status is optional. Normal updates list changed and
+removed paths, including unknown managed files. Direct updates have no human
+pre-merge diff checkpoint; the Update dispatch accepts the verified replacement.
+
+Set repository variable `SECTION11_AUTO_UPDATE=true` for full mode, under
+**Settings > Secrets and variables > Actions > Variables**. Full mode replaces the
+complete managed tree and removes unprotected exact-name copies in any folder,
+including unrelated same-name files, without another approval. An absent or
+false value retains half mode. A malformed value stops automatic maintenance;
+explicit Update and first acceptance do not depend on that preference. Its failed or
+unknown outcome is reported separately; an already successful data export remains
+successful. Set false to stop future automatic
+installations; cancel an in-flight run separately and inspect its commit readback.
+Full mode never grants workout-write authority.
+
+Each installation is one child commit of the observed default tip, with an exact
+validated tree and no force. Data publication is a separate validated commit.
+Any competing default-branch commit causes a stop, including human data, custom
+or workflow edits. The controller does not retry or rebase. It verifies the
+remote tree after success or failure. A lost response can be confirmed from
+history; an unknown result is not a failed write and must be reconciled before
+another run. If later commits already followed a confirmed installation, inspect
+both the confirmed commit and current state.
+
+### UTC timing, rejection and rollback
+
+With the final workflow, automatic application maintenance follows data work,
+even if sync failed. Both half and full mode wait if another run of this workflow
+on the default branch is active or finished less than ten minutes ago, including
+failures and no-ops. Completed skipped runs do not count. Reruns, runs created
+more than 30 minutes ago and incomplete run history also defer maintenance.
+Unknown data publication holds it for reconciliation. This allowance never skips
+the data sync or runtime verification; their own failures can still stop a run.
+On-demand checks only on user-started runs, with no unattended maintenance.
+
+There is no extra stored timestamp or check-only commit. Data publication,
+installation, guidance repair and changed update notices still use their normal
+validated commits. `.section11-update.json` retains installation/policy and
+verified-notice bookkeeping outside the training-data artifact. Explicit Update,
+Status and Rollback are available independently of the ten-minute allowance.
+Upstream release reads and data/control requests are separate from Intervals.icu
+accounting. The allowance does not eliminate per-run runtime and application
+verification reads.
+
+**Old workflow (v11.105 only):** automatic maintenance runs once per UTC day after
+data work, on a run created at or after **04:00 UTC**. A control commit claims the
+UTC day before latest-target discovery, even when nothing changes; failed or
+unknown attempts consume that day. A rerun may claim an unclaimed day. Its daily allowance limits automatic discovery
+and installation, not the separate trust reads. On-demand still needs a user-started
+run. Compatible releases preserve this behavior until you replace the workflow.
+
+Choose **Rollback** to restore the previous compatible managed tree in one new
+commit and suppress the rejected date. It checks the recorded installation's
+scope and current preimages, refuses later code edits, and preserves newer data,
+custom files and settings. Local and hosted keep only the current rejected release,
+replaced by the next rollback, with no accumulated rejection history. Automatic
+checks skip that date; an explicit
+**Update** installs the selected date and clears its skip, without editing control
+files or variables.
+
+Rollback locates the last installation through path-filtered history queries,
+independent of the number of later data/control commits. It restores the exact
+previous ordinary tree, including edited and extra files, while checking the
+recorded commit scope and the current installation preimage. A missing prior
+release identity or incompatible history still requires owner recovery.
+When an installation only removes outside copies, the private control record
+retains one changed path (the legacy directory for legacy copies) for one
+additional bounded history query, so that
+cleanup-only installation also has an exact rollback target.
+
+A return to a pre-adoption root-only setup requires owner workflow recovery.
+Rollback stops before publishing an unusable tree: restore the earlier
+`auto-sync.yml` and, if used, `push-workout.yml` from repository history together
+with their matching managed tree and root tools. Restore only those installation
+paths, preserving newer data, custom files, settings and dossier. The Actions
+token cannot restore workflows. Do not revert the whole data repository.

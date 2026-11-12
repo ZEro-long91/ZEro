@@ -25,6 +25,47 @@ function fixture(t) {
   return directory;
 }
 
+test('published update guide describes direct updates and sealed release templates', t => {
+  const output = path.join(scratch(t), 'public');
+  build(root, output);
+  const updating = fs.readFileSync(path.join(root, 'examples/maintenance/UPDATING.md'), 'utf8');
+  assert.match(updating, /SECTION11_AUTO_UPDATE/);
+  assert.match(updating, /blob-pinned source reads/);
+  assert.match(updating, /daily allowance limits automatic discovery/);
+  assert.doesNotMatch(updating, /review GitHub update PRs/);
+  for (const [route, asset] of [['github-sync.html', 'auto-sync.yml'], ['on-demand.html', 'on-demand.yml']]) {
+    const guide = fs.readFileSync(route === 'github-sync.html' ? path.join(root, 'examples/json-auto-sync/SETUP.md') : path.join(output, 'guides', route), 'utf8');
+    assert.ok(guide.includes('section11-YYYY.MM.DD-' + asset));
+    assert.match(guide, /UNSEALED/);
+    assert.match(guide, /releases\/latest/);
+  }
+  const contents = html => [...html.match(/<nav aria-label="On this page"><ul>(.*?)<\/ul><\/nav>/)[1].matchAll(/<a href="#([^"]+)">(.*?)<\/a>/g)].map(m => [m[1], m[2]]);
+  for (const [route, id, title, sections] of [
+    ['guides/updating.html', 'updating-section-11', 'Updating Section 11', ['Before you update', 'Update on your computer', 'Update on GitHub', 'Automatic updates and undo']],
+    ['guides/local-sync.html', 'local-sync-setup-guide', 'Local Sync Setup Guide', ['Get help from your AI', 'Set it up yourself', 'After setup']],
+    ['guides/github-sync.html', 'github-sync-setup-guide', 'GitHub Sync Setup Guide', ['Get help from your AI', 'Set up a new repository', 'Sync timer (optional)', 'Updates']],
+    ['guides/on-demand.html', 'on-demand-sync', 'On-Demand Sync', ['Get help from your AI', 'Set up once', 'Refresh and use your data', 'Updates']],
+    ['guides/manual-export.html', 'manual-json-export', 'Manual JSON Export', ['Get help from your AI', 'Install and export', 'Give the files to your AI']],
+    ['reports.html', 'report-examples', 'Report Examples', ['Choose a report', 'Ask your AI']],
+  ]) {
+    const html = fs.readFileSync(path.join(output, route), 'utf8');
+    assert.deepEqual(html.match(/<h1\b[^>]*>.*?<\/h1>/g), [`<h1 id="${id}">${title}</h1>`], route);
+    assert.doesNotMatch(html, /Start here/, route);
+    const headings = [...html.matchAll(/<h2 id="([^"]+)">(.*?)<\/h2>/g)].map(m => [m[1], m[2]]);
+    assert.deepEqual(headings.map(h => h[1]), sections, route);
+    assert.deepEqual(contents(html), headings, route);
+  }
+  const start = fs.readFileSync(path.join(output, 'getting-started.html'), 'utf8');
+  assert.deepEqual(contents(start), [
+    ['1-create-your-dossier-your-stable-private-context', '1. Create Your Dossier: your stable private context'],
+    ['2-set-up-your-data-sync', '2. Set Up Your Data Sync'],
+    ['3-configure-your-ai-platform', '3. Configure Your AI Platform'],
+    ['4-make-files-available-to-your-ai', '4. Make Files Available to Your AI'],
+    ['having-trouble', 'Having trouble?'],
+  ]);
+  assert.ok([['local-sync', 'local-sync-setup-guide', 'Local sync'], ['github-sync', 'github-sync-setup-guide', 'GitHub sync'], ['on-demand', 'on-demand-sync', 'On-demand sync'], ['manual-export', 'manual-json-export', 'Manual export']].every(([name, id, label]) => start.includes(`<a href="guides/${name}.html#${id}">${label}</a>`)));
+});
+
 test('build emits only the explicit public inventory', t => {
   const output = path.join(scratch(t), 'public');
   assert.deepEqual(build(root, output), ['LICENSE.txt', 'assets/site.css', 'index.html', 'robots.txt', 'sitemap.xml', ...ICONS, ...pages.map(p => p.route)].sort());
@@ -37,6 +78,7 @@ test('build emits only the explicit public inventory', t => {
     const footer = fs.readFileSync(path.join(output, route), 'utf8').match(/<footer>.*<\/footer>/)[0];
     const license = route.includes('/') ? '../LICENSE.txt' : 'LICENSE.txt';
     assert.ok(footer.includes(`<span>Free and open source <span aria-hidden="true">·</span> <a href="${license}">MIT license</a></span>`), route);
+    assert.ok(footer.includes('<a href="https://forum.intervals.icu/t/section-11-open-protocol-for-ai-endurance-coaching-chatgpt-claude-grok-mistral/120602">Community discussion</a>'), route);
   }
 });
 
@@ -90,11 +132,34 @@ test('mobile header keeps Getting started and the repository; the article preced
   // Phone header: tighter gaps and a header-only inset; body and footer keep the shared margin, wrapping stays the fallback.
   assert.match(mobile, /\.site-header, main, footer \{ width: calc\(100% - 2\.5rem\); \}\n  \.site-header \{ flex-wrap: wrap; gap: \.25rem; min-height: 4\.5rem; padding-block: \.9rem; width: calc\(100% - 1rem\); \}\n  \.site-header nav \{ gap: \.45rem \.5rem; margin-left: auto; \}/);
   assert.equal(mobile.split(' width: ').length, 3);
-  assert.doesNotMatch(mobile, /nowrap|overflow|font-size|font-weight|footer \{ (?!width: calc\(100% - 2\.5rem\))/);
+  const mobileLayout = mobile.replace(/\.prose pre \{[^}]*\}/, '');
+  assert.doesNotMatch(mobileLayout, /nowrap|overflow|font-size|font-weight|footer \{ (?!width: calc\(100% - 2\.5rem\))/);
   assert.match(css, /\.site-header, main, footer \{ width: min\(1160px, calc\(100% - 5rem\)\); margin-inline: auto; \}/);
   assert.match(css, /\.site-header \{ display: flex; justify-content: space-between; align-items: center; gap: 2rem; min-height: 6\.5rem; border-bottom: 1px solid var\(--line\); \}/);
   assert.match(css, /\.site-header nav \{ display: flex; gap: 1\.75rem; flex-wrap: wrap; font-size: \.9375rem; \}/);
   assert.match(css, /\nfooter \{ display: flex; justify-content: space-between; flex-wrap: wrap; gap: 1rem 2rem; border-top: 1px solid var\(--line\); padding-block: 2rem; font-size: \.875rem; color: var\(--muted\); \}/);
+});
+
+test('text fences wrap at every width; other code boxes wrap only on mobile without changing literal text', () => {
+  const css = fs.readFileSync(path.join(root, '.github/site/site.css'), 'utf8');
+  const start = css.indexOf('@media (max-width: 800px) {');
+  const end = css.indexOf('@media print');
+  const mobile = css.slice(start, end);
+  assert.match(mobile, /\.prose pre \{ white-space: pre-wrap; overflow-wrap: anywhere; \}/);
+  assert.match(css.slice(0, start), /\.prose pre code\.language-text \{ white-space: pre-wrap; overflow-wrap: anywhere; \}/);
+  assert.doesNotMatch(css.slice(0, start) + css.slice(end), /\.prose pre(?: code)? \{[^}]*(?:white-space: pre-wrap|overflow-wrap: anywhere)/);
+  const docs = prepare(root);
+  const escape = require('markdown-it')().utils.escapeHtml;
+  for (const page of docs) {
+    const code = parse(page.selected).tokens.filter(t => ['fence', 'code_block'].includes(t.type));
+    const html = renderDocument(page, docs, root);
+    const rendered = [...html.matchAll(/<pre><code(?: class="[^"]*")?>([\s\S]*?)<\/code><\/pre>/g)].map(m => m[1]);
+    assert.deepEqual(rendered, code.map(t => escape(t.content)), page.route);
+  }
+  const github = docs.find(p => p.route === 'guides/github-sync.html');
+  const fences = parse(github.selected).tokens.filter(t => t.type === 'fence').map(t => t.content);
+  assert.ok(fences.includes('https://api.github.com/repos/OWNER/REPO/actions/workflows/auto-sync.yml/dispatches\n'));
+  assert.ok(fences.includes('{"ref":"main","inputs":{"operation":"Sync timer"}}\n'));
 });
 
 test('OpenCode leaves Quick Start; its full entry and T3 Code stay in Agentic Setup', () => {
@@ -107,11 +172,11 @@ test('OpenCode leaves Quick Start; its full entry and T3 Code stay in Agentic Se
   assert.equal(entry, '\n### OpenCode\n\nAn open-source coding agent for the terminal, IDE and desktop.\n\n**Control interfaces.** T3 Code provides an interface for supported agents such as Claude Code, ChatGPT Codex and OpenCode. Section 11 access depends on the underlying agent\'s configured filesystem and tool permissions; T3 Code is not a separate coaching runtime.\n');
   assert.match(entry, /An open-source coding agent for the terminal, IDE and desktop\.\n\n\*\*Control interfaces\.\*\* T3 Code provides an interface for supported agents[^\n]*T3 Code is not a separate coaching runtime\.\n$/);
   assert.equal(readme.split('T3 Code').length, 3);
-  assert.ok(start.selected.includes('\nChoose your path:\n\n- **[Agentic Platforms](#agentic-setup)**: OpenClaw, Claude Code, ChatGPT Codex, Grok Bot, and Hermes Agent, etc.\n- **[Web Chat Platforms](#web-chat-setup)**: ChatGPT, Claude, Gemini, Grok, Mistral Vibe, etc.\n\n### 4. Make Files Available to Your AI\n'));
+  assert.ok(start.selected.includes("\n- **Agentic:** open [PROJECT_INSTRUCTIONS_AGENTIC.md](PROJECT_INSTRUCTIONS_AGENTIC.md), copy the text in its grey box (GitHub shows a copy button at the top right) and add it to your agent's persistent configuration. See [Agentic Platforms](#agentic-setup) for your platform (OpenClaw, Claude Code, ChatGPT Codex, Grok Bot, Hermes Agent, etc.).\n- **Web chat:** open [PROJECT_INSTRUCTIONS_WEB.md](PROJECT_INSTRUCTIONS_WEB.md), copy the text in its grey box and paste it into your Project, Space, Gem or custom instructions. See [Web Chat Platforms](#web-chat-setup) for your platform (ChatGPT, Claude, Gemini, Grok, Mistral Vibe, etc.) and [Platform Setup](#platform-setup) for connection details.\n\n### 4. Make Files Available to Your AI\n"));
   assert.doesNotMatch(start.selected, /OpenCode/);
   assert.equal(linkURL('#agentic-setup', start, docs, root), 'https://github.com/CrankAddict/section-11/blob/main/README.md#agentic-setup');
   const html = renderDocument(start, docs, root);
-  assert.ok(html.includes('OpenClaw, Claude Code, ChatGPT Codex, Grok Bot, and Hermes Agent, etc.</li>'));
+  assert.ok(html.includes('(OpenClaw, Claude Code, ChatGPT Codex, Grok Bot, Hermes Agent, etc.).</li>'));
   assert.doesNotMatch(html, /OpenCode/);
   assert.doesNotMatch(start.selected + html, /T3 Code|t3\.codes|optional control interface/);
   assert.doesNotMatch(readme + html, /open-weight/i);
@@ -122,20 +187,20 @@ test('local sync Connect Your Agent ends with open-weight options, control inter
   const local = docs.find(p => p.route === 'guides/local-sync.html');
   const paragraph = 'Open-weight setups are another option, for example, GLM with ZCode, Qwen with Qwen Code, or DeepSeek through a compatible agent. These are examples, not fixed pairings: choose the models and tools that fit your needs.';
   const note = '[T3 Code](https://t3.codes/) is an optional control interface for supported agents, not a separate coaching runtime.';
-  const instructions = '### Project instructions\n\nYour coach\'s instructions live in one canonical contract, not in this guide. Which one you use depends on whether the AI has a runtime filesystem at all, not on which sync method you chose, and not on the platform\'s name. If it has one, whether that is this machine or a provider-hosted computer, it is an agentic session: copy the block between the fences in [`PROJECT_INSTRUCTIONS_AGENTIC.md`](../../PROJECT_INSTRUCTIONS_AGENTIC.md) into the agent\'s project settings. That holds even when the data itself arrives through a connector.\n\nThat contract names the Workout Reference Library (`section11/examples/workout-library/WORKOUT_REFERENCE.md`, with a fetch fallback) but not the report templates. Where the agent can actually reach them (a provider-hosted computer often cannot), point it at `section11/examples/reports/` as well.\n';
+  const instructions = '### Project instructions\n\nYour coach\'s instructions live in one canonical contract, not in this guide. Which one you use depends on whether the AI has a runtime filesystem at all, not on which sync method you chose, and not on the platform\'s name. If it has one, whether that is this machine or a provider-hosted computer, it is an agentic session: copy the block between the fences in [`PROJECT_INSTRUCTIONS_AGENTIC.md`](../../PROJECT_INSTRUCTIONS_AGENTIC.md) into the agent\'s project settings. That holds even when the data itself arrives through a connector.\n\nThat contract names the Workout Reference Library and report templates. Verify that the agent can read the required files at `section11/examples/workout-library/WORKOUT_REFERENCE.md` and `section11/examples/reports/`; a path on your machine does not establish access from another runtime.\n';
   const titles = parse(local.original).headings.filter(h => h.level <= 3).map(h => h.text);
   assert.deepEqual(titles.slice(titles.indexOf('Connect Your Agent'), titles.indexOf('Using with Web Chat Platforms') + 1), ['Connect Your Agent', 'OpenClaw', 'Claude Code', 'Claude Cowork', 'ChatGPT Codex CLI', 'Gemini CLI', 'OpenCode', 'Hermes Agent', 'Grok Bot (experimental)', 'Open-weight options', 'Control interfaces', 'Project instructions', 'Using with Web Chat Platforms']);
   const opencode = '[OpenCode](https://opencode.ai/docs/) supports multiple model providers. Start it from `~/training-data/` and use the agentic contract under [Project instructions](#project-instructions) below.';
-  assert.ok(local.original.includes(`Gemini CLI has full filesystem access to the working directory.\n\n### OpenCode\n\n${opencode}\n\n### Hermes Agent\n`));
+  assert.ok(local.original.includes(`Verify that Gemini CLI can read the required files in the working directory; write and execution access are separate capabilities.\n\n### OpenCode\n\n${opencode}\n\n### Hermes Agent\n`));
   assert.equal(local.original.split('### OpenCode\n').length, 2);
   assert.ok(local.original.includes(`medication or health context.\n\n### Open-weight options\n\n${paragraph}\n\n### Control interfaces\n\n${note}\n\n${instructions}\n---\n\n## Using with Web Chat Platforms\n`));
   assert.equal(local.original.split(/open-weight/i).length, 3);
   assert.equal(local.original.split('T3 Code').length, 2);
-  const html = renderDocument(local, docs, root);
-  assert.ok(html.includes('<h3 id="opencode">OpenCode</h3>\n<p><a href="https://opencode.ai/docs/">OpenCode</a> supports multiple model providers. Start it from <code>~/training-data/</code> and use the agentic contract under <a href="local-sync.html#project-instructions">Project instructions</a> below.</p>\n<h3 id="hermes-agent">'));
+  const html = renderDocument({ ...local, selected: local.original }, docs, root);
+  assert.ok(html.includes('<h3 id="opencode">OpenCode</h3>\n<p><a href="https://opencode.ai/docs/">OpenCode</a> supports multiple model providers. Start it from <code>~/training-data/</code> and use the agentic contract under <a href="https://github.com/CrankAddict/section-11/blob/main/examples/json-local-sync/SETUP.md#project-instructions">Project instructions</a> below.</p>\n<h3 id="hermes-agent">'));
   const rendered = '<p><a href="https://t3.codes/">T3 Code</a> is an optional control interface for supported agents, not a separate coaching runtime.</p>';
   assert.ok(html.includes(`<h3 id="open-weight-options">Open-weight options</h3>\n<p>${paragraph}</p>\n<h3 id="control-interfaces">Control interfaces</h3>\n${rendered}\n<h3 id="project-instructions">Project instructions</h3>\n<p>Your coach's instructions live in one canonical contract`));
-  assert.match(html, /<code>section11\/examples\/reports\/<\/code> as well\.<\/p>\n<hr>\n<h2 id="using-with-web-chat-platforms">/);
+  assert.match(html, /Verify that the agent can read the required files at <code>section11\/examples\/workout-library\/WORKOUT_REFERENCE\.md<\/code> and <code>section11\/examples\/reports\/<\/code>; a path on your machine does not establish access from another runtime\.<\/p>\n<hr>\n<h2 id="using-with-web-chat-platforms">/);
   assert.equal(html.split(paragraph).length, 2);
   assert.equal(html.split(rendered).length, 2);
   for (const page of docs) if (page !== local) assert.doesNotMatch(page.selected, /open-weight|optional control interface|t3\.codes/i, page.route);
@@ -207,14 +272,15 @@ test('search metadata, home structured data and sitemap change only the head and
     { route: 'getting-started.html', title: 'Getting started', searchTitle: 'Getting started: data sync and AI setup | Section 11', description: 'Set up Section 11 in four steps: write an optional dossier, sync your Intervals.icu training data, choose your AI platform and give it the protocol files.' },
     { route: 'guides/local-sync.html', title: 'Local sync', searchTitle: 'Local sync setup guide for Intervals.icu data | Section 11', description: 'Run sync.py on a machine you control to refresh your Intervals.icu training data on a timer for your AI coach to read. No GitHub needed.' },
     { route: 'guides/github-sync.html', title: 'GitHub sync', searchTitle: 'GitHub sync setup guide for Intervals.icu data | Section 11', description: 'Use GitHub Actions to mirror your Intervals.icu training data to a private repository as JSON, on a schedule or on request, for your AI coach to read.' },
-    { route: 'guides/on-demand.html', title: 'On-demand sync', searchTitle: 'On-demand Intervals.icu sync from your browser | Section 11', description: 'Trigger a fresh Intervals.icu sync from your phone or browser, then download the data files as a ZIP for your AI chat. No schedule, no local Python.' },
-    { route: 'guides/manual-export.html', title: 'Manual export', searchTitle: 'Manual JSON export of Intervals.icu data | Section 11', description: 'Run sync.py once to export your Intervals.icu training data as JSON for a time range you choose, then upload the file to your AI. No automation needed.' },
-    { route: 'reports.html', title: 'Report examples', searchTitle: 'AI coaching report templates and examples | Section 11', description: 'Templates and annotated examples for Section 11 AI coaching reports: pre-workout, post-workout, weekly, block and season.' },
+    { route: 'guides/on-demand.html', title: 'On-demand sync', searchTitle: 'On-demand Intervals.icu sync from your browser | Section 11', description: 'Run a fresh Intervals.icu sync from your phone or browser, then connect your AI to your repository or download it as a ZIP. No schedule, no local Python.' },
+    { route: 'guides/manual-export.html', title: 'Manual export', searchTitle: 'Manual JSON export of Intervals.icu data | Section 11', description: 'Export Intervals.icu training data as JSON for your AI. Setup includes automatic sync by default; use --no-timer to run exports by hand.' },
+    { route: 'reports.html', title: 'Report examples', searchTitle: 'AI coaching report templates and examples | Section 11', description: 'Templates and annotated examples for Section 11 AI coaching reports: pre-workout, post-workout, 7-day, 28-day and season.' },
+    { route: 'guides/updating.html', title: 'Updates and rollback', searchTitle: 'Section 11 updates, automatic updates and rollback | Section 11', description: 'Install verified Section 11 releases locally or on GitHub, choose automatic updates, and restore a previous installation when needed.' },
   ];
   // pages.json keeps its routes and UI labels; searchTitle and description feed the head only.
   assert.deepEqual(pages.map(({ route, title, searchTitle, description }) => ({ route, title, searchTitle, description })), expected.slice(1));
-  assert.equal(new Set(expected.map(p => p.searchTitle)).size, 7);
-  assert.equal(new Set(expected.map(p => p.description)).size, 7);
+  assert.equal(new Set(expected.map(p => p.searchTitle)).size, 8);
+  assert.equal(new Set(expected.map(p => p.description)).size, 8);
   assert.equal(headTitle({ title: 'Local sync' }), 'Local sync | Section 11');
   assert.equal(headTitle({ title: 'Local sync', searchTitle: 'Complete | Section 11' }), 'Complete | Section 11');
   const html = {};
@@ -253,7 +319,7 @@ test('search metadata, home structured data and sitemap change only the head and
   assert.doesNotMatch(page.match(DATA_BLOCK)[1], /</);
   assert.deepEqual(JSON.parse(page.match(DATA_BLOCK)[1]), hostile);
   assert.doesNotMatch(shell('index.html', 'T', 'D', '<p>body</p>', new Map(ICONS.map(name => [name, '0']))), /<script/i);
-  // Sitemap: the seven canonical addresses, nothing else, no dates or hints.
+  // Sitemap: the eight canonical addresses, nothing else, no dates or hints.
   const canonicals = expected.map(p => html[p.route].match(/<link rel="canonical" href="([^"]*)">/)[1]);
   assert.equal(fs.readFileSync(path.join(output, 'sitemap.xml'), 'utf8'),
     `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${canonicals.map(url => `<url><loc>${url}</loc></url>\n`).join('')}</urlset>\n`);
@@ -261,6 +327,99 @@ test('search metadata, home structured data and sitemap change only the head and
   // robots.txt: allow-all plus the sitemap address, nothing else.
   assert.equal(fs.readFileSync(path.join(output, 'robots.txt'), 'utf8'),
     'User-agent: *\nAllow: /\n\nSitemap: https://section11.net/sitemap.xml\n');
+});
+
+test('Getting started step 3 supplies the instructions through the existing eight-page navigation', t => {
+  const docs = prepare(root);
+  const start = docs.find(p => p.route === 'getting-started.html');
+  const expected = "### 3. Configure Your AI Platform\n\nAgentic: you use an AI agent such as OpenClaw, usually running on a computer or server that is on a lot or always. Web chat: you use a chat app such as ChatGPT, Claude or Gemini.\n\n- **Agentic:** open [PROJECT_INSTRUCTIONS_AGENTIC.md](PROJECT_INSTRUCTIONS_AGENTIC.md), copy the text in its grey box (GitHub shows a copy button at the top right) and add it to your agent's persistent configuration. See [Agentic Platforms](#agentic-setup) for your platform (OpenClaw, Claude Code, ChatGPT Codex, Grok Bot, Hermes Agent, etc.).\n- **Web chat:** open [PROJECT_INSTRUCTIONS_WEB.md](PROJECT_INSTRUCTIONS_WEB.md), copy the text in its grey box and paste it into your Project, Space, Gem or custom instructions. See [Web Chat Platforms](#web-chat-setup) for your platform (ChatGPT, Claude, Gemini, Grok, Mistral Vibe, etc.) and [Platform Setup](#platform-setup) for connection details.\n\n";
+  assert.equal(select(start.original, { source: 'README.md', section: '3. Configure Your AI Platform' }), expected);
+  const typeLine = 'Agentic: you use an AI agent such as OpenClaw, usually running on a computer or server that is on a lot or always. Web chat: you use a chat app such as ChatGPT, Claude or Gemini.';
+  assert.equal(start.selected.split(typeLine).length, 2);
+  assert.doesNotMatch(start.original, /## Connect your AI|#connect-your-ai|#3-give-it-the-files/);
+  assert.doesNotMatch(JSON.stringify(pages), /connect-ai|connect-your-ai/);
+  const output = path.join(scratch(t), 'public');
+  const files = build(root, output);
+  assert.equal(files.filter(name => name.endsWith('.html')).length, 8);
+  assert.ok(!files.includes('guides/connect-ai.html'));
+  for (const name of files.filter(name => name.endsWith('.html') || name === 'sitemap.xml')) {
+    assert.doesNotMatch(fs.readFileSync(path.join(output, name), 'utf8'), /connect-ai\.html|#connect-your-ai|#3-give-it-the-files|>Connect your AI</, name);
+  }
+  const html = fs.readFileSync(path.join(output, start.route), 'utf8');
+  const step3 = html.slice(html.indexOf('<h2 id="3-configure-your-ai-platform">'), html.indexOf('<h2 id="4-make-files-available-to-your-ai">'));
+  const github = 'https://github.com/CrankAddict/section-11/blob/main/';
+  assert.deepEqual([...step3.matchAll(/href="([^"]+)"/g)].map(m => m[1]), [
+    github + 'PROJECT_INSTRUCTIONS_AGENTIC.md', github + 'README.md#agentic-setup',
+    github + 'PROJECT_INSTRUCTIONS_WEB.md', github + 'README.md#web-chat-setup',
+    github + 'README.md#platform-setup',
+  ]);
+  assert.ok(step3.includes('<p>' + typeLine + '</p>'));
+  for (const route of ['guides/local-sync.html', 'guides/github-sync.html', 'guides/on-demand.html', 'guides/manual-export.html']) {
+    const article = fs.readFileSync(path.join(output, route), 'utf8').match(/<article class="prose">(.*?)<\/article>/s)[1];
+    assert.ok(article.includes('<a href="../getting-started.html#3-configure-your-ai-platform">Section 11\'s project instructions</a>'), route);
+  }
+});
+
+test('Getting started step 4 preserves the complete access, ZIP, privacy, freshness and check text', () => {
+  const start = prepare(root).find(p => p.route === 'getting-started.html');
+  const expected = "### 4. Make Files Available to Your AI\n\nIf your AI agent can read your data folder directly, give it access to the installed `section11/` folder and current exported data. For web chat:\n\n- **Local sync:** use a supported cloud connector and check it can read your current data\n  and the installed `section11/` folder. Without working connector access, use the Manual\n  export upload steps below.\n- **GitHub sync or On-demand:** use a connector or a link to your own repository first.\n  If the chat can use neither, open your repository's **Code > Download ZIP** and\n  give that ZIP to the chat or project. It includes the installed protocol and templates.\n- **Manual export:** upload the exported data files, `DOSSIER.md` if used, and a ZIP of the `section11/`\n  folder only. Never zip the whole data folder, which can contain credentials and rollback state.\n\nAn uploaded ZIP is a snapshot. Re-upload for fresh data and after updates, replacing\nthe previous upload. Keep the optional dossier as `DOSSIER.md` at the top of your data folder or repository; replace uploaded copies when it changes. Keep any repository containing it private; Git keeps old versions.\nConnectors may need refresh or re-import; check [Platform Setup](#platform-setup).\n\n**Check it works.** Ask your AI:\n\n> Read my latest.json. When was it generated, and what is my most recent activity? Can you open the Section 11 protocol and the report templates? If a file is missing, tell me which.\n\nCheck that the date is recent and the activity is your latest one in Intervals.icu.\n\n";
+  assert.equal(select(start.original, { source: 'README.md', section: '4. Make Files Available to Your AI' }), expected);
+});
+
+test('instruction files and setup anchors are required; Manual retains its AI-setup link', t => {
+  for (const name of ['PROJECT_INSTRUCTIONS_AGENTIC.md', 'PROJECT_INSTRUCTIONS_WEB.md']) {
+    const source = fixture(t);
+    fs.unlinkSync(path.join(source, name));
+    const output = path.join(scratch(t), 'public');
+    assert.throws(() => build(source, output), /ENOENT/, name);
+    assert.equal(fs.existsSync(output), false, name);
+  }
+  const docs = prepare(root);
+  const start = docs.find(p => p.route === 'getting-started.html');
+  const github = 'https://github.com/CrankAddict/section-11/blob/main/';
+  assert.throws(() => linkURL('PROJECT_INSTRUCTIONS_WEB.md#missing-instructions', start, docs, root), /Missing source anchor/);
+  assert.equal(linkURL('PROJECT_INSTRUCTIONS_WEB.md', start, docs, root), github + 'PROJECT_INSTRUCTIONS_WEB.md');
+  assert.ok(start.selected.includes('#platform-setup)'));
+  assert.throws(() => renderDocument({ ...start, selected: start.selected.replace('#platform-setup)', '#missing-platform-setup)') }, docs, root), /Missing source anchor/);
+  assert.ok(renderDocument(start, docs, root).includes('href="' + github + 'README.md#platform-setup"'));
+  const manual = docs.find(p => p.route === 'guides/manual-export.html');
+  assert.ok(manual.selected.includes('#3-configure-your-ai-platform)'));
+  assert.throws(() => renderDocument({ ...manual, selected: manual.selected.replace('#3-configure-your-ai-platform)', '#missing-ai-setup)') }, docs, root), /Missing source anchor/);
+  assert.ok(renderDocument(manual, docs, root).includes('href="../getting-started.html#3-configure-your-ai-platform"'));
+});
+
+test('new-repository setup ends with the minutes paragraph and dossier step 1 keeps its heading', t => {
+  const output = path.join(scratch(t), 'public');
+  build(root, output);
+  const github = fs.readFileSync(path.join(output, 'guides/github-sync.html'), 'utf8');
+  const minutes = '<p>A private repository uses your GitHub Actions minutes. The default schedule needs about 1,500 a month, more if runs take longer than a minute; GitHub Free includes 2,000. See <a href="https://github.com/CrankAddict/section-11/blob/main/examples/json-auto-sync/SETUP.md#github-actions-minutes">GitHub Actions minutes</a>.</p>';
+  assert.equal(github.split('A private repository uses your GitHub Actions minutes.').length, 2);
+  assert.ok(github.includes('<p>Set up your AI with <a href="../getting-started.html#3-configure-your-ai-platform">Section 11\'s project instructions</a>.</p>\n' + minutes + '\n<h2 id="sync-timer-optional">Sync timer (optional)</h2>'));
+  assert.ok(!github.includes('id="already-set-up"'));
+  const start = fs.readFileSync(path.join(output, 'getting-started.html'), 'utf8');
+  assert.ok(start.includes('<h2 id="1-create-your-dossier-your-stable-private-context">1. Create Your Dossier: your stable private context</h2>\n<p>Create <code>DOSSIER.md</code> at the top of your data folder (or of your repository on GitHub) from the <a href="https://github.com/CrankAddict/section-11/blob/main/DOSSIER_TEMPLATE.md">dossier template</a>'));
+  const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8');
+  const step1 = select(readme, { source: 'README.md', section: '1. Create Your Dossier: your stable private context' });
+  assert.ok(step1.startsWith("### 1. Create Your Dossier: your stable private context\n\nCreate `DOSSIER.md` at the top of your data folder (or of your repository on GitHub) from the [dossier template](DOSSIER_TEMPLATE.md)"));
+  assert.ok(readme.includes("Root `DOSSIER.md` in the data-folder root (repository root on GitHub) is authoritative."));
+});
+
+test('Local and Manual keep terminal-in-folder instructions and inline single-word inputs', t => {
+  const output = path.join(scratch(t), 'public');
+  build(root, output);
+  const mac = '<code>cd </code>';
+  const windows = '<code>powershell</code>';
+  for (const route of ['guides/local-sync.html', 'guides/manual-export.html']) {
+    const html = fs.readFileSync(path.join(output, route), 'utf8');
+    const steps = [...html.match(/<ol>(.*?)<\/ol>/s)[1].matchAll(/<li>(.*?)<\/li>/gs)].map(m => m[1]);
+    const terminal = steps.filter(step => step.includes(mac));
+    assert.equal(terminal.length, 1, route);
+    assert.ok(terminal[0].includes('(with a space), drag the folder into Terminal and press Return'), route);
+    assert.ok(terminal[0].includes('open it in File Explorer'), route);
+    assert.ok(terminal[0].includes('in the address bar'), route);
+    assert.ok(terminal[0].includes('press Enter'), route);
+    assert.ok(terminal[0].includes(windows), route);
+  }
 });
 
 test('Quick Start is an exact source section, excluding adjacent sections', () => {
@@ -292,7 +451,8 @@ test('unselected Markdown and data never enter output', t => {
 test('local, unselected and partial-document links preserve their destination', () => {
   const docs = prepare(root);
   const manual = docs.find(p => p.title === 'Manual export');
-  assert.equal(linkURL('../json-auto-sync/SETUP.md#ftp-history-tracking', manual, docs, root), 'github-sync.html#ftp-history-tracking');
+  assert.equal(linkURL('../json-auto-sync/SETUP.md#ftp-history-tracking', manual, docs, root), 'https://github.com/CrankAddict/section-11/blob/main/examples/json-auto-sync/SETUP.md#ftp-history-tracking');
+  assert.equal(linkURL('../maintenance/UPDATING.md#github-update-review', manual, docs, root), 'https://github.com/CrankAddict/section-11/blob/main/examples/maintenance/UPDATING.md#github-update-review');
   assert.equal(linkURL('../../README.md#quick-start', manual, docs, root), '../getting-started.html#quick-start');
   assert.equal(linkURL('../../README.md#platform-setup', manual, docs, root), 'https://github.com/CrankAddict/section-11/blob/main/README.md#platform-setup');
   assert.equal(linkURL('../../SETUP_ASSISTANT.md', manual, docs, root), 'https://github.com/CrankAddict/section-11/blob/main/SETUP_ASSISTANT.md');
@@ -327,4 +487,18 @@ test('stale output is rejected and its bytes are preserved', t => {
   fs.writeFileSync(file, 'preserve');
   assert.throws(() => build(root, output), /Output must be a new directory/);
   assert.equal(fs.readFileSync(file, 'utf8'), 'preserve');
+});
+
+test('On this page stays closed, shows its section count and has a visible marker', t => {
+  const output = path.join(scratch(t), 'public');
+  build(root, output);
+  for (const route of ['getting-started.html', 'guides/local-sync.html', 'guides/github-sync.html', 'guides/on-demand.html', 'guides/manual-export.html', 'guides/updating.html', 'reports.html']) {
+    const html = fs.readFileSync(path.join(output, route), 'utf8');
+    const links = [...html.match(/<nav aria-label="On this page"><ul>(.*?)<\/ul><\/nav>/)[1].matchAll(/<li>/g)].length;
+    assert.ok(links >= 1, route);
+    const label = `<details class="toc"><summary><span class="marker" aria-hidden="true"></span>On this page <span class="count"><span aria-hidden="true">· </span>${links} section${links === 1 ? '' : 's'}</span></summary>`;
+    assert.equal(html.split(label).length, 2, route);
+  }
+  const css = fs.readFileSync(path.join(root, '.github/site/site.css'), 'utf8');
+  for (const rule of ['.toc summary::-webkit-details-marker { display: none; }', '.toc[open] .marker { transform: rotate(45deg);', 'list-style: none; display: block; background: #ededed;']) assert.ok(css.includes(rule), rule);
 });

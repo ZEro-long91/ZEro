@@ -1,6 +1,184 @@
 # GitHub Sync Setup Guide
 
+GitHub sync keeps your Intervals.icu training files in your own private GitHub repository, a folder stored online. GitHub refreshes them, so your computer can be off. Your AI needs access to those files afterwards.
+
+## Get help from your AI
+
+You create the repository and enter secrets; your AI explains the steps. Copy this prompt:
+
+```text
+Help me set up Section 11 GitHub sync, one step at a time; I do the clicks and enter credentials.
+Read this guide first: https://github.com/CrankAddict/section-11/blob/main/examples/json-auto-sync/SETUP.md (if you can open my installed section11/ folder, use its copy instead).
+Keep my existing repository, data, schedule and settings; ask before changing anything.
+```
+
+For full guided setup, including your dossier and AI connection, give your AI this link: <https://github.com/CrankAddict/section-11/blob/main/SETUP_ASSISTANT.md>.
+
+## Set up a new repository
+
+1. In Intervals.icu **Settings**, find your Athlete ID near the bottom and your API key under **Developer Settings**.
+2. At [github.com/new](https://github.com/new), create a **Private** repository such as `training-data`, leaving **Add a README file** unchecked. Click **Create repository**, not Fork.
+3. Download `section11-YYYY.MM.DD-auto-sync.yml` from the [latest official release](https://github.com/CrankAddict/section-11/releases/latest); a same-day release adds `-N` after the date. Wait if unavailable or `UNSEALED` ([workflow setup](#step-2-set-up-github-repository)).
+4. In your repository, click **creating a new file** and name it `.github/workflows/auto-sync.yml`. Paste the downloaded contents, keep the defaults and commit.
+5. Under **Settings > Secrets and variables > Actions > New repository secret**, add `ATHLETE_ID` and `INTERVALS_KEY` with your values.
+6. If required, select **Read and write permissions** under **Settings > Actions > General > Workflow permissions** and save ([permissions](#step-4-enable-workflow-permissions)).
+7. Open **Actions > Auto-Sync Intervals.icu Data > Run workflow**, enabling workflows if prompted. Keep the default branch and **Operation: Sync**, leave the checkbox unticked, then run it.
+8. In **Code**, check for a successful `Sync training data` commit and a current timestamp in `latest.json`.
+9. Connect your AI to the private repository and check it can read `latest.json` and `section11/`. Without a connector, on your repository page, press the green **Code** button and choose **Download ZIP**. Upload that ZIP to your AI ([AI access](#usage-with-ai)).
+
+From now on, GitHub syncs about every 30 minutes. For fresh data right away, tap **Sync Now** in your repository's README, then **Run workflow**, and then **Run workflow** again.
+
+Set up your AI with [Section 11's project instructions](../../README.md#3-configure-your-ai-platform).
+
+A private repository uses your GitHub Actions minutes. The default schedule needs about 1,500 a month, more if runs take longer than a minute; GitHub Free includes 2,000. See [GitHub Actions minutes](#github-actions-minutes).
+
+## Sync timer (optional)
+
+GitHub's built-in schedule is unreliable for many users: scheduled syncs can start hours late or not at all. A free sync timer from cron-job.org or Cloudflare requests a sync every 30 minutes. We recommend it if your data is often out of date.
+
+Requires workflow v11.105 or later (the first line of your `.github/workflows/auto-sync.yml`). A file without this line is older; see [version compatibility](#sync-timer-version-compatibility). Also check that **Sync timer** appears under **Run workflow > Operation**. If you skip this section, your setup continues as before. Check the [Actions minutes and token risk](#sync-timer-costs-and-token-access) before starting.
+
+### Let the Sync timer run your syncs
+
+In your data repository, open **Settings > Secrets and variables > Actions > Variables > New repository variable**. For **Name**, use:
+
+```text
+SECTION11_SYNC_TIMER
+```
+
+For **Value**, use:
+
+```text
+on
+```
+
+Save the variable, then set up one timer below. With this switch on, GitHub's own scheduled sync job is skipped before a runner starts. The timer replaces that schedule; there is no GitHub backup. Manual **Sync Now** still works. If the timer stops, the timestamp and delivery deadline in `latest.json` show that the data is late; they do not start a replacement run.
+
+Scheduled runs still appear as **Skipped** in Actions while the switch is on; this is expected.
+
+### Create a token once, then choose one timer
+
+Open [GitHub's fine-grained token page](https://github.com/settings/personal-access-tokens/new). For **Token name**, use:
+
+```text
+Sync timer
+```
+
+Set **Resource owner** to the account that owns your data repository. Under **Repository access**, choose **Only select repositories** and select just that repository. Under **Repository permissions**, set **Actions** to **Read and write**, nothing else; Metadata read is added automatically. Choose an **Expiration** date and set your own reminder to replace the token before then.
+
+Create the token and copy it for your chosen timer below. It can start any workflow in that repository, so use it only for the timer.
+
+### Choice 1: cron-job.org
+
+One web form, no code to paste; the simpler choice for a phone, but your token is stored at cron-job.org.
+
+1. In your [cron-job.org](https://cron-job.org/) account, choose **Create cronjob**. For **Title**, use:
+
+   ```text
+   Sync timer
+   ```
+
+   For **URL**, paste this, replacing `OWNER` and `REPO` with your own data repository's owner and name, the same repository you limited the token to:
+
+   ```text
+   https://api.github.com/repos/OWNER/REPO/actions/workflows/auto-sync.yml/dispatches
+   ```
+
+2. Set the execution schedule to **Every 30 minutes**. In the **Advanced** tab, select **Request method: POST** and add these three headers:
+
+   | Key | Value |
+   | --- | --- |
+   | Authorization | `Bearer ` followed by your token |
+   | Accept | `application/vnd.github+json` |
+   | Content-Type | `application/json` |
+
+   The Authorization value starts with `Bearer` and a space, then your token.
+
+3. Further down on the **Advanced** tab, below **Request method: POST**, find **Request body** and paste:
+
+   ```json
+   {"ref":"main","inputs":{"operation":"Sync timer"}}
+   ```
+
+   If your default branch has another name, replace `main` with that name. Keep only the shown input; unknown inputs are rejected with HTTP 422.
+
+4. **Save**, then use **Test run**. HTTP **204** means GitHub accepted the start, not that the sync published. Follow [Check it works](#check-the-sync-timer-works) below. Failure notifications are optional.
+
+To pause, disable or delete this cron-job.org job. Enable it again, or recreate it, to resume. To have GitHub's own schedule sync instead, also turn the repository variable off or delete it, as described below.
+
+### Choice 2: Cloudflare
+
+More steps, but the token stays in your own Cloudflare account as a Worker secret.
+
+1. In Cloudflare **Workers & Pages**, create a Worker you own. Paste all of [sync-timer.js](sync-timer/sync-timer.js) from the [sync-timer folder](sync-timer/) into its dashboard editor and deploy it.
+2. Open **Workers & Pages > Overview > your Worker > Settings > Variables and Secrets**. Use **Add**, type **Secret**, with this name and your GitHub token as its value:
+
+   ```text
+   GITHUB_TOKEN
+   ```
+
+   Add a text variable with this name:
+
+   ```text
+   GITHUB_REPOSITORY
+   ```
+
+   For its value, replace this with your data repository's owner and name, without a URL:
+
+   ```text
+   owner/name
+   ```
+
+   Only if your default branch is not `main`, add another text variable with this name and your default branch name as its value:
+
+   ```text
+   GITHUB_REF
+   ```
+
+3. Make sure **Observability (Workers Logs)** is on, so you can see runs and failures.
+4. Under **Settings > Triggers > Cron Triggers**, add:
+
+   ```text
+   22,52 * * * *
+   ```
+
+   This requests a sync at 22 and 52 minutes past each hour, UTC. Cron changes can take up to 15 minutes to take effect.
+
+To pause, delete the Cron Trigger; there is no disable switch. Add it again to resume. Keep the Worker and its settings. To have GitHub's own schedule sync instead, also turn the repository variable off or delete it, as described below.
+
+### Check the sync timer works
+
+Open your data repository's **Actions** tab. Find **Sync timer run**, with event **workflow_dispatch**, and check it finishes successfully. In **Code**, check that `latest.json` has a new timestamp. A started run is not a finished sync.
+
+For Cloudflare, check **Observability (Workers Logs)** for runs and errors. Do not rely on the **Cron Events** list: it stayed empty during testing even when the Worker ran.
+
+Never use **Disable workflow** in GitHub to pause the timer: it also stops the timer's requests and **Sync Now** from starting runs. Pause your chosen timer instead. See [timer troubleshooting](#timer-runs-but-nothing-publishes) if data does not update.
+
+### Use GitHub's own schedule instead
+
+Do both: pause the timer at cron-job.org or delete its Cloudflare Cron Trigger, and change the repository variable `SECTION11_SYNC_TIMER` to this value (or delete the variable):
+
+```text
+off
+```
+
+GitHub's existing schedule then runs again. To return to the Sync timer, set the variable to `on` and resume that timer. Keep the existing `schedule:` block in the workflow so this switch can restore it.
+
+## Updates
+
+When a new version is out, your AI mentions it. To install it, tap **Sync Now** in your repository's README, then **Run workflow**, set **Operation** to **Update**, and tap **Run workflow** again.
+
+For automatic updates, open your repository on github.com and go to **Settings > Secrets and variables > Actions > Variables**. Add a variable named `SECTION11_AUTO_UPDATE` with the value `true`.
+
+Already have a repository? See [updating an existing repository](#updating-an-existing-repository).
+
+[Full technical guide on GitHub](#technical-guide)
+
+# Technical guide
+
 This guide explains how to create an automated JSON data mirror of your Intervals.icu training data for use with AI coaching systems.
+
+> **Already using GitHub sync?** Moving to the [current hosted workflow](../maintenance/UPDATING.md#move-to-the-final-hosted-workflow) is optional and enables same-day releases. Keep your repository, literal cron lines, settings, secrets and data. An existing compatible installation stays in place in half mode until you choose Update.
 
 > **Prefer an interactive guide?** Paste [SETUP_ASSISTANT.md](../../SETUP_ASSISTANT.md) into any AI chat and it will walk you through this entire setup step by step.
 
@@ -11,6 +189,22 @@ This guide explains how to create an automated JSON data mirror of your Interval
 ## Overview
 
 The data mirror syncs your Intervals.icu metrics to a GitHub repository on a schedule, every 30 minutes by default, producing JSON files that AI systems can read through a GitHub connector or other authenticated repository access, or by URL for a public repository. GitHub runs scheduled workflows on a best-effort basis, so a scheduled sync can be late or skipped. For fresh data right after a workout, use [Sync Now](#sync-now). See [Sync Schedule and GitHub Actions Usage](#sync-schedule-and-github-actions-usage) before choosing a different schedule.
+
+With the updated workflow, GitHub sync can use **4 Intervals.icu requests on a quiet cache-hit run instead of about 31**. Slow-cache reuse and the hosted per-run request controller apply to every schedule, including hourly, three-hour and hybrid schedules, and to Sync Now. First runs, scheduled refreshes, changed activities and misses cost more. Hourly, three-hour and hybrid schedules still have no known export delivery deadline; that does not disable cache reuse.
+
+### Private state and request limits
+
+The managed publisher commits `archive/carry-forward.state` with each export when its recovery content changes. The next runner reads it from the repository checkout. This compact backup protects previously exported summaries if latest.json is damaged; it does not add Intervals.icu requests. The producer and controller arrive together through the normal release and Update path, without replacing your workflow. Update and rollback preserve the file. It is excluded from AI companions and the training-data download; AI tools must ignore it and read only `latest.json.carry_forward` for recovery notices. Repository-wide connectors can still expose it physically. It is separate from request state and the Actions cache below.
+
+Each run creates private request accounting and source state in the runner's `<data folder>/state/`. The workflow retains only profile settings, aggregate curves and current-window messages in a separate plain Actions cache under runner temporary storage. It never commits the cache or includes it in the training-data download or published outputs. Raw activities, wellness, calendar and health responses, native payloads and request accounting are not cached remotely. The AI uses the training files and `latest.json.source_freshness`, never `state/` or Actions caches. See [state locations and SECTION11_STATE_DIR](../json-local-sync/SETUP.md#private-sync-state).
+
+In a public repository, someone who deliberately opens a pull request can read the workflow cache: full power/HR curves, sport/zone settings, profile details (location, birth date, sex, height, weight and resting-HR fallbacks, and profile notes), and recent activity-note text. Most of this also appears in the published training files; the cache never holds keys, credentials, raw activities, wellness or health events.
+
+GitHub deletes caches unused for 7 days, so rarely run On-demand gains little; a cache miss just means normal reads.
+
+Intervals.icu allows 8,000 requests per key per UTC day and 2,500 per 15 minutes. Hosted runs keep per-run limits, pacing and provider holds, but have no daily balance, step-down or budget pause. The local `check_interval_minutes` setting does not change hosted runs. Counts cover this invocation, not earlier runners or other tools using the key. The local/manual daily controller is unchanged. These limits are separate from GitHub Actions minutes below.
+
+We recommend one setup per user. Stop the old timer or workflow before changing the sync path or moving machines, to protect Intervals.icu. Counts are per data folder, API key and athlete, with no coordination across folders.
 
 **Result:** these files in your repository, shown here as raw URL patterns. Plain raw URLs work without GitHub authentication only for a public repository; for a private repository, see [Step 6](#step-6-verify) and [Usage with AI](#usage-with-ai).
 - `https://raw.githubusercontent.com/[you]/[repo]/main/latest.json`
@@ -23,6 +217,12 @@ The data mirror syncs your Intervals.icu metrics to a GitHub repository on a sch
 ---
 
 ## Prerequisites
+
+**Existing repositories:** follow the [migration steps](#updating-an-existing-repository).
+Keep every literal cron and optional environment setting in the replacement
+workflow. The verified latest runtime checks the application before any installation;
+the controller retains cache staging, restore and changed-only save after
+confirmed publication. No new secret is needed.
 
 - [Intervals.icu](https://intervals.icu) account with training data
 - [GitHub](https://github.com) account
@@ -46,25 +246,53 @@ The data mirror syncs your Intervals.icu metrics to a GitHub repository on a sch
 
 1. Go to [github.com/new](https://github.com/new)
 2. Name it something like `training-data`
-3. Set to **Private**. See the [connector table](../../README.md#platform-setup) for platform support.
-4. Check Add a README file
+3. Set to **Private**. See the [connector table](../../README.md#platform-setup) for platform support. A public repository runs free but publishes your training data; see [Public repositories](#public-repositories).
+4. Leave **Add a README file** unchecked. The first Sync installs the standard README with your Sync Now link; successful syncs update its timestamp.
 5. Click **Create repository**
 
-Then add these files to your repository:
+Use the published [scheduled workflow](auto-sync.yml), or the exact
+`section11-YYYY.MM.DD-auto-sync.yml` asset on the matching
+[official release](https://github.com/CrankAddict/section-11/releases/latest).
+For a same-day release, the asset name adds `-N` after the date.
+The detached asset is verified byte-for-byte against the release manifest. Use a
+release that supports the final workflow, with **Other** and the first-adoption
+checkbox. Do not substitute raw-main code. **Old templates only:** `UNSEALED`
+means the template is not ready to use; never invent its pins. Replacing an existing
+compatible workflow is optional. You do not upload a release ZIP.
 
-| File | Location | Description |
-|------|----------|-------------|
-| `sync.py` | Root | The sync script |
-| `auto-sync.yml` | `.github/workflows/` | GitHub Actions workflow |
-| `DATA_REPO_README_TEMPLATE.md` | Root (rename to `README.md`) | README template with sync badge and Sync Now link |
+1. In GitHub, create or edit `.github/workflows/auto-sync.yml`.
+2. Replace its contents with the published scheduled template. Existing users
+   retain every literal cron and optional setting, including `SECTION11_DAYS`.
+   Fresh users keep the supplied default.
+3. If the repository already has Section 11 files, read this warning immediately
+   before committing. Brand-new repositories can skip this warning:
 
-**To create the workflow folder:**
-1. Click "Add file" → "Create new file"
-2. Name it: `.github/workflows/auto-sync.yml`
-3. Paste the workflow content from examples/json-auto-sync/auto-sync.yml
-4. Commit
+   > Anything you added or changed inside section11/ will be deleted. Move what you want to keep to custom/ first.
 
-The workflow syncs every 30 minutes by default. To use Fast mode or a hybrid schedule instead, edit its `schedule` block as described in [Sync Schedule and GitHub Actions Usage](#sync-schedule-and-github-actions-usage).
+   Any existing root `sync.py`, `push.py` and `pull.py` will be removed. Outside
+   `section11/`, this applies to any file in any folder named exactly like a
+   release or historical Section 11 file, except the [keep list](../maintenance/UPDATING.md#local-updates-and-automatic-toggle).
+   Protection ignores case; removal requires exact spelling. Keep your own files
+   in `custom/` or outside the data repository. Existing data, settings,
+   custom files and the private dossier are preserved. Git history is the rollback
+   record; restoring a pre-adoption layout also requires owner workflow recovery.
+4. If you use hosted workout push, also replace `.github/workflows/push-workout.yml`
+   with the [thin push stub](../agentic/push-workout.yml) before committing. Use
+   GitHub's web editor (`github.dev`, opened with `.` from the repository), edit
+   both files, then stage and commit both together through Source Control.
+   Commit the workflow replacement through your repository's normal policy,
+   **before the first Sync**.
+
+That commit accepts first installation. The first Sync run writes the complete
+verified `section11/`, its receipt and missing custom guidance in one direct
+commit, then publishes training data separately. No manual folder creation or
+additional updater/validator workflow is required. The standard README includes
+your repository's Sync Now link.
+
+The push stub keeps its filename, dispatch inputs and preview/confirm behavior;
+it calls `section11/examples/agentic/push.py`. Update external root-tool imports
+to the managed paths. Until the first Sync installs Section 11, push stops with:
+"Section 11 is not installed yet; run Sync once first".
 
 ---
 
@@ -97,16 +325,29 @@ Only override what you need. Unspecified sports default to power-preferred with 
 
 **Note:** `GITHUB_TOKEN` is provided automatically by GitHub Actions.
 
+### Optional route-weather variables
+
+In your data repository, open **Settings > Secrets and variables > Actions > Variables**, then **New repository variable**. The supplied workflow passes these optional values to sync.py:
+
+| Repository variable | Value and default |
+|---|---|
+| `SECTION11_ROUTE_WEATHER` | `0` disables route weather; absent/empty keeps it on |
+| `SECTION11_ROUTE_WEATHER_DEFAULT_START` | Local HH:MM such as `09:30`; absent/empty uses `10:00` |
+
+These are preferences, not credentials. No variables are required for the defaults. An invalid nonempty start leaves assumed-departure weather unavailable; it does not guess another time. Changes take effect on the next scheduled run or Sync Now. Local/Manual users can instead set the existing config or process environment. See [departure handling](../../README.md#route-weather-departure).
+
 ---
 
 ## Step 4: Enable Workflow Permissions
 
-1. Still in **Settings**, click **Actions → General** in the left sidebar
-2. Scroll down to **"Workflow permissions"**
-3. Select **"Read and write permissions"**
-4. Click **Save**
+The workflow needs effective `contents: write` and read access to Actions run
+metadata. If repository policy requires it, select **Read and write permissions**
+under **Settings > Actions > General > Workflow permissions**, then save.
+No PR-creation/approval setting or privileged personal token is needed.
 
-This allows the sync workflow to commit updated data files to the repo. The workflow file also requests `contents: write` for itself. Whether that request alone is enough without this repository setting has not yet been validated, so keep this setting for now. If GitHub refuses the push, the run fails with an error in its log; it does not fail silently.
+A protected branch can prohibit direct commits even with those permissions.
+A refusal stops without retry, force or policy bypass. Ask the repository owner
+for a policy-compatible route; changing tokens is not an automatic workaround.
 
 ---
 
@@ -116,6 +357,10 @@ This allows the sync workflow to commit updated data files to the repo. The work
 2. If prompted, enable workflows
 3. Click on "Auto-Sync Intervals.icu Data" workflow
 4. Click **Run workflow** → **Run workflow** (green button)
+
+Confirm that **Auto-Sync Intervals.icu Data** appears in Actions. If it is missing,
+check the YAML and registration on the default branch before requesting a run.
+The presence of a workflow file alone is not proof that GitHub registered it.
 
 Leave the branch selector on your default branch (normally `main`). A manual run started from any other branch stops at its first step without syncing.
 
@@ -131,7 +376,13 @@ Check the result in your repository's normal **Code** view on github.com:
 
 1. Confirm that the latest commit is a new `Sync training data` commit
 2. Open `latest.json` and check that `metadata.last_updated` changed to the time of this sync
-3. Open `history.json`, `ftp_history.json`, `intervals.json`, `routes.json` and `saved_workouts.json` to confirm they are there
+3. Open `history.json`, `ftp_history.json`, `intervals.json`, `routes.json`, `saved_workouts.json` and `route_eta_history.json` to confirm they are there
+
+On the first run, also inspect the preceding installation commit: complete
+`section11/` and receipt, missing custom guidance created, and root `sync.py`,
+`push.py`, `pull.py` and other unprotected exact-name copies removed in any folder.
+The workflow confirms remote commit/tree readback.
+No PR or merge is required. Use **Operation: Status** for an optional update plan.
 
 Do not check a private repository with plain `raw.githubusercontent.com` URLs. They normally return 404 for a private repository when the request carries no GitHub authentication, and being signed in to github.com in your browser does not make them a reliable check. When your AI needs the files, use a GitHub connector or other authenticated repository access (see [Usage with AI](#usage-with-ai)).
 
@@ -146,9 +397,12 @@ https://raw.githubusercontent.com/[your-username]/[repo-name]/main/saved_workout
 ```
 
 - `latest.json`: current 7-day snapshot with activities, wellness, fitness metrics, and derived Section 11 values. Rewritten on every successful sync.
+- `latest.json.source_freshness`: source status (`fresh`, `stale`, `deferred`, `unavailable`), acquisition age and coverage, plus the hosted per-run request count, source schedule and warnings. Null age means unknown. A new export timestamp does not make a retained source fresh. See the [field reference](../json-examples/README.md#source-freshness).
+- `latest.json.sleep_context`: uses a 35-date wellness window (D−34..D), while existing baselines/reports retain their original 28-date slice. This is low-confidence context only, never readiness. No separate sleep file or history refresh is needed. The existing workflow carries it inside latest.json, including the manual-run download artifact. The AI discovers it through `READ_THIS_FIRST.sleep_context_note`. Missing dates, unknown athlete timezone or current-date mismatch remain explicit unavailable states. Retained wellness keeps its acquisition time in `source_updated_at` and its refresh status in `source_freshness`; without a usable required snapshot, the previous export is preserved. Existing archive and Git-history retention still apply to the whole export.
 - `history.json`: longitudinal data with tiered granularity: daily (90 days), weekly (180 days), and monthly (up to 3 years). Generated automatically on first run, regenerated when outdated.
-- `intervals.json`: per-interval segment data for recent structured sessions (14-day retention). Written on every successful sync; its activity list can be empty when no recent activity has detected interval structure.
+- `intervals.json`: interval/DFA payloads and completed-session structure detail (14-day retention). Written on every successful sync. `has_structure` in latest.json identifies available detail; the compact `interval_data.plan_match` survives detail expiry through the 28-day recent-activity window. These committed JSON files retain the activity-detail cache needed by auto-sync; private request/source state is separate and is not persisted by the workflow. See [Which interval data to use](../../SECTION_11.md#which-interval-data-to-use).
 - `routes.json`: route/terrain data for planned events with GPX/TCX attachments. Includes climb/descent detection, course character, and polyline. Written on every successful sync, with `"events": []` when no planned event has an applicable attachment. Parsed routes are cached by attachment ID.
+- `route_eta_history.json`: rolling 180-day outdoor ride facts for personal route ETA calibration. The workflow validates it when present and commits it with the other generated data, so the next Actions checkout retains the record. Keep it across releases. It is not included in the downloadable training-data artifact; the current ETA result is already in the route brief. On-demand uses this same workflow with the schedule removed.
 - `saved_workouts.json`: read-only mirror of your Intervals.icu saved workouts, with folders and complete workout definitions. Refreshed on its own 6-hour throttle rather than every sync, and the last good copy is kept when a refresh fails.
 
 ---
@@ -190,7 +444,41 @@ Estimates below count scheduled jobs in a 31-day month with every scheduled run 
 - The minutes left must also cover Sync Now runs, failed runs, re-runs and any other workflows in your account, such as `push-workout.yml`
 - GitHub sometimes delays or skips scheduled runs, so real usage can be lower. Do not rely on that: budget for the full count
 - If you do not know your plan, assume GitHub Free
-- Public repositories do not use standard-runner minutes, but a public repository publishes all of your committed training data. See [Privacy Notes](#privacy-notes)
+
+### Sync timer costs and token access
+
+The [optional Sync timer](#sync-timer-optional) calls the compatible `auto-sync.yml` workflow through `workflow_dispatch`, with `operation=Sync timer`. With `SECTION11_SYNC_TIMER=on`, a job-level condition skips native scheduled syncs before runner allocation, so those skipped jobs use no billed runner minutes. Manual runs and timer runs are unaffected by this switch. GitHub compares the value without case sensitivity; unset or values other than `on` keep native scheduled syncs enabled.
+
+At one billed minute per run, a 30-minute timer uses about **1,488 Actions minutes per 31-day month** in a private repository, about the same as today's default 30-minute native schedule. There are no duplicate native syncs while the switch is on. Longer jobs, retries, manual starts and other workflows add more. Watch your account's Actions usage and budget. Standard GitHub-hosted runners are free in public repositories, including timer runs, but the [privacy costs](#public-repositories) remain.
+
+The timer uses the existing hosted cache and per-run request controller. An outdated existing `history.json` is eligible for automatic refresh only on run numbers divisible by 16, with the same retry backoff as native scheduled syncs. Missing/unreadable history still takes the existing first-run path. Manual Sync Now remains exempt from the run-number limit, but still respects backoff. No timer state file is added.
+
+The timer's export freshness uses a fixed 30-minute interval and the existing hosted grace of twice that interval plus one hour: normally `expected_update_by` is two hours after `generated_at`. A provider hold can extend it. If you change the external timer's cadence, this freshness expectation still assumes 30 minutes. With the switch on there is no native backup: a stopped timer leaves the last timestamp and deadline unchanged, making lateness visible to the AI. Its `export_freshness.mode` should be `hosted_scheduled`, with a populated `expected_update_by` deadline; manual **Sync Now** stays `on_demand`.
+
+**The token is not start-only.** Actions read and write lets it start any workflow in the selected repository. That includes **Update** and **Rollback**, and, if installed, workout push with `confirm=true`, which can create, move or delete workouts and change thresholds using the repository's stored Intervals.icu credentials. The timer sends only Sync timer, but its token has that broader authority. Use a dedicated token for only the data repository; give neither timer your Intervals.icu API key.
+
+Sync timer runs skip the **training-data** download artifact. Manual Sync Now still uploads it for **7 days** after successful data validation, even if publication later fails, preserving the On-demand download path. The token's Actions read access includes existing and manual-run artifacts. They stay behind repository access controls; in a public repository, any signed-in GitHub user can download them. The artifact is a separate copy from the committed training data.
+
+cron-job.org stores the token at its service. Cloudflare stores it as a secret in your own Worker account. Choose an expiry and set your own reminder to replace the token in the chosen timer before it expires. GitHub's 2021-07-26 changelog says it emails before token expiry, but that announcement was written for classic tokens, not separately confirmed for fine-grained tokens. Treat any email as a possible extra reminder, not a guarantee.
+
+### Sync timer version compatibility
+
+Requires workflow v11.105 or later, with Section 11 v11.105 / sync.py v3.168 or later. **Update** replaces the managed source, not `.github/workflows/auto-sync.yml`.
+
+For an existing repository, choose **Operation: Update** and verify it completes, then replace the owner-controlled wrapper using [Updating an Existing Repository](#updating-an-existing-repository), keeping every literal cron, optional setting and secret name. If the old workflow has no Operation menu, follow those installation steps first. Confirm **Sync timer** appears in the new menu before enabling the variable and timer. New repositories use the matching published workflow from initial setup. Only use it after the compatible release is available.
+
+An old wrapper with new source keeps normal native and manual sync behavior, but cannot provide the timer switch, run name or artifact exclusion. A Sync timer request against an old choice list is expected to return HTTP 422. A new wrapper with old trusted source rejects the unknown operation before producing data; having the new menu alone is insufficient. New wrapper and new source provide all timer behavior. Local sync, GitHub sync without a timer, On-demand manual Sync Now and Manual export remain unchanged.
+
+### Public repositories
+
+We recommend a private repository, but a public one has real advantages:
+- **No Actions minutes:** standard GitHub-hosted runners are free in public repositories. Default, Fast mode, hybrid schedules and Sync Now cost nothing and need no budgeting.
+- **No connector needed:** plain raw URLs work in any AI chat that can fetch a URL, without authentication or file uploads. See [Usage with AI](#usage-with-ai).
+
+The costs:
+- **Everything committed is public:** activity names, date of birth, location, route coordinates, notes and your saved workouts in full. See [Privacy Notes](#privacy-notes). Someone who opens a pull request can also read the workflow cache; see [Private state and request limits](#private-state-and-request-limits).
+- **Intervals.icu limits still apply:** free minutes do not raise them, and hosted runs have no daily allowance controller. Fast mode is the fastest schedule this guide covers.
+- **Inactivity:** GitHub disables scheduled workflows in a public repository after 60 days without repository activity; see [Scheduled runs are late or missing](#scheduled-runs-are-late-or-missing).
 
 ### Fast mode
 
@@ -198,7 +486,7 @@ Estimates below count scheduled jobs in a 31-day month with every scheduled run 
 - cron: '7,22,37,52 * * * *'
 ```
 
-Fast mode checks every 15 minutes, all day. It is **not suitable for GitHub Free** unless you have intentionally set up paid usage beyond the allowance, and it uses almost all of a Pro or Team allowance before any manual runs or other workflows.
+Fast mode checks every 15 minutes, all day. It is **not suitable for GitHub Free** unless you have intentionally set up paid usage beyond the allowance, and it uses almost all of a Pro or Team allowance before any manual runs or other workflows. In a public repository it uses no minutes; see [Public repositories](#public-repositories).
 
 ### Advanced hybrid schedules
 
@@ -258,22 +546,42 @@ minutes left = allowance − monthly estimate
 
 ## How the Workflow Works
 
-The workflow file is the authority for this behavior. In outline:
+Date-only/exact-midnight workouts use labelled 10:00 local by default. Choose another default through the [optional repository variables](#optional-route-weather-variables); strict local HH:MM is required. No setting is needed for the default. The AI asks for the real time or asks you to set it on the workout. New points/hours for the changed departure can fetch on the next sync without waiting for the normal refresh gate, subject to request limits and failure/provider backoff. See [departure handling](../../README.md#route-weather-departure). `data_overview` is directly after READ_THIS_FIRST, or first when absent; outlook directions are compact labels.
 
-- **Actions:** GitHub's checkout, setup-python and upload-artifact actions are pinned to full commit SHAs of their current Node 24 releases, with the release version in a comment
-- **Permissions:** the workflow requests only `contents: write`
-- **One sync at a time:** runs share one concurrency group and queue instead of cancelling each other. After a GitHub outage, several queued runs may execute one after another, and each counts as at least one billed minute
-- **Time limit:** a run is stopped after 15 minutes. A normal sync finishes in well under a minute, but a first sync that builds `history.json` can take longer; if a first run is stopped at the limit, raise `timeout-minutes` in the workflow
-- **Default branch only:** a manual run started from another branch stops before any secret is used or anything is synced
-- **Credential masking:** `sync.py` prints the first five characters of your athlete ID and API key; the workflow registers both with GitHub's log masking before `sync.py` runs
-- **Output checks:** the run fails if `latest.json` is missing, is not valid JSON, or was not rewritten by this sync, or if any other generated file is not valid JSON
-- **Artifact first:** a manual run uploads the training-data artifact before anything is committed, so a later publishing problem does not remove your download
-- **One commit:** the generated files, the daily archive file and the README timestamp are committed together and pushed once, on top of the latest state of your default branch. Your own changes to other files, including the README, are kept
-- **Generated files changed during the run:** if a generated file changed in the repository after the run started, for example because you deleted `history.json`, the run fails without publishing and the next run syncs again
-- **Push outcome:** if a push does not report success, the workflow reads the branch back before doing anything else:
-  - if this run's commit is on the branch, the run succeeds
-  - if it is confirmed absent, the workflow retries, up to three attempts in total, and then fails with a message that no commit from this run is on the branch
-  - if the branch cannot be read back, or the check cannot be completed, the run stops with **OUTCOME UNKNOWN** (exit code 2) and does not retry, because the commit may or may not have landed
+The workflow file binds triggers, actions and secrets; verified managed code
+implements the operation. In outline:
+
+- **Runtime and application:** each run selects and verifies the latest official
+  runtime. Half mode keeps the installed application until you choose Update.
+  Verification failure stops the run; the next run selects again.
+- **Operations:** Sync, Update, Status, Rollback and Sync timer, plus Other and its
+  text field for operations added by later releases. Unknown operations stop safely.
+  Use the first-adoption checkbox only for the first Sync after moving over.
+- **Update allowance:** data sync still runs when automatic application maintenance
+  is deferred because another run was active or finished within ten minutes.
+  Both update modes share this allowance; completed skipped runs do not count.
+- **Actions:** checkout, setup-python, cache and upload-artifact retain full commit pins.
+- **Permissions:** effective `contents: write` and Actions-run read access are needed.
+- **One writer at a time:** sync, update and rollback share a queue without cancelling
+  active work. Other publishers can still race; an observed-tip change stops this run.
+- **Time limit:** the wrapper allows 30 minutes, including first-run history creation.
+  Queuing and provider delays mean this is not a freshness promise.
+- **Default branch only:** another branch stops before athlete credentials or a producer run.
+- **Credentials:** the producer receives masked athlete/key arguments as literal values,
+  with no GitHub publication token or persisted checkout credentials.
+- **Output checks:** rewritten `latest.json` and declared JSON/PNG outputs are checked for
+  paths, type, size, JSON validity and PNG signature/IHDR. Invalid declarations use
+  the fixed validated JSON fallback without deletion; invalid fallback data stops.
+- **Download:** a manual run retains the six-JSON artifact after successful validation,
+  even if later publication or maintenance fails. It excludes maps, ETA history and state.
+- **Data commit:** generated files, UTC archive and normal README timestamp form one
+  separately validated child of the observed default tip. Installations and changed
+  update notices use separate commits; there is no check-only commit. This data commit preserves personal files and changes
+  only the README timestamp.
+- **Outcome:** one non-forced ref write is followed by commit/tree readback, even after
+  a lost response. Confirmed presence is reported. An unknown outcome, denial or
+  competing commit stops without retry or rebase. Confirmed history plus a later
+  default advance reports both facts and requires inspection.
 
 ### Archive
 
@@ -332,11 +640,13 @@ Benchmark Index = (Current FTP - FTP 8 weeks ago) / FTP 8 weeks ago
 
 ## Usage with AI
 
+**Calendar naming:** To let the calendar support a deload week, name its sessions with "Deload" or "Recovery week", for example "Recovery week - easy ride". Single recovery rides inside normal weeks are not read as a deload week. Names support the phase assessment; they do not establish it on their own.
+
 Once set up, configure your AI platform using the instructions in the [main README](../../README.md#web-chat-setup).
 
-**Private repository with a GitHub connector or authenticated repository access (recommended):** If your AI platform has a GitHub connector, connect your data repo directly and ask the AI to read the files by path: `latest.json`, `history.json`, `intervals.json`, `routes.json` and `saved_workouts.json`, plus `ftp_history.json` when needed. It can read any other committed files the same way. No raw URLs are needed. Whether the AI sees new commits automatically, or needs you to refresh, sync or re-import, depends on the platform; see the [connector table](../../README.md#platform-setup). If you commit `DOSSIER.md` and `SECTION_11.md` to the repo as well, one connection covers your data, your dossier and the protocol. Check what the connector is actually scoped to. Where it exposes only the JSON, supply `SECTION_11.md` and the dossier separately.
+**Private repository with a GitHub connector or authenticated repository access (recommended):** Connect your own data repo and ask the AI to read the files by path: `latest.json`, `history.json`, `intervals.json`, `routes.json` and `saved_workouts.json`, plus `ftp_history.json` when needed. No raw URLs are needed. Refresh, sync or re-import when your platform requires it; see the [connector table](../../README.md#platform-setup). Check that the connection also exposes the installed `section11/` protocol and templates. Keep the optional dossier as `DOSSIER.md` in the repository root. Keep any repository containing it private; Git keeps old versions. Web-chat uploads are delivery copies.
 
-A GitHub connector is normally read-only. Where its write access is unavailable or unverified, your AI cannot update `DOSSIER.md` in place: it returns the revised dossier as an artifact and says plainly that the source was not updated. You then commit that file over the official `DOSSIER.md`, or replace the official copy with it, as would a repository writer whose access you have verified separately. Nothing in the automated pipeline does this for you. The sync workflow commits only the generated data files and the repository README; it never touches your dossier.
+A GitHub connector is normally read-only. Where its write access is unavailable or unverified, your AI cannot update `DOSSIER.md` in place: it returns the revised dossier as an artifact and says plainly that the source was not updated. You then commit that file over the official `DOSSIER.md`, or replace the official copy with it, as would a repository writer whose access you have verified separately. Nothing in the automated pipeline does this for you. The data publication commit contains only generated data and the repository README. Installation and maintenance control use separate commits for `section11/`, outside copies selected by the [shared name rule](../maintenance/UPDATING.md#local-updates-and-automatic-toggle), the standard README, missing custom guidance and `.section11-update.json`. None of these commits changes your dossier.
 
 **Public repository with URL fetch:** Use this only if your data repository is public. Everything committed to it, including your training data, is then readable by anyone (see [Privacy Notes](#privacy-notes)). Provide these URLs to your AI coach:
 ```
@@ -348,9 +658,14 @@ https://raw.githubusercontent.com/[your-username]/[repo-name]/main/routes.json
 https://raw.githubusercontent.com/[your-username]/[repo-name]/main/saved_workouts.json
 ```
 
-**Private repository without a connector:** Run [Sync Now](#sync-now), download the **training-data** artifact from the run page, and upload the JSON files to your AI chat, or use another delivery path that supplies GitHub authentication. Plain raw URLs will not work for a private repository.
+**When connector or link access is unavailable:** Use a connector or a link to
+your own repository first. If the chat can use neither, run [Sync Now](#sync-now),
+open your repository's **Code > Download ZIP**, and give that ZIP to the chat or
+project. It includes the installed `section11/` files and data. Plain raw URLs
+will not work for a private repository. An uploaded ZIP is a snapshot; re-upload
+for fresh data and after updates, replacing the previous upload.
 
-`latest.json` has the current 7-day snapshot, `history.json` provides longitudinal context for trend analysis, `intervals.json` has per-interval detail for recent structured sessions, `routes.json` has route/terrain data for planned events with GPX/TCX attachments (its `events` list is empty when there are none), and `saved_workouts.json` mirrors your Intervals.icu saved workouts.
+`latest.json` has the current 7-day snapshot, `history.json` provides longitudinal context for trend analysis, `intervals.json` has interval/DFA and completed-session detail, `routes.json` has route/terrain data for planned events with GPX/TCX attachments (its `events` list is empty when there are none), and `saved_workouts.json` mirrors your Intervals.icu saved workouts.
 
 ---
 
@@ -366,31 +681,61 @@ https://raw.githubusercontent.com/[your-username]/[repo-name]/main/saved_workout
 
 ### Run fails with "latest.json was not updated by this sync"
 - `sync.py` finished without writing `latest.json`
-- Check that the `python sync.py` step in your workflow still passes `--output latest.json` (see [Customization](#customization)) and that the step's `env:` block still sets `ATHLETE_ID` and `INTERVALS_KEY`
+- Check that the workflow uses its verified hosted controller and still binds `ATHLETE_ID` and `INTERVALS_KEY`. The controller selects local output before validated publication.
 
-### Run fails with "Generated data changed in the repository during this run"
-- A generated file was changed, added or deleted in the repository while the run was in progress
-- Nothing from that run was published; the next run syncs again from the updated repository
+### Run stops because the default tip changed
 
-### Run fails with "The push was not accepted after 3 attempts"
-- Read-back confirmed that no commit from this run is on the branch
-- Check the log for a permission error (see [Step 4](#step-4-enable-workflow-permissions)), then run the workflow again
+Another data, code, custom or workflow commit arrived during this run. The
+controller does not overwrite it, force or rebase. Start a fresh run only after
+checking the log's publication outcome.
 
-### Run stops with "OUTCOME UNKNOWN"
-- A push did not report success and the workflow could not confirm whether it landed, so it did not retry
-- The log names each commit this run tried to push, in its `Pushing commit` lines and again in the OUTCOME UNKNOWN message. Look for those commits anywhere in your default branch's commit history, not only as the latest commit: later syncs may already have landed on top of it, and another sync's commit with the same title is not this run's
-- If one of this run's commits is there, the data was published. If you have confirmed that none is there, run the workflow again
-- Until you can tell, the outcome stays unknown: it does not mean the run failed, and it is not a reason to start runs again blindly
+### Run stops with an unknown publication outcome
+
+A request may have landed even if its response was lost. Inspect the exact
+commit named in the log in default-branch history, including ancestors of later
+commits. An unknown result is not proof of failure. Do not blindly retry.
+A confirmed commit followed by later changes is reported separately.
 
 ### Scheduled runs are late or missing
 - GitHub runs schedules best-effort and can delay or drop them; use [Sync Now](#sync-now) when you need fresh data
+- If this happens often, we recommend the [optional sync timer](#sync-timer-optional)
 - Check your Actions minutes (see [GitHub Actions minutes](#github-actions-minutes)); runs stop or incur charges once the allowance is used, depending on your settings
 - In a public repository, GitHub disables scheduled workflows after 60 days without repository activity
+
+### Timer runs but nothing publishes
+- HTTP 204 confirms only that GitHub accepted the start. Open **Sync timer run** in GitHub Actions and check its logs and publication outcome, then check the timestamp in `latest.json`
+- If no run appears, check the timer's failure details and that the workflow is enabled. For Cloudflare, use **Observability (Workers Logs)**, not Cron Events
+- Pause the timer on repeated failures and resolve the cause before resuming
+
+### Timer reports HTTP 422
+- In cron-job.org, open the **Test run** result and read GitHub's response text for the reason
+- An empty or wrong request body causes 422. Paste the body shown above into **Request body** on the **Advanced** tab, below **Request method: POST**, and use your default branch name
+- The operation must be exactly `Sync timer`: it is case-sensitive, with a capital S, lowercase t and no trailing space
+- A workflow older than v11.105 has no **Sync timer** choice and rejects it with 422; follow [version compatibility](#sync-timer-version-compatibility)
+- Undeclared inputs or an invalid ref can also cause rejection
+
+### Nothing syncs after pausing the timer
+- To have GitHub's own schedule sync instead, do both: pause the external timer and set `SECTION11_SYNC_TIMER` to `off` or delete the variable. Leaving it on still skips native scheduled jobs
+- Keep the workflow enabled and its existing `schedule:` block. Use **Sync Now** for an immediate manual request; native schedules can still be delayed
+
+### Sync timer run fails with "unknown workflow operation"
+- The new wrapper is using older trusted source. Check the [version requirement and release installation](#sync-timer-version-compatibility); the Operation menu alone does not prove the managed source is compatible
+
+### Cloudflare shows "Sync timer: HTTP 404"
+- Check `GITHUB_REPOSITORY` is the data repository's exact `owner/name`
+- Check the token was created for this exact repository under **Only select repositories**; an expired, revoked or deleted token shows [HTTP 401](#timer-reports-http-401) instead
+
+### Timer reports HTTP 401
+- The token may be expired or revoked. Replace it in the chosen timer using the same repository access and permissions
 
 ### No data in latest.json
 - Verify your Intervals.icu API key is valid
 - Check you have activities in the last 7 days
 - Look at workflow logs for specific errors
+
+### Request allowance, provider holds or stale sources
+
+Read the sync log and `latest.json.source_freshness` if an export was written. Check other runs, machines and tools using the same key before triggering more runs; the runner's local count is not a key-wide daily total. Wait out any provider hold. The [local troubleshooting guide](../json-local-sync/SETUP.md#request-allowance-and-pauses) gives the exact pause message and private-state error explanation. GitHub keeps its configured workflow schedule; it does not gain a persistent one-minute local scheduler.
 
 ### ftp_history.json not updating on GitHub
 - The file only changes when your indoor or outdoor FTP changes
@@ -399,14 +744,14 @@ https://raw.githubusercontent.com/[your-username]/[repo-name]/main/saved_workout
 
 ### history.json not generated
 - History generates automatically on first run, then regenerates when outdated
-- Scheduled runs refresh an outdated `history.json` only when the run's number is a multiple of 16. Other scheduled runs skip the refresh, sync everything else normally and say so in the log. The refresh can therefore arrive several hours after the file becomes outdated, and later if those runs are delayed, cancelled or fail
+- Native scheduled runs and Sync timer runs refresh an outdated `history.json` only when the run's number is a multiple of 16. Other scheduled runs skip the refresh, sync everything else normally and say so in the log. The refresh can therefore arrive several hours after the file becomes outdated, and later if those runs are delayed, cancelled or fail
 - **Sync Now** skips only that limit. It refreshes an outdated file unless an earlier failed refresh is still waiting out its retry delay, and it does nothing to a file that is not outdated
 - Delete `history.json` from your repo and re-run to force regeneration. Do this while no sync is running; a run already in progress fails without publishing and the next run regenerates it
 - Check workflow logs. History generation is non-critical and won't fail the sync
 
 ### 404 error on JSON URL
 - Ensure `latest.json` exists in repo root; check it in the repository's **Code** view
-- **Private repository:** a plain `raw.githubusercontent.com` URL normally returns 404 when the request carries no GitHub authentication. This is expected, and being signed in to github.com in your browser does not make such a URL a reliable check. Use the **Code** view to check files, and a GitHub connector or the **training-data** artifact to give them to your AI (see [Usage with AI](#usage-with-ai))
+- **Private repository:** a plain `raw.githubusercontent.com` URL normally returns 404 when the request carries no GitHub authentication. This is expected, and being signed in to github.com in your browser does not make such a URL a reliable check. Use the **Code** view to check files, and follow [Usage with AI](#usage-with-ai) for connector or repository ZIP delivery
 - **Public repository:** verify the URL format (use `main` not `master`)
 - For private repo access from AI platforms, see the [main README troubleshooting](../../README.md#troubleshooting)
 
@@ -424,18 +769,12 @@ Edit the `schedule` block in `auto-sync.yml`. For Default, Fast mode and hybrid 
 - Keep `workflow_dispatch:` so Sync Now keeps working, and check the monthly job count before committing
 
 **Change data range:**
-In the **Run sync** step, change only the `--days` value and keep the rest of the command:
+In the **Run sync** step's `env:` block, change `SECTION11_DAYS` (integer 1 to
+365). Keep the launcher command unchanged:
 ```yaml
-          python sync.py \
-            --athlete-id "$ATHLETE_ID" \
-            --intervals-key "$INTERVALS_KEY" \
-            --days 14 \
-            --output latest.json || {
-              echo "❌ Sync script failed with exit code $?"
-              exit 1
-            }
+          SECTION11_DAYS: '14'
 ```
-Keep `--output latest.json`: without it, `sync.py` does not write `latest.json` and the run fails at the output check.
+The launcher writes `latest.json` for the validated data publisher.
 
 ---
 
@@ -461,36 +800,76 @@ GitHub Actions billing and repository visibility are separate questions. Billing
 | `routes.json` | Route/terrain data for planned events with GPX/TCX attachments | Every sync (`events` may be `[]`) |
 | `saved_workouts.json` | Read-only mirror of your Intervals.icu saved workouts | Every sync (own 6h refresh throttle) |
 | `ftp_history.json` | FTP progression tracking for Benchmark Index | Yes |
+| `route_eta_history.json` | Persistent 180-day outdoor ride facts for route ETA calibration; repository state, not download artifact | Every sync |
 | `archive/` | Daily snapshots of `latest.json` (`archive/YYYY-MM/YYYY-MM-DD.json`, UTC date, overwritten during the day) | Yes |
 
 ## Update Notifications
 
-**This setup does not notify you of upstream updates.** Two separate mechanisms exist, and neither reaches you here. The one that opens a GitHub Issue runs only when `sync.py` publishes to GitHub itself, using a token and repository you have configured; this workflow deliberately avoids that path, invoking `sync.py` in output-only mode so the workflow does the committing. The other is a local notice that prints a single line during a sync run and creates no GitHub Issue or other notification artifact; it looks for a `section11/` directory beside your data, and a data mirror built from this guide has none. Nothing will appear in your Issues tab.
+Active workflows are owner-controlled copies outside `section11/`.
+**`README.md`** is not comparable by template hash. See
+[Owner-controlled workflow maintenance](#owner-controlled-workflow-maintenance)
+and [workflow compatibility](../maintenance/UPDATING.md#workflow-compatibility).
+For local setups, use [local update guidance](../json-local-sync/SETUP.md#staying-up-to-date);
+its automatic toggle never enables automatic GitHub updates.
 
-Staying current is manual, and the three files you copied in Step 2 are not updated the same way. Watching the [Section 11 repository](https://github.com/CrankAddict/section-11) will tell you that something changed, but it is not the update itself.
+Half mode is the default: Actions reports a verified release, and the next data
+export carries a fixed, privacy-safe `update_notice` until it is resolved. Choose
+**Operation: Update** in this same workflow and dispatch once to install it.
+**Status** only shows the plan; **Rollback** restores the previous installation.
+There is no PR or merge step. For automatic installation set
+`SECTION11_AUTO_UPDATE=true` under **Settings > Secrets and variables > Actions >
+Variables**. Both modes check after data work, subject to the ten-minute run
+allowance. Runtime verification still happens on each run; it does not install a
+newer application. A later good official release fixes a broken runtime, which can
+also block Rollback; Rollback is for a bad application release.
 
-- **`sync.py`** is a verbatim copy. Compare it against the hash in the repository's `manifest.json` and replace it outright when it differs.
-- **`.github/workflows/auto-sync.yml`** matches the published hash only while you have not changed it. If you changed its schedule or any other line, a hash mismatch is expected. When the template changes, do not replace your copy blindly: follow [Updating an Existing Repository](#updating-an-existing-repository) so you keep the customizations you want.
-- **`README.md`** is not comparable that way. You replaced its placeholders during setup, and the workflow rewrites its **Last successful sync** line on every run, so it will always differ from the template. Read what changed in `DATA_REPO_README_TEMPLATE.md` and merge anything that applies into your own README by hand. Do not overwrite it from the template, and do not read a hash mismatch as an update.
+**Old workflow (v11.105 only):** daily hosted maintenance from 04:00 UTC remains
+until you follow the [move-over instructions](../maintenance/UPDATING.md#move-to-the-final-hosted-workflow).
+Current workflows accept same-day releases. An old pinned workflow with a
+recorded plain-date install keeps syncing and waits for the next plain-date
+release. For new setups using outdated files, see [same-day release compatibility](../maintenance/UPDATING.md#same-day-releases).
 
-For local setups (non-GitHub), see [json-local-sync](../json-local-sync/SETUP.md#staying-up-to-date) for the local update mechanism.
+See [updates and recovery](../maintenance/UPDATING.md#github-installation-and-updates)
+for full mode, conservative deferral, `.section11-update.json`, rollback and owner
+recovery.
 
-## Updating an Existing Repository
+## Keeping Section 11 current
 
-Use this sequence when the workflow template changes, including the change from the earlier 15-minute workflow to the current one.
+### Updating an existing repository
 
-> **Manual-only setup?** If you removed the `schedule` block so the workflow runs only when you trigger it, keep that choice: after replacing the workflow in step 3, remove `schedule:` again and keep `workflow_dispatch:`. See [On-Demand Sync](../json-on-demand/SETUP.md#updating-an-existing-repository).
+Optionally [move to the final hosted workflow](../maintenance/UPDATING.md#move-to-the-final-hosted-workflow)
+to receive same-day releases. It covers preserving your cron
+and settings, the first Sync checkbox, log checks and going back. For older
+root-tool setups, [Step 2](#step-2-set-up-github-repository) also covers replacing
+both stubs in the same owner commit, before the first Sync.
 
-1. **Record your current setup.** Note the `schedule` block in `.github/workflows/auto-sync.yml` and any other lines you changed, such as `--days`. If you used the earlier `*/15 * * * *` schedule, you were effectively running Fast mode; check [GitHub Actions minutes](#github-actions-minutes) before keeping that frequency.
-2. **Choose a schedule:** Default, Fast mode or a hybrid. See [Sync Schedule and GitHub Actions Usage](#sync-schedule-and-github-actions-usage).
-3. **Replace the workflow.** Replace the contents of `.github/workflows/auto-sync.yml` with the current `examples/json-auto-sync/auto-sync.yml`. Keep the filename: your README badge and Sync Now link depend on it.
-4. **Reapply only what you still want.** Edit the `schedule` block for the schedule you chose, and reapply other recorded changes you still need. Do not copy back the old publishing steps.
-5. **Keep your README.** Do not replace a customized `README.md` with the template. Keep its status badge line, its Sync Now link and its `**Last successful sync:**` line; merge any template wording you want by hand.
-6. **Keep your secrets.** `ATHLETE_ID`, `INTERVALS_KEY`, `WEEK_START` and `ZONE_PREFERENCE` keep the same names; nothing needs to change.
-7. **Run Sync Now** from the default branch and check that the run is green, that exactly one new `Sync training data` commit contains the updated data files, today's archive file and `README.md`, that the **training-data** artifact is on the run page, and that the README timestamp changed.
-8. **Watch the next scheduled run** to confirm the new schedule starts.
-9. **Optional:** delete old timestamped files under `archive/` in a normal commit, as described in [Archive](#archive). This changes the current tree only.
+### Owner-controlled workflow maintenance
 
-**Rollback:** restore the previous `.github/workflows/auto-sync.yml` from your repository's commit history (for example by reverting the commit that replaced it). Your data files, secrets and README are not affected. Archive files written by either version can stay side by side.
+The stable workflow contains triggers, action/runtime bindings, permissions,
+secret/variable bindings and a fixed verification gate. The latest verified official
+runtime supplies workflow logic on every run; `section11/` holds the installed
+application. Routine releases do not require another workflow edit.
+Future incompatible workflow/runtime changes remain owner-controlled. Preserve
+the current cron and settings when applying a published replacement.
 
-`sync.py` updates are separate from workflow updates; follow [Update Notifications](#update-notifications) for them.
+The publisher retains the sync-declared JSON/PNG list and stale-file deletion rules.
+Publication rules allow up to 128 ordinary JSON/PNG files, 64 MiB each, with relative paths up to 240 characters, no hidden components, traversal or symlinks.
+JSON must parse; PNG signature and IHDR fields/CRC must validate.
+Paths that dropped from a valid prior declaration are the only deletion candidates; unrelated repository files remain.
+All companions are relative to the folder holding latest.json. A missing/invalid
+current declaration uses the fixed seven-JSON fallback and disables
+declaration-based deletion. Invalid fallback data stops publication.
+
+Maps and `route_eta_history.json` remain in the repository, outside the unchanged
+six-JSON download artifact. Renderer pages retain the existing four-pages-per-ride
+and six-rides bounds. Source timestamps, private request accounting and native
+cache semantics are unchanged. Slow-cache saving requires changed allowed
+projection bytes and confirmed data publication.
+
+Install, update and rollback refresh the standard README while retaining its sync timestamp; Sync changes only that timestamp between updates.
+See the [update guide](../maintenance/UPDATING.md). Secrets retain the names `ATHLETE_ID`,
+`INTERVALS_KEY`, `WEEK_START` and `ZONE_PREFERENCE`.
+**Keep your secrets.** Archive files written by either version can stay side by side.
+
+For On-demand, use its [dispatch-only template](../json-on-demand/auto-sync.yml).
+It contains no schedule.

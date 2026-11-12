@@ -4,6 +4,907 @@
   "script_hash": "fad027f40c4e",
   "events": [
     {
+      "event_id": 90100001,
+      "route_status": "ok",
+      "terrain_summary": {
+        "polyline": [
+          [
+            0,
+            45,
+            5,
+            100
+          ],
+          [
+            0.6,
+            45.0054,
+            5,
+            110
+          ],
+          [
+            1.2,
+            45.0108,
+            5,
+            100
+          ]
+        ],
+        "total_distance_km": 1.2,
+        "total_elevation_m": 10,
+        "climbs": [],
+        "descents": [],
+        "course_character": "flat",
+        "source": "gpx_attachment"
+      },
+      "route_ref": {
+        "route_id": "intervals:90100001:attachment:12",
+        "attachment_id": 12,
+        "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "terrain_version": "3.142"
+      },
+      "route_weather": {
+        "event_id": 90100001,
+        "route_ref": {
+          "route_id": "intervals:90100001:attachment:12",
+          "attachment_id": 12,
+          "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "terrain_version": "3.142"
+        },
+        "departure": {
+          "at_utc": "2026-01-21T10:00:00+00:00",
+          "timezone": "UTC",
+          "source": "event_explicit_offset"
+        },
+        "eta": {
+          "status": "default",
+          "method": "generic_default_v2",
+          "source": "rolling_180d_record_from_existing_activity_fetches",
+          "window_days": 180,
+          "terrain_sample_count": 0,
+          "speed_ranges_kmh": {
+            "flat": [
+              22,
+              32
+            ],
+            "climb": [
+              8,
+              18
+            ],
+            "descent": [
+              20,
+              50
+            ]
+          },
+          "stops": {
+            "status": "default",
+            "sample_count": 0,
+            "ratio_range": [
+              1.0,
+              1.25
+            ],
+            "reason": "elapsed_time_unavailable",
+            "median_ratio": null
+          },
+          "reason": "insufficient_outdoor_history",
+          "sample_count": 0,
+          "sample_activity_ids": [],
+          "date_range": null,
+          "physics_context": {
+            "available": false,
+            "unavailable_reason": "missing_or_invalid_main_ftp",
+            "ftp_w": null,
+            "body_weight_kg": null,
+            "ftp_source": "thresholds.sports.cycling.ftp",
+            "weight_source": null,
+            "weight_date": null,
+            "prior_intensities": {
+              "flat": 0.65,
+              "long_climb": 0.825,
+              "short_climb": 0.9
+            },
+            "zone_source": "public_default_55_75_90_percent_boundaries",
+            "assumptions": {
+              "cda_m2": 0.32,
+              "crr": 0.005,
+              "bike_kit_mass_kg": 10.0,
+              "drivetrain_efficiency": 0.97,
+              "gravity_m_s2": 9.80665,
+              "sea_level_density_kg_m3": 1.225,
+              "density_scale_height_m": 8500,
+              "descent_cap_kmh": 50.0,
+              "descent_floor_kmh": 15.0,
+              "long_climb_km": 2.0,
+              "history_proxy_gradient": 0.05
+            }
+          },
+          "physics_comparison": {
+            "methods": {
+              "pace": {
+                "evaluated_rides": 0,
+                "coverage": null,
+                "median_window_width_s": null,
+                "median_relative_window_width": null,
+                "median_absolute_relative_error": null
+              },
+              "ftp_zones_physics": {
+                "evaluated_rides": 0,
+                "coverage": null,
+                "median_window_width_s": null,
+                "median_relative_window_width": null,
+                "median_absolute_relative_error": null
+              },
+              "ride_power_physics": {
+                "evaluated_rides": 0,
+                "coverage": null,
+                "median_window_width_s": null,
+                "median_relative_window_width": null,
+                "median_absolute_relative_error": null
+              }
+            },
+            "same_record_rides": 0,
+            "safeguard_passed": false,
+            "complete_record_comparison": true,
+            "record_rides": 0,
+            "width_tolerance_factor": 1.1,
+            "minimum_validation_rides": 12,
+            "history_geometry": "aggregate_symmetric_grade_proxy_not_observed_profiles",
+            "includes_stops": false,
+            "includes_rounding": false
+          },
+          "historical_ascent_density_range_m_per_km": null,
+          "historical_ascent_sample_count": 0,
+          "historical_ascent_sources": {
+            "producer_ascent_m": 0,
+            "recorded_ascent_m": 0
+          },
+          "ftp_consistency": {
+            "observed_power_over_main_ftp": null,
+            "sample_count": 0,
+            "status": "unavailable",
+            "reason": "whole_ride_power_is_not_an_ftp_test; weighted_power_is_an_effort_proxy"
+          },
+          "uncertainty": "Section physics is an estimate, not measured segment speed; aggregate-history geometry is a proxy. Residual coverage does not validate new terrain, surface, wind or segment timing.",
+          "route_ascent_m": 10,
+          "route_ascent_density_m_per_km": 8.333333333333334,
+          "terrain_extrapolation": true,
+          "terrain_support_status": "unknown",
+          "model_inputs": {
+            "ftp_used": false,
+            "weight_used": false,
+            "ftp_available": false,
+            "configured_main_ftp_w": null,
+            "body_weight_kg": null,
+            "prior_intensities": {
+              "flat": 0.65,
+              "long_climb": 0.825,
+              "short_climb": 0.9
+            },
+            "sample_count": 0,
+            "power_sample_count": 0,
+            "calibration_factor": null,
+            "flat_power_w": null,
+            "route_consistency_factor": 1.0
+          },
+          "selection_reason": "missing_or_invalid_main_ftp",
+          "polyline_positive_rise_m": 10,
+          "duration_range_s": [
+            0,
+            300
+          ],
+          "moving_duration_range_s": [
+            0,
+            300
+          ],
+          "moving_duration_central_s": 166
+        },
+        "schema_version": 2,
+        "tier": "forecast",
+        "name": "Endurance - Tuesday",
+        "cache_key": "ceb9a1b5dd981680266d1c53a75bfa1bb048d9f1d01159ee4c57941b06a01732",
+        "status": "ok",
+        "reason_codes": [],
+        "fetched_at": "2026-01-20T10:00:00+00:00",
+        "expires_at": "2026-01-20T11:00:00+00:00",
+        "units": {
+          "temperature": "C",
+          "wind": "m/s",
+          "precipitation": "mm",
+          "probability": "%",
+          "distance": "km",
+          "time": "s"
+        },
+        "provenance": {
+          "provider": "open_meteo",
+          "fallback": false,
+          "attribution": "Weather data by Open-Meteo",
+          "source_url": "https://open-meteo.com/",
+          "licence": "CC BY 4.0",
+          "licence_url": "https://creativecommons.org/licenses/by/4.0/",
+          "transformations": "Spatial subsampling, time-window extrema and wind components by Section 11.",
+          "points": [
+            {
+              "point_id": 0,
+              "fetched_at": "2026-01-20T10:00:00+00:00",
+              "validated_at": "2026-01-20T10:00:00+00:00",
+              "expires_at": "2026-01-20T11:00:00+00:00",
+              "model": "best_match",
+              "model_run_at": null,
+              "model_run_reason": "not_returned_by_forecast_api",
+              "valid_instants_utc": [
+                "2026-01-20T00:00:00+00:00",
+                "2026-01-27T23:00:00+00:00"
+              ],
+              "provider_updated_at": null,
+              "error": null
+            },
+            {
+              "point_id": 1,
+              "fetched_at": "2026-01-20T10:00:00+00:00",
+              "validated_at": "2026-01-20T10:00:00+00:00",
+              "expires_at": "2026-01-20T11:00:00+00:00",
+              "model": "best_match",
+              "model_run_at": null,
+              "model_run_reason": "not_returned_by_forecast_api",
+              "valid_instants_utc": [
+                "2026-01-20T00:00:00+00:00",
+                "2026-01-27T23:00:00+00:00"
+              ],
+              "provider_updated_at": null,
+              "error": null
+            },
+            {
+              "point_id": 2,
+              "fetched_at": "2026-01-20T10:00:00+00:00",
+              "validated_at": "2026-01-20T10:00:00+00:00",
+              "expires_at": "2026-01-20T11:00:00+00:00",
+              "model": "best_match",
+              "model_run_at": null,
+              "model_run_reason": "not_returned_by_forecast_api",
+              "valid_instants_utc": [
+                "2026-01-20T00:00:00+00:00",
+                "2026-01-27T23:00:00+00:00"
+              ],
+              "provider_updated_at": null,
+              "error": null
+            }
+          ]
+        },
+        "summary": {
+          "temperature_range_c": [
+            10,
+            12
+          ],
+          "gust_max_mps": 8,
+          "precipitation_probability_max_pct": 65,
+          "hourly_precipitation_max_mm": 0.6000000000000001,
+          "aggregation": "Extrema over section arrival windows; precipitation is not a ride total.",
+          "complete_distance_pct": 100.0,
+          "display": {
+            "temperature_range": {
+              "value": [
+                10,
+                12
+              ],
+              "unit": "C",
+              "label": "10.0\u201312.0 \u00b0C"
+            },
+            "gust_max": {
+              "value": 8,
+              "unit": "m/s",
+              "label": "8.0 m/s"
+            },
+            "hourly_precipitation_max": {
+              "value": 0.6,
+              "unit": "mm",
+              "label": "0.6 mm/h"
+            },
+            "duration_range": [
+              "0s",
+              "5m"
+            ],
+            "moving_duration_range": [
+              "0s",
+              "5m"
+            ],
+            "moving_duration_central": "2m46s",
+            "departure": "2026-01-21 10:00 UTC+0000",
+            "fetched": "2026-01-20 10:00 UTC+0000",
+            "expires": "2026-01-20 11:00 UTC+0000",
+            "wind": "4.0\u20135.0 m/s",
+            "feels_like": "8.0\u201310.0 \u00b0C",
+            "rain": "0.6 mm/h \u00b7 65%"
+          }
+        },
+        "sampling": {
+          "points": [
+            {
+              "point_id": 0,
+              "km": 0,
+              "lat": 45,
+              "lon": 5,
+              "altitude": 100
+            },
+            {
+              "point_id": 1,
+              "km": 0.6,
+              "lat": 45.0054,
+              "lon": 5,
+              "altitude": 110
+            },
+            {
+              "point_id": 2,
+              "km": 1.2,
+              "lat": 45.0108,
+              "lon": 5,
+              "altitude": 100
+            }
+          ],
+          "max_spacing_km": 0.6,
+          "method": "Nearest distance sample; headings retained per polyline leg.",
+          "limitations": "Approximate 500 m geometry; no shelter, road safety or local exposure."
+        },
+        "sections": [
+          {
+            "section_id": 0,
+            "start_km": 0,
+            "end_km": 0.6,
+            "terrain_class": "flat",
+            "bearing_deg": 0.0,
+            "arrival_window_utc": [
+              "2026-01-21T10:00:00+00:00",
+              "2026-01-21T10:00:00+00:00"
+            ],
+            "end_window_utc": [
+              "2026-01-21T10:00:00+00:00",
+              "2026-01-21T10:05:00+00:00"
+            ],
+            "point_id": 0,
+            "weather": {
+              "temperature_range_c": [
+                10,
+                11
+              ],
+              "apparent_temperature_range_c": [
+                8,
+                9
+              ],
+              "wind_speed_range_mps": [
+                4,
+                4
+              ],
+              "head_component_range_mps": [
+                -3.864,
+                -3.464
+              ],
+              "cross_component_range_mps": [
+                1.035,
+                2.0
+              ],
+              "wind_classes": [
+                "tail"
+              ],
+              "gust_max_mps": 7,
+              "precipitation_intervals": [
+                {
+                  "from_utc": "2026-01-21T10:00:00+00:00",
+                  "to_utc": "2026-01-21T11:00:00+00:00",
+                  "period_hours": 1.0,
+                  "amount_mm": 0.6000000000000001,
+                  "probability_pct": 65,
+                  "display_amount": {
+                    "value": 0.6,
+                    "unit": "mm"
+                  }
+                }
+              ],
+              "coverage": {
+                "temperature": true,
+                "wind": true,
+                "gust": true,
+                "precipitation": true,
+                "probability": true
+              },
+              "instant_envelope_utc": [
+                "2026-01-21T10:00:00+00:00",
+                "2026-01-21T11:00:00+00:00"
+              ],
+              "complete": true,
+              "display": {
+                "wind_speed_range_mps": {
+                  "value": [
+                    4,
+                    4
+                  ],
+                  "unit": "m/s"
+                },
+                "head_component_range_mps": {
+                  "value": [
+                    -3.9,
+                    -3.5
+                  ],
+                  "unit": "m/s"
+                },
+                "cross_component_range_mps": {
+                  "value": [
+                    1.0,
+                    2.0
+                  ],
+                  "unit": "m/s"
+                },
+                "gust_max_mps": {
+                  "value": 7,
+                  "unit": "m/s"
+                },
+                "temperature_range_c": {
+                  "value": [
+                    10,
+                    11
+                  ],
+                  "unit": "C"
+                },
+                "apparent_temperature_range_c": {
+                  "value": [
+                    8,
+                    9
+                  ],
+                  "unit": "C"
+                }
+              },
+              "map_sample": {
+                "eta_midpoint_utc": "2026-01-21T10:02:30+00:00",
+                "forecast_at_utc": "2026-01-21T10:00:00+00:00",
+                "basis": "nearest_native_instant_to_section_eta_window_midpoint",
+                "wind_from_deg": 150,
+                "display_wind_from": "SSE",
+                "wind_speed_mps": 4,
+                "wind_class": "tail",
+                "display_wind_speed": {
+                  "value": 4,
+                  "unit": "m/s"
+                }
+              }
+            },
+            "display": {
+              "start": {
+                "value": 0,
+                "unit": "km"
+              },
+              "end": {
+                "value": 0.6,
+                "unit": "km"
+              }
+            }
+          },
+          {
+            "section_id": 1,
+            "start_km": 0.6,
+            "end_km": 1.2,
+            "terrain_class": "flat",
+            "bearing_deg": 0.0,
+            "arrival_window_utc": [
+              "2026-01-21T10:00:00+00:00",
+              "2026-01-21T10:05:00+00:00"
+            ],
+            "end_window_utc": [
+              "2026-01-21T10:00:00+00:00",
+              "2026-01-21T10:05:00+00:00"
+            ],
+            "point_id": 1,
+            "weather": {
+              "temperature_range_c": [
+                11,
+                12
+              ],
+              "apparent_temperature_range_c": [
+                9,
+                10
+              ],
+              "wind_speed_range_mps": [
+                5,
+                5
+              ],
+              "head_component_range_mps": [
+                -3.83,
+                -2.868
+              ],
+              "cross_component_range_mps": [
+                3.214,
+                4.096
+              ],
+              "wind_classes": [
+                "tail"
+              ],
+              "gust_max_mps": 8,
+              "precipitation_intervals": [
+                {
+                  "from_utc": "2026-01-21T10:00:00+00:00",
+                  "to_utc": "2026-01-21T11:00:00+00:00",
+                  "period_hours": 1.0,
+                  "amount_mm": 0.6000000000000001,
+                  "probability_pct": 65,
+                  "display_amount": {
+                    "value": 0.6,
+                    "unit": "mm"
+                  }
+                }
+              ],
+              "coverage": {
+                "temperature": true,
+                "wind": true,
+                "gust": true,
+                "precipitation": true,
+                "probability": true
+              },
+              "instant_envelope_utc": [
+                "2026-01-21T10:00:00+00:00",
+                "2026-01-21T11:00:00+00:00"
+              ],
+              "complete": true,
+              "display": {
+                "wind_speed_range_mps": {
+                  "value": [
+                    5,
+                    5
+                  ],
+                  "unit": "m/s"
+                },
+                "head_component_range_mps": {
+                  "value": [
+                    -3.8,
+                    -2.9
+                  ],
+                  "unit": "m/s"
+                },
+                "cross_component_range_mps": {
+                  "value": [
+                    3.2,
+                    4.1
+                  ],
+                  "unit": "m/s"
+                },
+                "gust_max_mps": {
+                  "value": 8,
+                  "unit": "m/s"
+                },
+                "temperature_range_c": {
+                  "value": [
+                    11,
+                    12
+                  ],
+                  "unit": "C"
+                },
+                "apparent_temperature_range_c": {
+                  "value": [
+                    9,
+                    10
+                  ],
+                  "unit": "C"
+                }
+              },
+              "map_sample": {
+                "eta_midpoint_utc": "2026-01-21T10:02:30+00:00",
+                "forecast_at_utc": "2026-01-21T10:00:00+00:00",
+                "basis": "nearest_native_instant_to_section_eta_window_midpoint",
+                "wind_from_deg": 220,
+                "display_wind_from": "SW",
+                "wind_speed_mps": 5,
+                "wind_class": "tail",
+                "display_wind_speed": {
+                  "value": 5,
+                  "unit": "m/s"
+                }
+              }
+            },
+            "display": {
+              "start": {
+                "value": 0.6,
+                "unit": "km"
+              },
+              "end": {
+                "value": 1.2,
+                "unit": "km"
+              }
+            }
+          }
+        ],
+        "lead_hours_at_fetch": 24.0,
+        "display_time": {
+          "zone": "UTC",
+          "source": "athlete_timezone",
+          "fallback": false
+        },
+        "bands": [
+          {
+            "letter": "A",
+            "point_id": 0,
+            "section_count": 1,
+            "start_km": 0,
+            "end_km": 0.6,
+            "arrival_window_local": [
+              "2026-01-21 10:00 UTC+0000",
+              "2026-01-21 10:00 UTC+0000"
+            ],
+            "end_window_local": [
+              "2026-01-21 10:00 UTC+0000",
+              "2026-01-21 10:05 UTC+0000"
+            ],
+            "wind_class": "tail",
+            "wind_from": "SSE",
+            "wind_speed": {
+              "value": [
+                4,
+                4
+              ],
+              "unit": "m/s"
+            },
+            "gust_max": {
+              "value": 7,
+              "unit": "m/s"
+            },
+            "temperature": {
+              "value": [
+                10,
+                11
+              ],
+              "unit": "C"
+            },
+            "feels_like": {
+              "value": [
+                8,
+                9
+              ],
+              "unit": "C"
+            },
+            "coverage": {
+              "temperature": true,
+              "wind": true,
+              "gust": true,
+              "precipitation": true,
+              "probability": true
+            },
+            "representative_section_index": 0,
+            "rain": {
+              "max_amount": {
+                "value": 0.6,
+                "unit": "mm"
+              },
+              "max_probability_pct": 65,
+              "period_hours": 1.0,
+              "wettest_window_local": [
+                "2026-01-21 10:00 UTC+0000",
+                "2026-01-21 11:00 UTC+0000"
+              ]
+            },
+            "display": {
+              "distance": "0.0\u20130.6 km",
+              "start_time": "10:00",
+              "time": "10:00\u201310:05",
+              "wind_class": "Tailwind",
+              "wind": "4.0 m/s from SSE \u00b7 gusts 7.0",
+              "temperature": "10.0\u201311.0 \u00b0C",
+              "feels_like": "8.0\u20139.0 \u00b0C",
+              "rain": "0.6 mm/h \u00b7 65%"
+            }
+          },
+          {
+            "letter": "B",
+            "point_id": 1,
+            "section_count": 1,
+            "start_km": 0.6,
+            "end_km": 1.2,
+            "arrival_window_local": [
+              "2026-01-21 10:00 UTC+0000",
+              "2026-01-21 10:05 UTC+0000"
+            ],
+            "end_window_local": [
+              "2026-01-21 10:00 UTC+0000",
+              "2026-01-21 10:05 UTC+0000"
+            ],
+            "wind_class": "tail",
+            "wind_from": "SW",
+            "wind_speed": {
+              "value": [
+                5,
+                5
+              ],
+              "unit": "m/s"
+            },
+            "gust_max": {
+              "value": 8,
+              "unit": "m/s"
+            },
+            "temperature": {
+              "value": [
+                11,
+                12
+              ],
+              "unit": "C"
+            },
+            "feels_like": {
+              "value": [
+                9,
+                10
+              ],
+              "unit": "C"
+            },
+            "coverage": {
+              "temperature": true,
+              "wind": true,
+              "gust": true,
+              "precipitation": true,
+              "probability": true
+            },
+            "representative_section_index": 1,
+            "rain": {
+              "max_amount": {
+                "value": 0.6,
+                "unit": "mm"
+              },
+              "max_probability_pct": 65,
+              "period_hours": 1.0,
+              "wettest_window_local": [
+                "2026-01-21 10:00 UTC+0000",
+                "2026-01-21 11:00 UTC+0000"
+              ]
+            },
+            "display": {
+              "distance": "0.6\u20131.2 km",
+              "start_time": "10:00",
+              "time": "10:00\u201310:05",
+              "wind_class": "Tailwind",
+              "wind": "5.0 m/s from SW \u00b7 gusts 8.0",
+              "temperature": "11.0\u201312.0 \u00b0C",
+              "feels_like": "9.0\u201310.0 \u00b0C",
+              "rain": "0.6 mm/h \u00b7 65%"
+            }
+          },
+          {
+            "letter": "C",
+            "point_id": 2,
+            "section_count": 0,
+            "start_km": null,
+            "end_km": null,
+            "arrival_window_local": [],
+            "end_window_local": [],
+            "wind_class": "unknown",
+            "wind_from": "UNKNOWN",
+            "wind_speed": null,
+            "gust_max": null,
+            "temperature": null,
+            "feels_like": null,
+            "coverage": {
+              "temperature": false,
+              "wind": false,
+              "gust": false,
+              "precipitation": false,
+              "probability": false
+            },
+            "representative_section_index": null,
+            "rain": {
+              "max_amount": null,
+              "max_probability_pct": null,
+              "period_hours": null,
+              "wettest_window_local": []
+            },
+            "display": {
+              "distance": "UNKNOWN",
+              "start_time": "unknown",
+              "time": "unknown",
+              "wind_class": "Unknown",
+              "wind": "UNKNOWN from UNKNOWN \u00b7 gusts unknown",
+              "temperature": "UNKNOWN",
+              "feels_like": "UNKNOWN",
+              "rain": "Rain unknown \u00b7 chance unknown"
+            }
+          }
+        ],
+        "brief_id": "17fb54224e43b48adac09ea943a17a8fe76d902a5fac9be1fe5e556fc680a4f6"
+      },
+      "route_weather_map": {
+        "page": 1,
+        "path": "maps/weather/weather-ad7804efd58d9d229785e19d00490dd4.png",
+        "format": "png",
+        "width_px": 1080,
+        "height_px": 1646,
+        "sha256": "4653975e3a746139882de6bb79753033e252c0ab09f3b85cdd1afc92bf0836c9",
+        "bytes": 101305,
+        "pages": [
+          {
+            "page": 1,
+            "path": "maps/weather/weather-ad7804efd58d9d229785e19d00490dd4.png",
+            "format": "png",
+            "width_px": 1080,
+            "height_px": 1646,
+            "sha256": "4653975e3a746139882de6bb79753033e252c0ab09f3b85cdd1afc92bf0836c9",
+            "bytes": 101305
+          }
+        ],
+        "page_count": 1,
+        "total_bytes": 101305,
+        "renderer_version": 4,
+        "brief_id": "17fb54224e43b48adac09ea943a17a8fe76d902a5fac9be1fe5e556fc680a4f6",
+        "cache_key": "ceb9a1b5dd981680266d1c53a75bfa1bb048d9f1d01159ee4c57941b06a01732",
+        "tier": "forecast",
+        "expires_at": "2026-01-20T11:00:00+00:00"
+      }
+    },
+    {
+      "event_id": 90100002,
+      "route_status": "ok",
+      "terrain_summary": {
+        "polyline": [[0, 45, 5, 100], [0.6, 45.0054, 5, 110], [1.2, 45.0108, 5, 100]],
+        "total_distance_km": 1.2,
+        "total_elevation_m": 10,
+        "climbs": [],
+        "descents": [],
+        "course_character": "flat",
+        "source": "gpx_attachment"
+      },
+      "route_ref": {
+        "route_id": "intervals:90100002:attachment:17",
+        "attachment_id": 17,
+        "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "terrain_version": "3.142"
+      },
+      "route_weather": {
+        "schema_version": 2,
+        "event_id": 90100002,
+        "route_ref": {
+          "route_id": "intervals:90100002:attachment:17",
+          "attachment_id": 17,
+          "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "terrain_version": "3.142"
+        },
+        "status": "unavailable",
+        "reason_codes": ["forecast_unavailable", "provider_timeout"],
+        "brief_id": null,
+        "departure": {
+          "at_utc": "2026-01-20T10:15:00+00:00",
+          "timezone": "UTC",
+          "source": "assumed",
+          "assumed_reason": "start_passed",
+          "planned_local": "2026-01-20T09:00:00+00:00"
+        }
+      }
+    },
+    {
+      "event_id": 90100003,
+      "route_status": "ok",
+      "terrain_summary": {
+        "polyline": [[0, 45, 5, 100], [0.6, 45.0054, 5, 110], [1.2, 45.0108, 5, 100]],
+        "total_distance_km": 1.2,
+        "total_elevation_m": 10,
+        "climbs": [],
+        "descents": [],
+        "course_character": "flat",
+        "source": "gpx_attachment"
+      },
+      "route_ref": {
+        "route_id": "intervals:90100003:attachment:18",
+        "attachment_id": 18,
+        "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "terrain_version": "3.142"
+      },
+      "route_weather": {
+        "schema_version": 2,
+        "event_id": 90100003,
+        "route_ref": {
+          "route_id": "intervals:90100003:attachment:18",
+          "attachment_id": 18,
+          "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "terrain_version": "3.142"
+        },
+        "status": "unavailable",
+        "reason_codes": ["forecast_unavailable", "provider_timeout"],
+        "brief_id": null,
+        "departure": {
+          "at_utc": "2026-01-21T10:00:00+00:00",
+          "timezone": "UTC",
+          "source": "assumed",
+          "assumed_reason": "unset_time",
+          "planned_local": "2026-01-21T10:00:00+00:00"
+        }
+      }
+    },
+    {
       "event_id": 102006323,
       "event_name": "Tour of Flanders Sportive",
       "event_date": "2026-04-05",

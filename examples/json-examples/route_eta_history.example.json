@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "owner_key": "synthetic-owner-key-not-a-real-athlete",
+  "window_days": 180,
+  "last_full_fetch_at": "2026-01-20T10:00:00+00:00",
+  "activities": [
+    {
+      "id": "synthetic-eta-001",
+      "type": "Ride",
+      "start_date_local": "2026-01-03",
+      "distance": 60000.0,
+      "moving_time": 9000.0,
+      "elapsed_time": 9600.0,
+      "recorded_ascent_m": 420.0,
+      "producer_ascent_m": 440.0,
+      "average_power_w": 175.0,
+      "weighted_power_w": 190.0,
+      "power_availability": "average",
+      "terrain_summary": {
+        "total_distance_km": 60.0,
+        "climbs": [{"distance_km": 10.0}],
+        "descents": [{"distance_km": 10.0}]
+      }
+    },
+    {
+      "id": "synthetic-eta-002",
+      "type": "GravelRide",
+      "start_date_local": "2026-01-08",
+      "distance": 42000.0,
+      "moving_time": 8400.0,
+      "elapsed_time": 9000.0,
+      "recorded_ascent_m": 650.0,
+      "producer_ascent_m": 670.0,
+      "weighted_power_w": 205.0,
+      "power_availability": "weighted_proxy",
+      "terrain_summary": {
+        "total_distance_km": 42.0,
+        "climbs": [{"distance_km": 12.0}],
+        "descents": [{"distance_km": 14.0}]
+      }
+    },
+    {
+      "id": "synthetic-eta-003",
+      "type": "MountainBikeRide",
+      "start_date_local": "2026-01-12",
+      "distance": 30000.0,
+      "moving_time": 7200.0,
+      "elapsed_time": 8100.0,
+      "recorded_ascent_m": 850.0,
+      "producer_ascent_m": 830.0,
+      "power_availability": "unavailable",
+      "terrain_summary": {
+        "total_distance_km": 30.0,
+        "climbs": [{"distance_km": 10.0}],
+        "descents": [{"distance_km": 10.0}]
+      }
+    },
+    {
+      "id": "synthetic-eta-004",
+      "type": "Ride",
+      "start_date_local": "2026-01-18",
+      "distance": 80000.0,
+      "moving_time": 10800.0,
+      "elapsed_time": 12000.0,
+      "recorded_ascent_m": 300.0,
+      "average_power_w": 190.0,
+      "weighted_power_w": 200.0,
+      "power_availability": "average"
+    }
+  ]
+}

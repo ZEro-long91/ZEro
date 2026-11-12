@@ -38,7 +38,7 @@ What this module guards:
      Markers are positional placeholders: an unmarked summary must list every step
      with its duration and primary target.
   6. Report consumption. The PRE and POST templates name the producer's markers,
-     keep the labelled-recovery rule and the stated scope of an unmarked summary,
+     keep evidence-based role interpretation and the scope of an unmarked summary,
      and for a null or marked summary fall back to the description field each row
      tier actually carries. This is static text-to-producer checking; no report is
      rendered.
@@ -950,6 +950,12 @@ BASELINE_V3133_STATS = {"attempted": 113, "success": 104, "patternA": 93, "patte
                         "bail_no_workout_doc": 0, "bail_no_match": 9}
 BASELINE_V3133_WEEK = {"hard_sessions_planned": 104, "current_week_hard_days_total": 106}
 
+# v3.141 adds these ordered flat summaries. Repeat/alternating availability and
+# all hard-session markers stay pinned to their historical constants.
+V3141_FLAT = {"flat_two_pairs_only", "flat_only", "flat_hr_only",
+              "all_flat_tempo_connectors", "invalid_duration_flat_alternating_only"}
+V3141_STATS = dict(BASELINE_V3133_STATS, success=108, bail_no_match=5, flat=4)
+
 
 class TestRenderingOnlyPreservation(unittest.TestCase):
     def setUp(self):
@@ -970,12 +976,14 @@ class TestRenderingOnlyPreservation(unittest.TestCase):
                 is_null = summary is None
                 marker = bool(summary) and ("×" in summary or "sets" in summary.lower())
                 expected = V3136_AVAILABILITY_CHANGES.get(name, (None, BASELINE_V3133[name]))[1]
+                if name in V3141_FLAT:
+                    expected = (False, False, 0)
                 self.assertEqual((is_null, marker), expected[:2],
                                  "summary availability or phase marker changed")
 
     def test_summary_stats_match_v3133(self):
         self._rows()
-        self.assertEqual(self.sync._summary_stats, BASELINE_V3133_STATS,
+        self.assertEqual(self.sync._summary_stats, V3141_STATS,
                          "workout_summary_stats telemetry changed")
 
     def test_hard_sessions_planned_per_workout_match_v3133(self):
@@ -1169,6 +1177,9 @@ class TestV3136Invariants(OracleCase):
     def test_exact_output(self):
         for name, (d, expected) in invariant_cases().items():
             with self.subTest(name):
+                if name == "invalid_duration_flat_alternating_only":
+                    expected = ("10m @150W | 2m @290W | [step not summarized] | 2m @290W | "
+                                "[step not summarized] | 2m @290W | [step not summarized] | 10m @140W")
                 self.assertEqual(summarize(self.sync, d), expected)
 
     def test_every_invariant_output_is_faithful(self):
@@ -1206,6 +1217,8 @@ class TestV3136Invariants(OracleCase):
                 summary = rows[0]["workout_summary"]
                 hard = self.sync._phase_stream2_features(rows, {}, {}, TODAY)["hard_sessions_planned"]
                 marker = bool(summary) and ("×" in summary or "sets" in summary.lower())
+                if name in V3141_FLAT:
+                    after = (False, False, 0)
                 self.assertEqual((summary is None, marker, hard), after)
 
 
@@ -1223,12 +1236,12 @@ class TestTierFieldsUnchanged(unittest.TestCase):
              event(flat, date=FAR_DAY, description=desc),
              event(doc(R(3, P(600, 245), P(600, 205))), date=FAR_DAY, description=desc)],
             today=TODAY)
-        self.assertIsNone(near["workout_summary"])
+        self.assertEqual(near["workout_summary"], "15m @160W | 10m @230W | 10m @180W | 10m @230W | 10m @150W")
         self.assertEqual(near["description"], desc)
         self.assertNotIn("description_preview", near)
-        self.assertIsNone(far_null["workout_summary"])
+        self.assertEqual(far_null["workout_summary"], near["workout_summary"])
         self.assertNotIn("description", far_null)
-        self.assertEqual(far_null["description_preview"], "15m 160w\n10m 230w\n10m 180w active")
+        self.assertNotIn("description_preview", far_null)
         self.assertIsNotNone(far_summary["workout_summary"])
         self.assertNotIn("description", far_summary)
         self.assertNotIn("description_preview", far_summary)
@@ -1269,12 +1282,20 @@ class TestReportTemplateFallbackContract(unittest.TestCase):
                 self.assertNotIn("If workout_summary is null, use description_preview.", line)
                 self.assertNotIn("omit warmup/cooldown/recovery steps", line)
 
-    def test_labelled_recovery_rule_is_kept(self):
+    def test_main_work_roles_require_prescription_evidence(self):
         for name, line in self.lines.items():
             with self.subTest(name):
-                self.assertIn("omit a warm-up, cool-down or recovery step only where the plan "
-                              "labels it so, since a lower target alone does not make a step "
-                              "recovery", line)
+                self.assertIn("SECTION_11's Main work rule", line)
+                self.assertIn("prescription structure, durations and targets", line)
+                self.assertIn("name or description as context only", line)
+                self.assertIn("workout step text is optional", line)
+                self.assertIn("only when that role is clear from this evidence", line)
+                self.assertIn("A lower target alone is insufficient", line)
+                self.assertIn("sustained endurance work or an active connector "
+                              "must not disappear", line)
+                self.assertIn("If the distinction is ambiguous, retain the relevant "
+                              "steps and state the uncertainty", line)
+                self.assertNotIn("only where the plan labels it so", line)
 
     def test_unmarked_summary_scope_is_stated_not_overclaimed(self):
         for name, line in self.lines.items():
@@ -1301,7 +1322,8 @@ class TestReportTemplateFallbackContract(unittest.TestCase):
                     self.assertIn(f"`{mark}`", line)
 
     def test_named_fields_match_the_row_each_tier_carries(self):
-        flat = availability_fixtures()["all_flat_tempo_connectors"]
+        # A genuinely missing document still exercises both null-summary tiers.
+        flat = None
         desc = "15m 160w\n20m 230w\n10m 180w active\n15m 230w"
         for name, line in self.lines.items():
             with self.subTest(name):
@@ -1351,8 +1373,7 @@ class TestFictionalExampleConsistency(unittest.TestCase):
         "Sweet Spot": doc(P(600, 155), R(3, P(720, 245), P(300)), P(900, 140)),
         "Endurance + Openers": doc(P(5400, 160), R(3, P(60, 280), P(120)), P(600, 140)),
     }
-    # Pre-existing flat-only strings the producer does not emit (it returns null for
-    # all-flat workouts). Out of scope for #28; pinned so new drift is caught.
+    # v3.141 also emits these flat-only strings. Historical example bytes stay pinned.
     PRE_EXISTING_FLAT_ONLY = {
         "Endurance - Tuesday": "2h @160W",
         "Recovery Spin": "1h @140W",

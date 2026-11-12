@@ -48,6 +48,8 @@ def _out(**fields):
     # can reach the network; they are neutralised so only field formatting runs.
     with mock.patch.object(IntervalsSync, "_build_terrain_for_activity", return_value={}), \
             mock.patch.object(IntervalsSync, "_build_weather_for_activity", return_value={}), \
+            mock.patch.object(IntervalsSync, "_build_power_curve_for_activity", return_value={}), \
+            mock.patch.object(IntervalsSync, "_build_decoupling_for_activity", return_value={}), \
             mock.patch.object(IntervalsSync, "_get_activity_messages", return_value=("ok", [])):
         rows = s._format_activities([act])
     assert len(rows) == 1
@@ -56,18 +58,20 @@ def _out(**fields):
 
 class Decoupling(unittest.TestCase):
     def test_zero_is_kept(self):
-        self.assertEqual(_out(icu_hr_decoupling=0.0)["decoupling"], 0.0)
-        self.assertEqual(_out(icu_hr_decoupling=0)["decoupling"], 0)
+        self.assertEqual(_out(decoupling=0.0)["decoupling"], 0.0)
+        self.assertEqual(_out(decoupling=0)["decoupling"], 0)
 
-    def test_zero_wins_over_legacy_field(self):
-        self.assertEqual(_out(icu_hr_decoupling=0.0, decoupling=7.5)["decoupling"], 0.0)
+    def test_nonexistent_api_alias_cannot_override_real_field(self):
+        self.assertEqual(_out(icu_hr_decoupling=7.5, decoupling=0.0)["decoupling"], 0.0)
+        self.assertIsNone(_out(icu_hr_decoupling=7.5)["decoupling"])
 
     def test_nonzero_and_negative_unchanged(self):
-        self.assertEqual(_out(icu_hr_decoupling=4.2)["decoupling"], 4.2)
-        self.assertEqual(_out(icu_hr_decoupling=-3.9)["decoupling"], -3.9)
+        self.assertEqual(_out(decoupling=4.2)["decoupling"], 4.2)
+        self.assertEqual(_out(decoupling=-3.9)["decoupling"], -3.9)
 
-    def test_null_or_absent_falls_back(self):
-        self.assertEqual(_out(icu_hr_decoupling=None, decoupling=5.0)["decoupling"], 5.0)
+    def test_real_field_null_or_present(self):
+        self.assertIsNone(_out(decoupling=None)["decoupling"])
+        self.assertEqual(_out(decoupling=5.0)["decoupling"], 5.0)
         self.assertEqual(_out(decoupling=0.0)["decoupling"], 0.0)
 
     def test_all_absent_is_none(self):

@@ -16,7 +16,7 @@ own. Nothing in this package should be treated as a working configuration.
 | Strava API credentials with refresh token | Read-only API access. Deletion is not available through the Strava API and is done through an authenticated browser session instead. |
 | A browser profile with a logged-in Strava session | Used only for deletion. Expiry is detected and fails closed. |
 | An Android emulator image with the Zwift Companion app, logged in | Optional. Only required for Companion cleanup. |
-| A scheduler entry running the runner at a fixed interval | The runner is safe to run frequently: it takes a single-instance lock and does nothing when there is nothing to do. |
+| A scheduler entry running the runner at a fixed interval | The single-instance lock prevents concurrent processing; idle runs still perform discovery scans. |
 
 Secrets belong in files outside the repository with least-privilege access, or in the
 platform keychain. No credential, token, account name, activity id or personal path should
