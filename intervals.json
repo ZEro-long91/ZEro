@@ -1,31 +1,10 @@
 {
-  "generated_at": "2026-11-12T19:02:55.460598",
+  "generated_at": "2026-11-13T00:28:54.991422",
   "version": "3.109",
   "script_hash": "f54c8dd00126",
   "scan_hours": 72,
   "retention_days": 14,
   "activities": [
-    {
-      "activity_id": "i203184479",
-      "date": "2026-10-29",
-      "type": "Ride",
-      "name": "\u665a\u95f4\u9a91\u884c",
-      "interval_summary": null,
-      "intervals": [
-        {
-          "type": "RECOVERY",
-          "duration_secs": 606,
-          "avg_power": 64,
-          "max_power": 254,
-          "avg_hr": 104,
-          "max_hr": 137,
-          "avg_cadence": 49.48744,
-          "zone": 1,
-          "training_load": 4.454202,
-          "decoupling": -53.77121
-        }
-      ]
-    },
     {
       "activity_id": "i203555955",
       "date": "2026-10-30",
