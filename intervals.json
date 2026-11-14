@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-14T08:48:44.550458",
+  "generated_at": "2026-11-14T15:40:40.469730",
   "version": "3.109",
   "script_hash": "f54c8dd00126",
   "scan_hours": 72,
@@ -1401,6 +1401,27 @@
           "avg_cadence": 82.0,
           "zone": 5,
           "training_load": 0.029476339
+        }
+      ]
+    },
+    {
+      "activity_id": "i209938366",
+      "date": "2026-11-14",
+      "type": "VirtualRide",
+      "name": "\u6709\u6c27\u8010\u529b \u00b7 2\u5c0f\u65f6 \u00b7 70% FTP",
+      "interval_summary": null,
+      "intervals": [
+        {
+          "type": "RECOVERY",
+          "duration_secs": 6650,
+          "avg_power": 113,
+          "max_power": 221,
+          "avg_hr": 140,
+          "max_hr": 155,
+          "avg_cadence": 95.06476,
+          "zone": 2,
+          "training_load": 87.9075,
+          "decoupling": 2.4232337
         }
       ]
     }
